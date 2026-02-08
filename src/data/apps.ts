@@ -8,7 +8,7 @@ export interface AppInfo {
 
 export const apps: AppInfo[] = [
   {
-    name: 'SPERT\u00AE Release Forecaster',
+    name: 'SPERT® Release Forecaster',
     description: 'Monte Carlo simulation for agile release forecasting',
     url: 'https://spert.vercel.app/',
     icon: '\uD83C\uDFAF',
@@ -22,7 +22,7 @@ export const apps: AppInfo[] = [
     color: '#6366f1',
   },
   {
-    name: 'SPERT Scheduler',
+    name: 'SPERT® Scheduler',
     description: 'Probabilistic project scheduling with three-point estimation',
     url: 'https://spert-scheduler.vercel.app/',
     icon: '\uD83D\uDCC5',

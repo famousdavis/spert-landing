@@ -1,5 +1,22 @@
 import type { AppInfo } from '@/data/apps';
 
+function formatName(name: string) {
+  const parts = name.split('®');
+  if (parts.length === 1) return <>{name}</>;
+  return (
+    <>
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < parts.length - 1 && (
+            <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500 align-super">®</span>
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function AppTile({ app }: { app: AppInfo }) {
   return (
     <a
@@ -15,7 +32,7 @@ export function AppTile({ app }: { app: AppInfo }) {
       <div className="p-6">
         <div className="mb-3 text-4xl">{app.icon}</div>
         <h2 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
-          {app.name}
+          {formatName(app.name)}
         </h2>
         <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
           {app.description}
