@@ -15,7 +15,7 @@ export const apps: AppInfo[] = [
     color: '#0070f3',
   },
   {
-    name: 'GanttApp',
+    name: 'GanttApp™',
     description: 'Split-bar Gantt charts for visualizing release uncertainty',
     url: 'https://gantt-app-wwd.vercel.app/',
     icon: '\uD83D\uDCCA',
@@ -36,7 +36,7 @@ export const apps: AppInfo[] = [
     color: '#f59e0b',
   },
   {
-    name: 'MyScrumBudget\u2122',
+    name: 'MyScrumBudget™',
     description: 'Scrum project budget forecasting and cost tracking',
     url: 'https://myscrumbudget.vercel.app/',
     icon: '\uD83D\uDCB0',

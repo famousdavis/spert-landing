@@ -1,18 +1,20 @@
 import type { AppInfo } from '@/data/apps';
 
+const MARK_STYLE = "text-xs font-normal text-zinc-400 dark:text-zinc-500 align-super";
+
 function formatName(name: string) {
-  const parts = name.split('®');
-  if (parts.length === 1) return <>{name}</>;
+  // Split on ® and ™ while keeping the delimiter
+  const tokens = name.split(/(®|™)/);
+  if (tokens.length === 1) return <>{name}</>;
   return (
     <>
-      {parts.map((part, i) => (
-        <span key={i}>
-          {part}
-          {i < parts.length - 1 && (
-            <span className="text-xs font-normal text-zinc-400 dark:text-zinc-500 align-super">®</span>
-          )}
-        </span>
-      ))}
+      {tokens.map((token, i) =>
+        token === '®' || token === '™' ? (
+          <span key={i} className={MARK_STYLE}>{token}</span>
+        ) : (
+          <span key={i}>{token}</span>
+        )
+      )}
     </>
   );
 }
