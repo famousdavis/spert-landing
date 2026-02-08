@@ -22,7 +22,7 @@ export default function Home() {
 
       <main id="main-content">
         <p className="mb-8 max-w-2xl text-zinc-600 dark:text-zinc-400">
-          Free, browser-based tools for project managers. No sign-up required
+          Free, browser-based tools for project managers, Scrum Masters, and all other project practitioners. No sign-up required
           &mdash; your data stays on your device.
         </p>
 
