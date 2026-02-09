@@ -4,6 +4,8 @@ export interface AppInfo {
   url: string;
   icon: string;
   color: string;
+  external?: boolean; // defaults to true; set false for internal pages
+  linkLabel?: string; // defaults to "Open App"
 }
 
 export const apps: AppInfo[] = [
@@ -41,5 +43,14 @@ export const apps: AppInfo[] = [
     url: 'https://myscrumbudget.vercel.app/',
     icon: '\uD83D\uDCB0',
     color: '#f43f5e',
+  },
+  {
+    name: 'Contact Me',
+    description: 'Have a question, suggestion, or feedback? Send me a message',
+    url: '/contact',
+    icon: '\u2709\uFE0F',
+    color: '#8b5cf6',
+    external: false,
+    linkLabel: 'Send Message',
   },
 ];

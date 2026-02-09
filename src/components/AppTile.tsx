@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { AppInfo } from '@/data/apps';
 
 const MARK_STYLE = "text-xs font-normal text-zinc-400 dark:text-zinc-500 align-super";
@@ -19,14 +20,12 @@ function formatName(name: string) {
   );
 }
 
-export function AppTile({ app }: { app: AppInfo }) {
+const TILE_CLASS = "group block rounded-xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-zinc-700 dark:bg-zinc-900";
+
+function TileContent({ app }: { app: AppInfo }) {
+  const label = app.linkLabel ?? 'Open App';
   return (
-    <a
-      href={app.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block rounded-xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
-    >
+    <>
       <div
         className="h-2 rounded-t-xl"
         style={{ backgroundColor: app.color }}
@@ -43,12 +42,35 @@ export function AppTile({ app }: { app: AppInfo }) {
           className="inline-flex items-center gap-1 text-sm font-medium transition-colors"
           style={{ color: app.color }}
         >
-          Open App
+          {label}
           <span className="transition-transform duration-200 group-hover:translate-x-1">
             &rarr;
           </span>
         </span>
       </div>
-    </a>
+    </>
+  );
+}
+
+export function AppTile({ app }: { app: AppInfo }) {
+  const isExternal = app.external !== false;
+
+  if (isExternal) {
+    return (
+      <a
+        href={app.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={TILE_CLASS}
+      >
+        <TileContent app={app} />
+      </a>
+    );
+  }
+
+  return (
+    <Link href={app.url} className={TILE_CLASS}>
+      <TileContent app={app} />
+    </Link>
   );
 }
