@@ -10,18 +10,18 @@ export interface AppInfo {
 
 export const apps: AppInfo[] = [
   {
-    name: 'SPERT® Release Forecaster',
-    description: 'Monte Carlo simulation for agile release forecasting',
-    url: 'https://spert.vercel.app/',
-    icon: '\uD83C\uDFAF',
-    color: '#0070f3',
-  },
-  {
     name: 'SPERT® Story Map',
     description: 'Agile user story mapping for release planning',
     url: 'https://spert-story-map.vercel.app/',
     icon: '\uD83D\uDDFA\uFE0F',
     color: '#0891b2',
+  },
+  {
+    name: 'SPERT® Release Forecaster',
+    description: 'Monte Carlo simulation for agile release forecasting',
+    url: 'https://spert.vercel.app/',
+    icon: '\uD83C\uDFAF',
+    color: '#0070f3',
   },
   {
     name: 'GanttApp™',
