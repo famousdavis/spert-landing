@@ -17,6 +17,13 @@ export const apps: AppInfo[] = [
     color: '#0070f3',
   },
   {
+    name: 'SPERT® Story Map',
+    description: 'Agile user story mapping for release planning',
+    url: 'https://spert-story-map.vercel.app/',
+    icon: '\uD83D\uDDFA\uFE0F',
+    color: '#0891b2',
+  },
+  {
     name: 'GanttApp™',
     description: 'Split-bar Gantt charts for visualizing release uncertainty',
     url: 'https://gantt-app-wwd.vercel.app/',

@@ -156,7 +156,7 @@ export default function ContactPage() {
 
       <footer className="mt-16 border-t-2 border-zinc-100 pt-8 pb-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP
-        {' | '}Version 1.0{' | '}Licensed under GNU GPL v3
+        {' | '}Version 1.1{' | '}Licensed under GNU GPL v3
       </footer>
     </div>
   );
