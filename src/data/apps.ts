@@ -19,7 +19,7 @@ export const apps: AppInfo[] = [
   {
     name: 'SPERT® Forecaster',
     description: 'Monte Carlo simulation for agile release forecasting',
-    url: 'https://spert.vercel.app/',
+    url: 'https://spert-forecaster.vercel.app/',
     icon: '\uD83C\uDFAF',
     color: '#0070f3',
   },
