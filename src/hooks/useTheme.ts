@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 const STORAGE_KEY = 'spert-hub:theme';
 
@@ -25,11 +25,11 @@ function applyTheme(mode: ThemeMode): void {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
+const emptySubscribe = () => () => {};
+
 export function useTheme() {
   const [mode, setMode] = useState<ThemeMode>(getStoredTheme);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   useEffect(() => {
     applyTheme(mode);

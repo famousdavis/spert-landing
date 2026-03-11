@@ -9,6 +9,30 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.2.1',
+    date: 'March 11, 2026',
+    sections: [
+      {
+        heading: 'Improvements',
+        items: [
+          'Extracted reusable Header and Footer components to reduce duplication across pages',
+          'Centralized app version constant in src/config.ts',
+          'Fixed duplicate ThemeMode type definition',
+          'Fixed pre-existing lint error in useTheme hook (replaced useState mounted pattern with useSyncExternalStore)',
+          'Updated README with correct app names and URLs',
+          'Upgraded @types/react-dom and typescript to latest stable versions',
+        ],
+      },
+      {
+        heading: 'Security',
+        items: [
+          'Added HTTP security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy)',
+          'Patched transitive dependency vulnerabilities (minimatch, ajv) via npm audit fix',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2',
     date: 'March 11, 2026',
     sections: [

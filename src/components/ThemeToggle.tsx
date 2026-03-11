@@ -1,8 +1,6 @@
 'use client';
 
-import { useTheme } from '@/hooks/useTheme';
-
-type ThemeMode = 'light' | 'dark' | 'system';
+import { useTheme, type ThemeMode } from '@/hooks/useTheme';
 
 const modes: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
   {

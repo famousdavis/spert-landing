@@ -1,25 +1,12 @@
-import Link from 'next/link';
 import { apps } from '@/data/apps';
 import { AppTile } from '@/components/AppTile';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 
 export default function Home() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-12 sm:px-8 md:py-16">
-      <header className="mb-12 flex items-start justify-between">
-        <div>
-          <h1 className="mb-1 text-2xl font-bold sm:text-3xl md:text-[2.1rem]">
-            <span className="bg-gradient-to-r from-spert-blue-light to-spert-blue-dark bg-clip-text text-transparent">
-              Statistical PERT
-            </span>
-            <span className="text-zinc-400 dark:text-zinc-500 font-normal text-base sm:text-lg align-top">&reg;</span>
-          </h1>
-          <p className="text-sm italic text-zinc-500 dark:text-zinc-400">
-            Estimation Made Easy&reg;
-          </p>
-        </div>
-        <ThemeToggle />
-      </header>
+      <Header />
 
       <main id="main-content">
         <p className="mb-8 max-w-2xl text-zinc-600 dark:text-zinc-400">
@@ -34,15 +21,7 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="mt-16 border-t-2 border-zinc-100 pt-8 pb-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-        &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP
-        {' | '}<Link href="/changelog" className="text-blue-500 hover:text-blue-600 transition-colors">Version 1.2</Link>{' | '}Licensed under GNU GPL v3
-        <div className="mt-2">
-          <a href="/TOS.pdf" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 transition-colors">Terms of Service</a>
-          {' | '}
-          <a href="/PRIVACY.pdf" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 transition-colors">Privacy Policy</a>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
