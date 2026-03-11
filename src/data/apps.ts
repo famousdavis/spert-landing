@@ -38,7 +38,7 @@ export const apps: AppInfo[] = [
     color: '#10b981',
   },
   {
-    name: 'CFD Laboratory',
+    name: 'SPERT® CFD',
     description: 'Cumulative flow diagrams and flow metrics for agile teams',
     url: 'https://spert-cfd.vercel.app/',
     icon: '\uD83D\uDCC8',

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { apps } from '@/data/apps';
 import { AppTile } from '@/components/AppTile';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -35,7 +36,7 @@ export default function Home() {
 
       <footer className="mt-16 border-t-2 border-zinc-100 pt-8 pb-6 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
         &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP
-        {' | '}Version 1.1.2{' | '}Licensed under GNU GPL v3
+        {' | '}<Link href="/changelog" className="text-blue-500 hover:text-blue-600 transition-colors">Version 1.1.3</Link>{' | '}Licensed under GNU GPL v3
       </footer>
     </div>
   );
