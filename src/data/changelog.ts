@@ -9,6 +9,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.2.2',
+    date: 'March 11, 2026',
+    sections: [
+      {
+        heading: 'Improvements',
+        items: [
+          'Extracted shared form input styling constant to reduce duplication in contact form',
+        ],
+      },
+      {
+        heading: 'Dependencies',
+        items: [
+          'Updated react and react-dom to 19.2.4',
+          'Updated devDependencies to latest compatible versions (tailwindcss 4.2, eslint 9.39)',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.1',
     date: 'March 11, 2026',
     sections: [

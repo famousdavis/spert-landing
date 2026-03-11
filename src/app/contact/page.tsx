@@ -7,6 +7,9 @@ import { Footer } from '@/components/Footer';
 
 type FormStatus = 'idle' | 'submitting' | 'success' | 'error';
 
+const INPUT_CLASS =
+  'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:border-spert-blue focus:outline-none focus:ring-1 focus:ring-spert-blue dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-blue-400 dark:focus:ring-blue-400';
+
 export default function ContactPage() {
   const [status, setStatus] = useState<FormStatus>('idle');
 
@@ -83,7 +86,7 @@ export default function ContactPage() {
                 id="name"
                 name="name"
                 required
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:border-spert-blue focus:outline-none focus:ring-1 focus:ring-spert-blue dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
+                className={INPUT_CLASS}
                 placeholder="Your name"
               />
             </div>
@@ -100,7 +103,7 @@ export default function ContactPage() {
                 id="email"
                 name="email"
                 required
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:border-spert-blue focus:outline-none focus:ring-1 focus:ring-spert-blue dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
+                className={INPUT_CLASS}
                 placeholder="you@example.com"
               />
             </div>
@@ -117,7 +120,7 @@ export default function ContactPage() {
                 name="message"
                 required
                 rows={5}
-                className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 transition-colors focus:border-spert-blue focus:outline-none focus:ring-1 focus:ring-spert-blue dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-blue-400 dark:focus:ring-blue-400"
+                className={INPUT_CLASS}
                 placeholder="Your message..."
               />
             </div>
