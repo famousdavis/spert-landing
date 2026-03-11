@@ -66,9 +66,9 @@ export default function ChangelogPage() {
         &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP
         {' | '}Version 1.2{' | '}Licensed under GNU GPL v3
         <div className="mt-2">
-          <a href="/TOS.pdf" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Terms of Service</a>
+          <a href="/TOS.pdf" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 transition-colors">Terms of Service</a>
           {' | '}
-          <a href="/PRIVACY.pdf" target="_blank" rel="noopener noreferrer" className="hover:text-blue-500 transition-colors">Privacy Policy</a>
+          <a href="/PRIVACY.pdf" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-600 transition-colors">Privacy Policy</a>
         </div>
       </footer>
     </div>
