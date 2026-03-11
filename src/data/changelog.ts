@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.2',
+    date: 'March 11, 2026',
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Added Terms of Service and Privacy Policy as canonical PDFs served from this site',
+          'Added legal document links (Terms of Service, Privacy Policy) to footer on all pages',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.1.3',
     date: 'March 10, 2026',
     sections: [

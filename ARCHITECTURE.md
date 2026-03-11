@@ -29,7 +29,9 @@ spert-landing-page/
 │   │   └── apps.ts           # App definitions array (add new apps here)
 │   └── hooks/
 │       └── useTheme.ts       # Three-state theme hook with SSR safety
-├── public/                    # Static assets (currently empty)
+├── public/
+│   ├── TOS.pdf              # Canonical Terms of Service (shared across all SPERT apps)
+│   └── PRIVACY.pdf          # Canonical Privacy Policy (shared across all SPERT apps)
 ├── package.json
 ├── tsconfig.json
 ├── eslint.config.mjs
@@ -39,8 +41,11 @@ spert-landing-page/
 
 ## Key Design Decisions
 
+### Canonical Legal Documents
+`public/TOS.pdf` and `public/PRIVACY.pdf` are the canonical versions of the Terms of Service and Privacy Policy shared across all six SPERT® web apps. Other apps link directly to these URLs — do not rename or relocate.
+
 ### Single-Page App
-The entire site is one page (`page.tsx`). No routing, no navigation. Just a hero header, tile grid, and footer.
+The entire site is one page (`page.tsx`) plus subpages for contact and changelog. Hero header, tile grid, and footer.
 
 ### Data-Driven Tiles
 App tiles are driven by a simple array in `src/data/apps.ts`. Adding a new app means adding one object to the array — no component changes needed.

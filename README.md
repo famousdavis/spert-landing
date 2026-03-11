@@ -19,6 +19,15 @@ npm run build    # Production build
 npm run lint     # ESLint
 ```
 
+## Legal Documents
+
+`TOS.pdf` and `PRIVACY.pdf` in `/public` are the canonical versions of the Statistical PERT® Terms of Service and Privacy Policy, shared across all six SPERT® web applications. They are served at:
+
+- https://spert-landing.vercel.app/TOS.pdf
+- https://spert-landing.vercel.app/PRIVACY.pdf
+
+Do not rename or relocate these files. When documents are updated, replace these files and redeploy.
+
 ## License
 
 GNU General Public License v3.0
