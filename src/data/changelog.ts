@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.2.3',
+    date: 'March 11, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Pinned Vercel deployment target to Node.js 22 LTS ahead of Node 20 EOL (April 30, 2026)',
+          'Added engines field to package.json requiring Node >= 22',
+          'Added .nvmrc for consistent Node version across environments',
+          'Updated @types/node from ^20 to ^22',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.2',
     date: 'March 11, 2026',
     sections: [
