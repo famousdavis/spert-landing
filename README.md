@@ -32,3 +32,6 @@ Do not rename or relocate these files. When documents are updated, replace these
 ## License
 
 GNU General Public License v3.0
+
+---
+*Deployed on Vercel.*
