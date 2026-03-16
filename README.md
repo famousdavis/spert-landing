@@ -11,6 +11,12 @@ Hub page linking to the Statistical PERT® ecosystem of free, browser-based proj
 - [SPERT® CFD](https://spert-cfd.vercel.app/) — Cumulative flow diagrams and flow metrics for agile teams
 - [MyScrumBudget™](https://myscrumbudget.vercel.app/) — Scrum project budget forecasting and cost tracking
 
+## Support
+
+- **Contact Me** — General questions, suggestions, or feedback
+- **I Have a Request** — Feature ideas and improvement suggestions
+- **I Found a Bug** — Bug reports for any SPERT web app
+
 ## Development
 
 ```bash
