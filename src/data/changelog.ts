@@ -9,6 +9,28 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.3',
+    date: 'March 16, 2026',
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'Added "I Have a Request" form for feature ideas and improvement suggestions (Formspree integration)',
+          'Added "I Found a Bug" form for bug reports across all SPERT web apps (Formspree integration)',
+          'Added "Support" section on the homepage grouping Contact Me, I Have a Request, and I Found a Bug tiles',
+          'Both new forms include an optional multi-select checkbox for specifying which app(s) the submission relates to',
+        ],
+      },
+      {
+        heading: 'Improvements',
+        items: [
+          'Extracted shared FormPageShell component to eliminate duplication across all three form pages',
+          'Added category field to app data for separating main apps from support tiles',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.2.3',
     date: 'March 11, 2026',
     sections: [
