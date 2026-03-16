@@ -15,10 +15,25 @@ export default function Home() {
         </p>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {apps.map((app) => (
-            <AppTile key={app.url} app={app} />
-          ))}
+          {apps
+            .filter((app) => (app.category ?? 'app') === 'app')
+            .map((app) => (
+              <AppTile key={app.url} app={app} />
+            ))}
         </div>
+
+        <section className="mt-12">
+          <h2 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">
+            Support
+          </h2>
+          <div className="grid gap-6 sm:grid-cols-3">
+            {apps
+              .filter((app) => app.category === 'support')
+              .map((app) => (
+                <AppTile key={app.url} app={app} />
+              ))}
+          </div>
+        </section>
       </main>
 
       <Footer />

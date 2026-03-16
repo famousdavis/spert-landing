@@ -6,6 +6,7 @@ export interface AppInfo {
   color: string;
   external?: boolean; // defaults to true; set false for internal pages
   linkLabel?: string; // defaults to "Open App"
+  category?: 'app' | 'support'; // defaults to 'app'
 }
 
 export const apps: AppInfo[] = [
@@ -59,5 +60,30 @@ export const apps: AppInfo[] = [
     color: '#8b5cf6',
     external: false,
     linkLabel: 'Send Message',
+    category: 'support',
+  },
+  {
+    name: 'I Have a Request',
+    description: 'Have a feature idea or improvement suggestion? Let me know',
+    url: '/request',
+    icon: '\uD83D\uDCA1',
+    color: '#ea580c',
+    external: false,
+    linkLabel: 'Make a Request',
+    category: 'support',
+  },
+  {
+    name: 'I Found a Bug',
+    description: 'Found something that isn\u2019t working right? Please let me know',
+    url: '/bug-report',
+    icon: '\uD83D\uDC1B',
+    color: '#dc2626',
+    external: false,
+    linkLabel: 'Report Bug',
+    category: 'support',
   },
 ];
+
+export const externalAppNames = apps
+  .filter((a) => a.external !== false)
+  .map((a) => a.name);
