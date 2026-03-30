@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5',
+    date: 'March 30, 2026',
+    sections: [
+      {
+        heading: 'Improvements',
+        items: [
+          'Updated all app tile URLs to use the new spertsuite.com subdomains (storymap, forecaster, ganttapp, scheduler, cfd, myscrumbudget)',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.4',
     date: 'March 30, 2026',
     sections: [

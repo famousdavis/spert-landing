@@ -4,12 +4,12 @@ Hub page linking to the SPERT® Suite ecosystem of free, browser-based project m
 
 ## Apps
 
-- [SPERT® Story Map](https://spert-story-map.vercel.app/) — Agile user story mapping for release planning
-- [SPERT® Forecaster](https://spert-forecaster.vercel.app/) — Monte Carlo simulation for agile release forecasting
-- [GanttApp™](https://gantt-app-wwd.vercel.app/) — Split-bar Gantt charts for visualizing release uncertainty
-- [SPERT® Scheduler](https://spert-scheduler.vercel.app/) — Probabilistic project scheduling with three-point estimation
-- [SPERT® CFD](https://spert-cfd.vercel.app/) — Cumulative flow diagrams and flow metrics for agile teams
-- [MyScrumBudget™](https://myscrumbudget.vercel.app/) — Scrum project budget forecasting and cost tracking
+- [SPERT® Story Map](https://storymap.spertsuite.com/) — Agile user story mapping for release planning
+- [SPERT® Forecaster](https://forecaster.spertsuite.com/) — Monte Carlo simulation for agile release forecasting
+- [GanttApp™](https://ganttapp.spertsuite.com/) — Split-bar Gantt charts for visualizing release uncertainty
+- [SPERT® Scheduler](https://scheduler.spertsuite.com/) — Probabilistic project scheduling with three-point estimation
+- [SPERT® CFD](https://cfd.spertsuite.com/) — Cumulative flow diagrams and flow metrics for agile teams
+- [MyScrumBudget™](https://myscrumbudget.spertsuite.com/) — Scrum project budget forecasting and cost tracking
 
 ## Support
 
