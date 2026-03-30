@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.4',
+    date: 'March 30, 2026',
+    sections: [
+      {
+        heading: 'Rebranding',
+        items: ['Renamed main title from "Statistical PERT\u00AE" to "SPERT\u00AE Suite"'],
+      },
+    ],
+  },
+  {
     version: '1.3',
     date: 'March 16, 2026',
     sections: [

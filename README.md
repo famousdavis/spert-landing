@@ -1,6 +1,6 @@
-# Statistical PERT® Landing Page
+# SPERT® Suite Landing Page
 
-Hub page linking to the Statistical PERT® ecosystem of free, browser-based project management tools.
+Hub page linking to the SPERT® Suite ecosystem of free, browser-based project management tools.
 
 ## Apps
 
@@ -28,7 +28,7 @@ npm run lint     # ESLint
 
 ## Legal Documents
 
-`TOS.pdf` and `PRIVACY.pdf` in `/public` are the canonical versions of the Statistical PERT® Terms of Service and Privacy Policy, shared across all six SPERT® web applications. They are served at:
+`TOS.pdf` and `PRIVACY.pdf` in `/public` are the canonical versions of the SPERT® Suite Terms of Service and Privacy Policy, shared across all six SPERT® web applications. They are served at:
 
 - https://spert-landing.vercel.app/TOS.pdf
 - https://spert-landing.vercel.app/PRIVACY.pdf
