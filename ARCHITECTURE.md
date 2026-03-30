@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Single-page hub linking to the Statistical PERT® ecosystem of free, browser-based project management tools. Deployed on Vercel as its own project.
+Single-page hub linking to the SPERT® Suite ecosystem of free, browser-based project management tools. Deployed on Vercel as its own project.
 
 ## Tech Stack
 

@@ -20,7 +20,7 @@ export default function ChangelogPage() {
           Changelog
         </h2>
         <p className="mb-8 text-sm text-zinc-500 dark:text-zinc-400">
-          Complete version history of the Statistical PERT&reg; Landing Page.
+          Complete version history of the SPERT&reg; Suite.
         </p>
 
         {changelog.map((entry, index) => (
