@@ -30,8 +30,8 @@ npm run lint     # ESLint
 
 `TOS.pdf` and `PRIVACY.pdf` in `/public` are the canonical versions of the SPERT® Suite Terms of Service and Privacy Policy, shared across all six SPERT® web applications. They are served at:
 
-- https://spert-landing.vercel.app/TOS.pdf
-- https://spert-landing.vercel.app/PRIVACY.pdf
+- https://spertsuite.com/TOS.pdf
+- https://spertsuite.com/PRIVACY.pdf
 
 Do not rename or relocate these files. When documents are updated, replace these files and redeploy.
 
