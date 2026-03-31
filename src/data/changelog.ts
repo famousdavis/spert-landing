@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6',
+    date: 'March 31, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'Updated Terms of Service and Privacy Policy to v03-31-2026',
+          'Updated canonical legal document URLs from spert-landing.vercel.app to spertsuite.com',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.5',
     date: 'March 30, 2026',
     sections: [
