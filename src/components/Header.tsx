@@ -19,7 +19,7 @@ export function Header({ linkHome = false }: HeaderProps) {
               >
                 SPERT
               </Link>
-              <span className="text-zinc-400 dark:text-zinc-500 font-normal text-base sm:text-lg align-top">&reg;</span>
+              <span className="text-zinc-400 dark:text-zinc-500 font-normal text-xs align-top">&reg;</span>
               <Link
                 href="/"
                 className="bg-gradient-to-r from-spert-blue-light to-spert-blue-dark bg-clip-text text-transparent hover:opacity-80 transition-opacity"
@@ -32,7 +32,7 @@ export function Header({ linkHome = false }: HeaderProps) {
               <span className="bg-gradient-to-r from-spert-blue-light to-spert-blue-dark bg-clip-text text-transparent">
                 SPERT
               </span>
-              <span className="text-zinc-400 dark:text-zinc-500 font-normal text-base sm:text-lg align-top">&reg;</span>
+              <span className="text-zinc-400 dark:text-zinc-500 font-normal text-xs align-top">&reg;</span>
               <span className="bg-gradient-to-r from-spert-blue-light to-spert-blue-dark bg-clip-text text-transparent">
                 {' '}Suite
               </span>
@@ -40,7 +40,7 @@ export function Header({ linkHome = false }: HeaderProps) {
           )}
         </h1>
         <p className="text-sm italic text-zinc-500 dark:text-zinc-400">
-          Estimation Made Easy&reg;
+          Estimation Made Easy<span className="text-[0.6em] align-top">&reg;</span>
         </p>
       </div>
       <ThemeToggle />
