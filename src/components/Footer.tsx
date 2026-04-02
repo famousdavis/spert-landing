@@ -42,6 +42,15 @@ export function Footer({ linkVersion = true }: FooterProps) {
         >
           Privacy Policy
         </a>
+        {' | '}
+        <a
+          href="https://github.com/famousdavis/spert-landing/blob/main/LICENSE"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-600 transition-colors"
+        >
+          License
+        </a>
       </div>
     </footer>
   );
