@@ -33,7 +33,7 @@ export const apps: AppInfo[] = [
   },
   {
     name: 'SPERT® Scheduler',
-    description: 'Probabilistic project scheduling with three-point estimation',
+    description: 'Probabilistic project scheduling with Monte Carlo simulation',
     url: 'https://scheduler.spertsuite.com/',
     icon: '\uD83D\uDCC5',
     color: '#10b981',
