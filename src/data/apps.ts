@@ -47,7 +47,7 @@ export const apps: AppInfo[] = [
   },
   {
     name: 'MyScrumBudget™',
-    description: 'Scrum project budget forecasting and cost tracking',
+    description: 'Project budget planning, monitoring and forecasting for Scrum (or non-Scrum!) teams',
     url: 'https://myscrumbudget.spertsuite.com/',
     icon: '\uD83D\uDCB0',
     color: '#f43f5e',
