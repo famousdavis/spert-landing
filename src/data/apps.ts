@@ -12,7 +12,7 @@ export interface AppInfo {
 export const apps: AppInfo[] = [
   {
     name: 'SPERT® Story Map',
-    description: 'Map your release scope before the first sprint begins.',
+    description: 'Map and size your release scope before the first sprint begins.',
     url: 'https://storymap.spertsuite.com/',
     icon: '\uD83D\uDDFA\uFE0F',
     color: '#4f46e5',
@@ -33,7 +33,7 @@ export const apps: AppInfo[] = [
   },
   {
     name: 'SPERT® Scheduler',
-    description: 'Build a project schedule that accounts for uncertainty upfront.',
+    description: 'Build and maintain a project schedule that accounts for uncertainty.',
     url: 'https://scheduler.spertsuite.com/',
     icon: '\uD83D\uDCC5',
     color: '#f75b2b',
@@ -47,7 +47,7 @@ export const apps: AppInfo[] = [
   },
   {
     name: 'MyScrumBudget™',
-    description: 'Forecast and defend your budget for any project, any team.',
+    description: 'Plan and reforecast your budget for any project, any team.',
     url: 'https://myscrumbudget.spertsuite.com/',
     icon: '\uD83D\uDCB0',
     color: '#16a34a',

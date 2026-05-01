@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.0.1',
+    date: 'May 1, 2026',
+    sections: [
+      {
+        heading: 'Changed',
+        items: [
+          'Tightened hero headline to "Give stakeholders forecasts you can defend." — sized down (text-lg/xl, semibold) so it no longer competes with the "SPERT® Suite" brand title and capped at max-w-3xl with text-balance for cleaner wrapping on smaller laptop displays.',
+          'Split hero subhead into two sentences (em-dash removed), clarified "delivery" as "product delivery," and added text-balance for cleaner wrapping.',
+          'Italicized the "No sign-up required to get started!" line and added an exclamation mark for warmth.',
+          'Refined three tile descriptions: SPERT® Story Map → "Map and size your release scope before the first sprint begins."; SPERT® Scheduler → "Build and maintain a project schedule that accounts for uncertainty."; MyScrumBudget™ → "Plan and reforecast your budget for any project, any team."',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.0',
     date: 'May 1, 2026',
     sections: [
