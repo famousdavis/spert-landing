@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'SPERT® Suite',
   description: 'Estimation Made Easy® — Free browser-based tools for project managers',
+  icons: {
+    icon: '/spert-favicon-landing.png',
+    apple: '/spert-favicon-landing.png',
+  },
 };
 
 export default function RootLayout({

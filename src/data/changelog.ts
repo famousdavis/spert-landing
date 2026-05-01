@@ -9,6 +9,24 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8',
+    date: 'May 1, 2026',
+    sections: [
+      {
+        heading: 'Added',
+        items: [
+          'Branded favicon for the browser tab and a small brand mark in the header beside "SPERT® Suite"; a charcoal dark-mode variant ships alongside the navy original.',
+        ],
+      },
+      {
+        heading: 'Changed',
+        items: [
+          'App tile colors realigned to each app’s official favicon palette: Scheduler orange (#f75b2b), Story Map indigo (#4f46e5), CFD purple (#7c3aed), GanttApp™ teal (#0891b2), MyScrumBudget™ green (#16a34a). Forecaster blue (#0070f3) unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.7',
     date: 'April 5, 2026',
     sections: [

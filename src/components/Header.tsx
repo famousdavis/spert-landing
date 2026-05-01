@@ -10,7 +10,24 @@ export function Header({ linkHome = false }: HeaderProps) {
   return (
     <header className="mb-12 flex items-start justify-between">
       <div>
-        <h1 className="mb-1 text-2xl font-bold sm:text-3xl md:text-[2.1rem]">
+        <div className="mb-1 flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/spert-favicon-landing.png"
+            alt=""
+            width={28}
+            height={28}
+            className="rounded-[11%] shrink-0 block dark:hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/spert-favicon-landing-dark.png"
+            alt=""
+            width={28}
+            height={28}
+            className="rounded-[11%] shrink-0 hidden dark:block"
+          />
+        <h1 className="text-2xl font-bold sm:text-3xl md:text-[2.1rem]">
           {linkHome ? (
             <>
               <Link
@@ -39,6 +56,7 @@ export function Header({ linkHome = false }: HeaderProps) {
             </>
           )}
         </h1>
+        </div>
         <p className="text-sm italic text-zinc-500 dark:text-zinc-400">
           Estimation Made Easy<span className="text-[0.6em] align-top">&reg;</span>
         </p>
