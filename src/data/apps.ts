@@ -16,6 +16,7 @@ export const apps: AppInfo[] = [
     url: 'https://storymap.spertsuite.com/',
     icon: '\uD83D\uDDFA\uFE0F',
     color: '#4f46e5',
+    linkLabel: 'Map Your Release',
   },
   {
     name: 'SPERT® Forecaster',
@@ -23,6 +24,7 @@ export const apps: AppInfo[] = [
     url: 'https://forecaster.spertsuite.com/',
     icon: '\uD83C\uDFAF',
     color: '#0070f3',
+    linkLabel: 'Forecast Your Release',
   },
   {
     name: 'GanttApp™',
@@ -30,6 +32,7 @@ export const apps: AppInfo[] = [
     url: 'https://ganttapp.spertsuite.com/',
     icon: '\uD83D\uDCCA',
     color: '#0891b2',
+    linkLabel: 'Build Your Timeline',
   },
   {
     name: 'SPERT® Scheduler',
@@ -37,6 +40,7 @@ export const apps: AppInfo[] = [
     url: 'https://scheduler.spertsuite.com/',
     icon: '\uD83D\uDCC5',
     color: '#f75b2b',
+    linkLabel: 'Schedule Your Project',
   },
   {
     name: 'SPERT® CFD',
@@ -44,6 +48,7 @@ export const apps: AppInfo[] = [
     url: 'https://cfd.spertsuite.com/',
     icon: '\uD83D\uDCC8',
     color: '#7c3aed',
+    linkLabel: 'Analyze Your Flow',
   },
   {
     name: 'MyScrumBudget™',
@@ -51,6 +56,7 @@ export const apps: AppInfo[] = [
     url: 'https://myscrumbudget.spertsuite.com/',
     icon: '\uD83D\uDCB0',
     color: '#16a34a',
+    linkLabel: 'Plan Your Budget',
   },
   {
     name: 'Contact Me',
