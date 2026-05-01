@@ -9,7 +9,7 @@ export default function Home() {
       <Header />
 
       <main id="main-content">
-        <h2 className="mb-3 max-w-3xl text-balance text-lg font-semibold text-zinc-900 dark:text-zinc-100 sm:text-xl">
+        <h2 className="mb-3 max-w-3xl text-balance text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-2xl md:text-[1.6rem]">
           Give stakeholders forecasts you can defend.
         </h2>
         <p className="mb-2 max-w-2xl text-balance text-zinc-700 dark:text-zinc-300">
