@@ -9,6 +9,26 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.0.0',
+    date: 'May 1, 2026',
+    sections: [
+      {
+        heading: 'Changed',
+        items: [
+          'Rewrote hero copy: new headline ("Give stakeholders forecasts you can defend — not single-point guesses.") and subhead emphasizing defensibility and user judgment over feature description.',
+          'Rewrote all six tool tile descriptions to be outcome-first and action-oriented — answering "when would I use this?" instead of describing the underlying technique.',
+          'Trimmed homepage intro to a single "No sign-up required to get started." line below the subhead.',
+        ],
+      },
+      {
+        heading: 'Versioning',
+        items: [
+          'Switched from MAJOR.MINOR to full semver (MAJOR.MINOR.PATCH) starting with this release.',
+        ],
+      },
+    ],
+  },
+  {
     version: '1.8',
     date: 'May 1, 2026',
     sections: [
