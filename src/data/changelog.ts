@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.0.2',
+    date: 'May 1, 2026',
+    sections: [
+      {
+        heading: 'Changed',
+        items: [
+          'Replaced the generic "Open App →" call-to-action on each of the six tool tiles with action-oriented, tool-specific CTAs: SPERT® Story Map → "Map Your Release"; SPERT® Forecaster → "Forecast Your Release"; GanttApp™ → "Build Your Timeline"; SPERT® Scheduler → "Schedule Your Project"; SPERT® CFD → "Analyze Your Flow"; MyScrumBudget™ → "Plan Your Budget".',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.1',
     date: 'May 1, 2026',
     sections: [
