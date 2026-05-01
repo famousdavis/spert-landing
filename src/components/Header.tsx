@@ -15,17 +15,13 @@ export function Header({ linkHome = false }: HeaderProps) {
           <img
             src="/spert-favicon-landing.png"
             alt=""
-            width={28}
-            height={28}
-            className="rounded-[11%] shrink-0 block dark:hidden"
+            className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20 block dark:hidden"
           />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/spert-favicon-landing-dark.png"
             alt=""
-            width={28}
-            height={28}
-            className="rounded-[11%] shrink-0 hidden dark:block"
+            className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20 hidden dark:block"
           />
         <h1 className="text-2xl font-bold sm:text-3xl md:text-[2.1rem]">
           {linkHome ? (
