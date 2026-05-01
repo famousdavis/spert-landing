@@ -16,7 +16,7 @@ export const apps: AppInfo[] = [
     url: 'https://storymap.spertsuite.com/',
     icon: '\uD83D\uDDFA\uFE0F',
     color: '#4f46e5',
-    linkLabel: 'Map Your Release',
+    linkLabel: 'Map Your Releases',
   },
   {
     name: 'SPERT® Forecaster',
@@ -24,7 +24,7 @@ export const apps: AppInfo[] = [
     url: 'https://forecaster.spertsuite.com/',
     icon: '\uD83C\uDFAF',
     color: '#0070f3',
-    linkLabel: 'Forecast Your Release',
+    linkLabel: 'Forecast Your Releases',
   },
   {
     name: 'GanttApp™',
