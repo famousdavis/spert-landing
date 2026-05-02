@@ -29,6 +29,17 @@ const EXPIRATION_DAYS = 30;
 const EXPIRATION_MS = EXPIRATION_DAYS * 86_400_000;
 const THROTTLE_MS = 24 * 60 * 60 * 1000;
 
+// Origins permitted to embed their own URL into the email body.
+// Anything else falls through to FALLBACK_BASE so a spoofed Origin
+// header cannot redirect invitees off-domain.
+const ALLOWED_ORIGINS = new Set<string>([
+  "https://ahp.spertsuite.com",
+  "http://localhost:5176",
+  "http://localhost:5177",
+  "http://localhost:5173",
+]);
+const FALLBACK_BASE = "https://ahp.spertsuite.com";
+
 interface SendRequest {
   appId: string;
   modelId: string;
@@ -92,6 +103,7 @@ function freshResponseSlot(uid: string): ResponseSlot {
  * @param {string} ownerEmail Owner email (used in reply-to).
  * @param {string} modelName Sanitized model name.
  * @param {"editor"|"viewer"} role Granted role.
+ * @param {string} urlBase Base URL for the "Open SPERT AHP" CTA.
  * @return {Promise<void>}
  */
 async function maybeSendAddedNotification(
@@ -103,6 +115,7 @@ async function maybeSendAddedNotification(
   ownerEmail: string,
   modelName: string,
   role: "editor" | "viewer",
+  urlBase: string,
 ): Promise<void> {
   const db = getFirestore();
   const throttleRef = db
@@ -136,6 +149,7 @@ async function maybeSendAddedNotification(
       ownerEmail={ownerEmail}
       modelName={modelName}
       role={role}
+      urlBase={urlBase}
     />,
   );
   const text = await render(
@@ -144,6 +158,7 @@ async function maybeSendAddedNotification(
       ownerEmail={ownerEmail}
       modelName={modelName}
       role={role}
+      urlBase={urlBase}
     />,
     {plainText: true},
   );
@@ -177,6 +192,7 @@ async function maybeSendAddedNotification(
  * @param {string} ownerEmail Owner email (used in reply-to).
  * @param {string} modelName Sanitized model name.
  * @param {string} tokenId Invitation token id.
+ * @param {string} urlBase Base URL for the claim link.
  * @return {Promise<void>}
  */
 async function sendInvitationToNewUser(
@@ -186,6 +202,7 @@ async function sendInvitationToNewUser(
   ownerEmail: string,
   modelName: string,
   tokenId: string,
+  urlBase: string,
 ): Promise<void> {
   const subject = sanitizeSubject(
     `${ownerName} invited you to ${modelName} in SPERT AHP`,
@@ -199,6 +216,7 @@ async function sendInvitationToNewUser(
       modelName={modelName}
       tokenId={tokenId}
       expirationDays={EXPIRATION_DAYS}
+      urlBase={urlBase}
     />,
   );
   const text = await render(
@@ -208,6 +226,7 @@ async function sendInvitationToNewUser(
       modelName={modelName}
       tokenId={tokenId}
       expirationDays={EXPIRATION_DAYS}
+      urlBase={urlBase}
     />,
     {plainText: true},
   );
@@ -245,6 +264,15 @@ export const sendInvitationEmail = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
+
+    // Origin allowlist — only trusted callers' origins are embedded
+    // into the email body. Spoofed/unknown origins fall back to prod
+    // so invitees never get redirected off-domain.
+    const requestOrigin =
+      (request.rawRequest.headers.origin as string | undefined) ?? "";
+    const urlBase = ALLOWED_ORIGINS.has(requestOrigin) ?
+      requestOrigin :
+      FALLBACK_BASE;
 
     const data = request.data as SendRequest;
     const {appId, modelId, emails, role, isVoting} = data;
@@ -419,6 +447,7 @@ export const sendInvitationEmail = onCall(
             callerEmail,
             safeModelName,
             role,
+            urlBase,
           );
           result.added.push(email);
         } else {
@@ -454,6 +483,7 @@ export const sendInvitationEmail = onCall(
             callerEmail,
             safeModelName,
             tokenId,
+            urlBase,
           );
           result.invited.push(email);
         }

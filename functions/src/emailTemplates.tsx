@@ -38,6 +38,7 @@ export interface InvitationEmailProps {
   modelName: string;
   tokenId: string;
   expirationDays: number;
+  urlBase: string;
 }
 
 export function InvitationEmail({
@@ -46,8 +47,9 @@ export function InvitationEmail({
   modelName,
   tokenId,
   expirationDays,
+  urlBase,
 }: InvitationEmailProps) {
-  const url = `https://ahp.spertsuite.com/?invite=${tokenId}`;
+  const url = `${urlBase}/?invite=${tokenId}`;
   return (
     <Html>
       <Head />
@@ -78,6 +80,7 @@ export interface AddedNotificationEmailProps {
   ownerEmail: string;
   modelName: string;
   role: "editor" | "viewer";
+  urlBase: string;
 }
 
 export function AddedNotificationEmail({
@@ -85,8 +88,9 @@ export function AddedNotificationEmail({
   ownerEmail,
   modelName,
   role,
+  urlBase,
 }: AddedNotificationEmailProps) {
-  const url = "https://ahp.spertsuite.com/";
+  const url = urlBase;
   return (
     <Html>
       <Head />
