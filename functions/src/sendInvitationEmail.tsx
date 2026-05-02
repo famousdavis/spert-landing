@@ -332,7 +332,10 @@ export const sendInvitationEmail = onCall(
       );
     }
 
-    const modelName = (modelData.name as string | undefined) ?? "Untitled";
+    const modelName =
+      (modelData.title as string | undefined) ??
+      (modelData.name as string | undefined) ??
+      "Untitled";
 
     const today = new Date().toISOString().slice(0, 10);
     await checkAndIncrement(callerUid, emails.length, today);
