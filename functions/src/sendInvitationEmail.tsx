@@ -164,7 +164,7 @@ async function maybeSendAddedNotification(
   );
 
   const {error} = await resend.emails.send({
-    from: `${fromName} via SPERT AHP <noreply@spertsuite.com>`,
+    from: `${fromName} via SPERT AHP <invitations@spertsuite.com>`,
     to: recipientEmail,
     replyTo: ownerEmail,
     subject: subject,
@@ -232,7 +232,7 @@ async function sendInvitationToNewUser(
   );
 
   const {error} = await resend.emails.send({
-    from: `${fromName} via SPERT AHP <noreply@spertsuite.com>`,
+    from: `${fromName} via SPERT AHP <invitations@spertsuite.com>`,
     to: recipientEmail,
     replyTo: ownerEmail,
     subject: subject,
