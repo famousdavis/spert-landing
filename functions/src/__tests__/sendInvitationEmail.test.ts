@@ -551,6 +551,97 @@ describe("sendInvitationEmail urlBase resolution", () => {
     });
 });
 
+describe("sendInvitationEmail modelName resolution", () => {
+  it("uses modelData.title when present (no name)", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        title: "Q3 vendor selection",
+        collaborators: [],
+        responses: {},
+      }),
+    });
+
+    await handler(makeReq());
+
+    expect(invitationsDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({modelName: "Q3 vendor selection"}),
+    );
+  });
+
+  it("falls back to modelData.name when title is absent", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "Legacy field",
+        collaborators: [],
+        responses: {},
+      }),
+    });
+
+    await handler(makeReq());
+
+    expect(invitationsDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({modelName: "Legacy field"}),
+    );
+  });
+
+  it("falls back to \"Untitled\" when neither title nor name is set",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          collaborators: [],
+          responses: {},
+        }),
+      });
+
+      await handler(makeReq());
+
+      expect(invitationsDocSet).toHaveBeenCalledWith(
+        expect.objectContaining({modelName: "Untitled"}),
+      );
+    });
+
+  it("prefers title over name when both are present", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        title: "Real title",
+        name: "Old name",
+        collaborators: [],
+        responses: {},
+      }),
+    });
+
+    await handler(makeReq());
+
+    expect(invitationsDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({modelName: "Real title"}),
+    );
+  });
+});
+
 describe("sendInvitationEmail invalid-email filter", () => {
   it("flags invalid-email without calling Resend or writing invitations",
     async () => {
