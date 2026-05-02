@@ -290,6 +290,9 @@ describe("sendInvitationEmail happy paths", () => {
         }),
       );
       expect(resendSend).toHaveBeenCalledTimes(1);
+      const fromAddr = resendSend.mock.calls[0][0].from as string;
+      expect(fromAddr).toContain("invitations@spertsuite.com");
+      expect(fromAddr).not.toContain("noreply@");
     });
 
   it("auto-adds an existing user (Branch A): updates model + notifies",
@@ -344,6 +347,9 @@ describe("sendInvitationEmail happy paths", () => {
 
       // Notification sent.
       expect(resendSend).toHaveBeenCalledTimes(1);
+      const fromAddr = resendSend.mock.calls[0][0].from as string;
+      expect(fromAddr).toContain("invitations@spertsuite.com");
+      expect(fromAddr).not.toContain("noreply@");
     });
 });
 
