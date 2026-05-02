@@ -96,6 +96,7 @@ jest.mock("firebase-admin/firestore", () => {
   };
 });
 
+import {render as mockedRender} from "@react-email/render";
 import {sendInvitationEmail} from "../sendInvitationEmail";
 
 const handler = (
@@ -113,6 +114,7 @@ const handler = (
  * @return {unknown} A v2 CallableRequest-shaped object.
  */
 function makeReq(overrides: Record<string, unknown> = {}): unknown {
+  const origin = (overrides.origin as string | undefined) ?? "";
   return {
     auth: {
       uid: "uid-owner",
@@ -120,6 +122,11 @@ function makeReq(overrides: Record<string, unknown> = {}): unknown {
         name: "Alice Owner",
         email: "alice@example.com",
         ...((overrides.tokenOverrides as Record<string, unknown>) ?? {}),
+      },
+    },
+    rawRequest: {
+      headers: {
+        origin: origin,
       },
     },
     data: {
@@ -136,6 +143,8 @@ function makeReq(overrides: Record<string, unknown> = {}): unknown {
 beforeEach(() => {
   resendSend.mockReset();
   resendSend.mockResolvedValue({data: {id: "mock_id"}, error: null});
+
+  (mockedRender as jest.Mock).mockClear();
 
   fakeTx.get.mockReset();
   fakeTx.set.mockReset();
@@ -459,6 +468,86 @@ describe("sendInvitationEmail Resend errors", () => {
       expect(out.failed).toEqual([
         {email: "new@example.com", reason: "send-failed"},
       ]);
+    });
+});
+
+describe("sendInvitationEmail urlBase resolution", () => {
+  it("uses the request origin when it is in the allowlist (Branch B)",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      await handler(makeReq({origin: "http://localhost:5176"}));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("http://localhost:5176");
+    });
+
+  it("falls back to prod when the origin is not in the allowlist",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      await handler(makeReq({origin: "http://evil.com"}));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("https://ahp.spertsuite.com");
+    });
+
+  it("falls back to prod when the origin header is missing",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      await handler(makeReq());
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("https://ahp.spertsuite.com");
+    });
+
+  it("propagates allowed origin into AddedNotificationEmail (Branch A)",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      profilesQueryGet.mockResolvedValueOnce({
+        empty: false,
+        docs: [{id: "uid-existing", data: () => ({})}],
+      });
+
+      fakeTx.get.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          collaborators: [],
+          responses: {},
+        }),
+      });
+
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      await handler(makeReq({
+        origin: "http://localhost:5177",
+        dataOverrides: {emails: ["existing@example.com"]},
+      }));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("http://localhost:5177");
     });
 });
 
