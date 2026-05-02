@@ -23,7 +23,7 @@ interface CollaboratorDoc {
 }
 
 export const claimPendingInvitations = onCall(
-  {region: "us-central1"},
+  {cors: true, region: "us-central1"},
   async (request): Promise<ClaimResponse> => {
     logger.info("claimPendingInvitations invoked");
 

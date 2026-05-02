@@ -229,6 +229,7 @@ async function sendInvitationToNewUser(
 
 export const sendInvitationEmail = onCall(
   {
+    cors: true,
     secrets: [resendApiKey],
     region: "us-central1",
     timeoutSeconds: 120,
