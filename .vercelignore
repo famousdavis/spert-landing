@@ -1,0 +1,5 @@
+# Firebase Cloud Functions are deployed via Firebase, not Vercel.
+# Excluded here so Vercel's Next.js build does not try to install
+# or trace functions/ into the deployment. Firebase deploys read
+# firebase.json directly; this exclusion has no effect on them.
+functions/
