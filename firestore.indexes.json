@@ -1,0 +1,31 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "spertsuite_invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviterUid", "order": "ASCENDING" },
+        { "fieldPath": "modelId",    "order": "ASCENDING" },
+        { "fieldPath": "createdAt",  "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "spertsuite_invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inviteeEmail", "order": "ASCENDING" },
+        { "fieldPath": "status",       "order": "ASCENDING" },
+        { "fieldPath": "createdAt",    "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "spertsuite_invitations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",     "order": "ASCENDING" },
+        { "fieldPath": "expiresAt",  "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

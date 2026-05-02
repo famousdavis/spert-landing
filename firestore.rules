@@ -1,0 +1,347 @@
+// Firestore Security Rules for SPERT Suite
+// Deploy via Firebase CLI: npx firebase deploy --only firestore:rules --project spert-suite
+//
+// This file mirrors the rules pasted into the Firebase Console for the
+// shared `spert-suite` project. All SPERT apps share one Firestore project,
+// one Auth tenant, and therefore one rules file. Changes here are copied
+// verbatim into the console on deploy.
+//
+// AHP-relevant sections (v0.7.2):
+//   - spertahp_projects: tightened update rule so editors cannot write
+//     owner-governed fields (resultsVisibility, synthesis, publishedSynthesisId,
+//     collaborators). See audit finding 3.3.
+//   - spertahp_profiles: list access is now limit(1)-constrained to block
+//     bulk enumeration while preserving the share-by-email lookup in
+//     SharingSection. See audit finding 3.6 Option B.
+//
+// Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
+//   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits:
+//     cross-app email invitation flow. See block comments below.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper: check if the user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+    // Helper: check if the user is a member of a project (via get() — for subcollections)
+    function isMemberGet(projectId) {
+      return isAuth() &&
+        request.auth.uid in get(/databases/$(database)/documents/ganttapp_projects/$(projectId)).data.members;
+    }
+    // Helper: check if the user has a specific role on a project (via get() — for subcollections)
+    function hasRoleGet(projectId, role) {
+      return isAuth() &&
+        get(/databases/$(database)/documents/ganttapp_projects/$(projectId)).data.members[request.auth.uid] == role;
+    }
+    // Helper: check if user can write to a project (owner or editor, via get() — for subcollections)
+    function canWriteGet(projectId) {
+      return hasRoleGet(projectId, 'owner') || hasRoleGet(projectId, 'editor');
+    }
+    // ── GanttApp ─────────────────────────────────────────────
+    match /ganttapp_projects/{projectId} {
+      allow list: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow create: if isAuth() &&
+        request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    );
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+      match /releases/{releaseId} {
+        allow read: if isMemberGet(projectId);
+        allow write: if canWriteGet(projectId);
+      }
+      match /snapshots/{snapshotId} {
+        allow read: if isMemberGet(projectId);
+        allow write: if canWriteGet(projectId);
+      }
+    }
+    match /ganttapp_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    match /ganttapp_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT Story Map ──────────────────────────────────────
+    match /spertstorymap_projects/{projectId} {
+      allow list: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow get: if isAuth() && request.auth.uid in resource.data.members;
+      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    );
+      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
+    }
+    match /spertstorymap_profiles/{uid} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertstorymap_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+    // ── SPERT Scheduler ──────────────────────────────────────
+    match /spertscheduler_projects/{projectId} {
+      allow list: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow get: if isAuth() && request.auth.uid in resource.data.members;
+      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    );
+      allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
+    }
+    match /spertscheduler_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    // v0.22.2 security fix (L2): added hasOnly() to prevent arbitrary field writes
+    // v0.28.0: added targetFinishGreenPct, targetFinishAmberPct
+    // v0.34.7: added suppressLocalStorageWarning
+    match /spertscheduler_settings/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if isAuth()
+                   && request.auth.uid == userId
+                   && request.resource.data.keys().hasOnly([
+                     'defaultTrialCount',
+                     'defaultDistributionType',
+                     'defaultConfidenceLevel',
+                     'defaultActivityTarget',
+                     'defaultProjectTarget',
+                     'dateFormat',
+                     'autoRunSimulation',
+                     'theme',
+                     'storeFullSimulationData',
+                     'defaultHeuristicEnabled',
+                     'defaultHeuristicMinPercent',
+                     'defaultHeuristicMaxPercent',
+                     'defaultDependencyMode',
+                     'globalCalendar',
+                     'ganttViewMode',
+                     'ganttShowToday',
+                     'ganttShowCriticalPath',
+                     'ganttShowProjectName',
+                     'ganttShowArrows',
+                     'defaultHolidayCountry',
+                     'workDays',
+                     'defaultParkinsonsLawEnabled',
+                     'targetFinishGreenPct',
+                     'targetFinishAmberPct',
+                     'suppressLocalStorageWarning'
+                   ]);
+    }
+    // ── SPERT Forecaster ─────────────────────────────────────
+    // Note: Forecaster uses a separate `owner` field (not in members map)
+    // `members` map contains only editors/viewers
+    match /spertforecaster_projects/{projectId} {
+      allow list: if isAuth() &&
+        (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
+      allow get: if isAuth() &&
+        (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
+      allow create: if isAuth() &&
+        request.resource.data.owner == request.auth.uid;
+      allow update: if isAuth()
+                    && (resource.data.owner == request.auth.uid || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.owner == request.auth.uid
+                    );
+      allow delete: if isAuth() &&
+        resource.data.owner == request.auth.uid;
+    }
+    match /spertforecaster_profiles/{uid} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertforecaster_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+    // ── MyScrumBudget ────────────────────────────────────────
+    match /myscrumbudget_projects/{projectId} {
+      allow list: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow create: if isAuth() &&
+        request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      || resource.data.members[request.auth.uid] == 'owner'
+                    );
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+    }
+    match /myscrumbudget_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    match /myscrumbudget_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT-CFD helpers (inline, no get() needed — monolithic docs) ──
+    function isCfdMember(data) {
+      return request.auth.uid in data.members;
+    }
+    function isCfdOwner(data) {
+      return data.members[request.auth.uid] == 'owner';
+    }
+    function isCfdEditor(data) {
+      return data.members[request.auth.uid] in ['owner', 'editor'];
+    }
+    // ── SPERT-CFD Projects (monolithic docs, no subcollections) ──
+    match /spertcfd_projects/{projectId} {
+      // Intentionally more permissive than other apps — list returns all
+      // docs, client-side where() clause filters to member-of projects.
+      allow list: if isAuth();
+      allow get: if isAuth() && isCfdMember(resource.data);
+
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
+
+      allow update: if isAuth()
+                    && isCfdEditor(resource.data)
+                    && (
+                      // Non-owners cannot change owner or members
+                      (!request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['owner', 'members']))
+                      // Owners can change anything
+                      || isCfdOwner(resource.data)
+                    );
+
+      allow delete: if isAuth() && isCfdOwner(resource.data);
+    }
+    // ── SPERT-CFD User Profiles ──
+    match /spertcfd_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT-CFD Per-User Settings ──
+    match /spertcfd_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+    // ── SPERT-AHP (v0.2.0, April 2026; hardened v0.7.2) ──────
+    // Monolithic document model: one doc per AHP decision at
+    // spertahp_projects/{modelId}. All data (meta, structure, collaborators,
+    // responses, synthesis) is inlined. No subcollections — checks use
+    // resource.data inline, no get() helpers needed. Three-role sharing model
+    // (owner/editor/viewer) in the members map; isVoting is a separate
+    // per-editor boolean on the embedded collaborators array (not visible
+    // to security rules).
+    //
+    // v0.7.2 security fix (audit finding 3.3): editors can no longer write
+    // owner-governed fields (resultsVisibility, synthesis, publishedSynthesisId,
+    // collaborators). Previously the UI gated these to owners but the rule
+    // only protected owner/members — allowing an editor to bypass via direct
+    // adapter calls.
+    match /spertahp_projects/{modelId} {
+      allow list: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
+      allow update: if isAuth()
+                    && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    && (
+                      resource.data.members[request.auth.uid] == 'owner'
+                      || !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                           'owner',
+                           'members',
+                           'resultsVisibility',
+                           'synthesis',
+                           'publishedSynthesisId',
+                           'collaborators'
+                         ])
+                    );
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+    }
+    // v0.7.2 security fix (audit finding 3.6, Option B): replaced `allow read`
+    // with get + limit-constrained list. Blocks bulk enumeration of the
+    // profiles collection by any authenticated Firebase user (shared auth
+    // tenant with the rest of the SPERT suite). The share-by-email flow in
+    // SharingSection still works because its query is limit(1)-constrained.
+    // Does not prevent one-email-at-a-time probing — that's acknowledged as
+    // a deliberate tradeoff for share-by-email UX without a Cloud Function.
+    match /spertahp_profiles/{uid} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertahp_settings/{uid} {
+      allow read, write: if isAuth() && request.auth.uid == uid;
+    }
+    // ── Suite-wide invitation infrastructure ─────────────────
+    // SPERT AHP v0.11.0 introduces an email-based project invitation flow
+    // that is designed to be reused by every SPERT app (suite-wide, not
+    // per-app). All three collections below are written exclusively by
+    // Cloud Functions via the Admin SDK; clients only read.
+    //
+    // spertsuite_invitations: pending invitation tokens. Two-branch read
+    // rule: either the invitee (matched by verified email) or the inviter
+    // (the model owner) may list/get. The email_verified gate on the
+    // invitee branch protects against unverified email-password Firebase
+    // Auth identities (irrelevant today since SPERT only uses Google +
+    // Microsoft OAuth, but durable against future provider expansion).
+    //
+    // spertsuite_profiles: cross-app profile mirror. Each app writes its
+    // own user's profile here on sign-in (alongside its app-specific
+    // _profiles doc). The list rule is limit(1)-constrained — same
+    // pattern as spertahp_profiles — to prevent bulk enumeration while
+    // permitting one-email-at-a-time lookups inside Cloud Functions.
+    //
+    // spertsuite_rate_limits: per-user invitation send counters
+    // ({ date: ISO string, count: number }, resets when date rolls over).
+    // Read and written exclusively by sendInvitationEmail. Clients have
+    // no business touching this collection — `read, write: if false`.
+    match /spertsuite_invitations/{tokenId} {
+      allow get, list: if isAuth() && (
+        (request.auth.token.email_verified == true
+          && request.auth.token.email == resource.data.inviteeEmail)
+        || request.auth.uid == resource.data.inviterUid
+      );
+      allow write: if false;
+    }
+    match /spertsuite_profiles/{uid} {
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
+      allow write: if isAuth() && request.auth.uid == uid;
+    }
+    match /spertsuite_rate_limits/{uid} {
+      allow read, write: if false;
+    }
+    // ── ToS acceptance records (shared across all SPERT apps) ──
+    // v0.22.2 security fix (M1): added hasOnly() to prevent arbitrary field writes
+    match /users/{uid} {
+      allow read: if isAuth() && request.auth.uid == uid;
+      allow write: if isAuth()
+                   && request.auth.uid == uid
+                   && request.resource.data.keys().hasOnly([
+                     'acceptedAt',
+                     'tosVersion',
+                     'privacyPolicyVersion',
+                     'appId',
+                     'authProvider'
+                   ]);
+    }
+  }
+}
