@@ -1,5 +1,16 @@
 {
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "esModuleInterop": true,
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "es2017",
+    "types": ["jest", "node"]
+  },
   "include": [
-    ".eslintrc.js"
+    ".eslintrc.js",
+    "src/__tests__/**/*"
   ]
 }
