@@ -26,6 +26,27 @@ export function sanitizeDisplayName(s: string): string {
 }
 
 /**
+ * Reorder a "Last, First Middle [Suffix]" name (the Microsoft AD
+ * displayName convention) into "First Middle Last" form. Names
+ * without a comma are returned unchanged.
+ *
+ * Examples:
+ *   "Davis, William W"   → "William W Davis"
+ *   "Smith, John, Jr."   → "John Jr. Smith"   (Jr. is a suffix; preserved)
+ *   "Cher"               → "Cher"
+ *   ""                   → ""
+ *
+ * @param {string} s Raw display name.
+ * @return {string} Reordered name suitable for header and body use.
+ */
+export function denormalizeLastFirst(s: string): string {
+  const parts = s.split(",").map((p) => p.trim()).filter((p) => p.length > 0);
+  if (parts.length < 2) return s.trim();
+  const [last, ...rest] = parts;
+  return `${rest.join(" ")} ${last}`;
+}
+
+/**
  * Sanitize an email Subject. Subjects do not have RFC 5322 quoting
  * rules, so only CRLF stripping is required.
  *
