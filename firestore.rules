@@ -15,8 +15,9 @@
 //     SharingSection. See audit finding 3.6 Option B.
 //
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
-//   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits:
-//     cross-app email invitation flow. See block comments below.
+//   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
+//     spertsuite_notification_throttle: cross-app email invitation flow.
+//     See block comments below.
 
 rules_version = '2';
 service cloud.firestore {
@@ -293,7 +294,7 @@ service cloud.firestore {
     // ── Suite-wide invitation infrastructure ─────────────────
     // SPERT AHP v0.11.0 introduces an email-based project invitation flow
     // that is designed to be reused by every SPERT app (suite-wide, not
-    // per-app). All three collections below are written exclusively by
+    // per-app). All four collections below are written exclusively by
     // Cloud Functions via the Admin SDK; clients only read.
     //
     // spertsuite_invitations: pending invitation tokens. Two-branch read
@@ -313,6 +314,14 @@ service cloud.firestore {
     // ({ date: ISO string, count: number }, resets when date rolls over).
     // Read and written exclusively by sendInvitationEmail. Clients have
     // no business touching this collection — `read, write: if false`.
+    //
+    // spertsuite_notification_throttle: per-(recipient, model) "you've
+    // been added" notification throttle. Doc id is
+    // "{recipientUid}_{modelId}". Stores last-sent timestamp;
+    // sendInvitationEmail consults this before emailing an existing user
+    // that they have been added to a model, so an owner rapidly
+    // re-adding/removing the same person does not spam them. Read and
+    // written exclusively by Cloud Functions.
     match /spertsuite_invitations/{tokenId} {
       allow get, list: if isAuth() && (
         (request.auth.token.email_verified == true
@@ -327,6 +336,9 @@ service cloud.firestore {
       allow write: if isAuth() && request.auth.uid == uid;
     }
     match /spertsuite_rate_limits/{uid} {
+      allow read, write: if false;
+    }
+    match /spertsuite_notification_throttle/{docId} {
       allow read, write: if false;
     }
     // ── ToS acceptance records (shared across all SPERT apps) ──
