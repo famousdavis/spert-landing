@@ -11,7 +11,11 @@ import {render} from "@react-email/render";
 import {Resend} from "resend";
 
 import {checkAndIncrement} from "./rateLimiter";
-import {sanitizeDisplayName, sanitizeSubject} from "./mailHeaders";
+import {
+  denormalizeLastFirst,
+  sanitizeDisplayName,
+  sanitizeSubject,
+} from "./mailHeaders";
 import {
   AddedNotificationEmail,
   InvitationEmail,
@@ -278,8 +282,9 @@ export const sendInvitationEmail = onCall(
     }
 
     const callerUid = request.auth.uid;
-    const callerName = (request.auth.token.name as string | undefined) ??
+    const rawCallerName = (request.auth.token.name as string | undefined) ??
       (request.auth.token.email as string | undefined) ?? "";
+    const callerName = denormalizeLastFirst(rawCallerName);
     const callerEmail =
       (request.auth.token.email as string | undefined) ?? "";
 
