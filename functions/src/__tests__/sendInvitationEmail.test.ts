@@ -27,6 +27,9 @@ const fakeTx = {
 };
 
 const projectsDocGet = jest.fn();
+// Track which appId-derived collection was last looked up so per-test
+// assertions can verify CFD vs AHP routing.
+let lastProjectsCollection: string | null = null;
 const projectsDoc = jest.fn(() => ({
   id: "model-X",
   get: projectsDocGet,
@@ -55,7 +58,10 @@ const throttleDoc = jest.fn(() => throttleDocRef);
 
 const fakeDb = {
   collection: jest.fn((name: string) => {
-    if (name === "spertahp_projects") {
+    // Multi-app: any `<appId>_projects` collection routes to the
+    // shared projectsDoc mock so a single test can drive AHP or CFD.
+    if (name.endsWith("_projects")) {
+      lastProjectsCollection = name;
       return {doc: projectsDoc};
     }
     if (name === "spertsuite_invitations") {
@@ -155,6 +161,7 @@ beforeEach(() => {
   invitationsQueryGet.mockReset();
   invitationsDocSet.mockClear();
   profilesQueryGet.mockReset();
+  lastProjectsCollection = null;
 
   // Default model doc — owner is caller, name "MyModel".
   projectsDocGet.mockResolvedValue({
@@ -212,10 +219,38 @@ describe("sendInvitationEmail validation", () => {
     ).rejects.toMatchObject({code: "invalid-argument"});
   });
 
-  it("rejects non-spertahp appId", async () => {
+  it("rejects unsupported appId (e.g. ganttapp)", async () => {
     await expect(
       handler(makeReq({dataOverrides: {appId: "ganttapp"}})),
     ).rejects.toMatchObject({code: "invalid-argument"});
+  });
+
+  it("accepts spertahp", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    await expect(
+      handler(makeReq({dataOverrides: {appId: "spertahp"}})),
+    ).resolves.toMatchObject({invited: ["new@example.com"]});
+  });
+
+  it("accepts spertcfd", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // CFD model docs have no `collaborators` array — just members.
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "MyCfdProject",
+      }),
+    });
+    await expect(
+      handler(makeReq({dataOverrides: {appId: "spertcfd"}})),
+    ).resolves.toMatchObject({invited: ["new@example.com"]});
+    expect(lastProjectsCollection).toBe("spertcfd_projects");
   });
 
   it("rejects empty modelId", async () => {
@@ -293,7 +328,40 @@ describe("sendInvitationEmail happy paths", () => {
       const fromAddr = resendSend.mock.calls[0][0].from as string;
       expect(fromAddr).toContain("invitations@spertsuite.com");
       expect(fromAddr).not.toContain("noreply@");
+      expect(fromAddr).toContain("via SPERT AHP");
+      const subject = resendSend.mock.calls[0][0].subject as string;
+      expect(subject).toContain("in SPERT AHP");
     });
+
+  it("CFD: persists appId='spertcfd' on the invitation doc and brands " +
+    "From + subject as SPERT CFD",
+  async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "MyCfdProject",
+      }),
+    });
+
+    const out = await handler(makeReq({
+      dataOverrides: {appId: "spertcfd"},
+    }));
+
+    expect(out.invited).toEqual(["new@example.com"]);
+    expect(invitationsDocSet).toHaveBeenCalledWith(
+      expect.objectContaining({appId: "spertcfd"}),
+    );
+    const fromAddr = resendSend.mock.calls[0][0].from as string;
+    expect(fromAddr).toContain("via SPERT CFD");
+    const subject = resendSend.mock.calls[0][0].subject as string;
+    expect(subject).toContain("in SPERT CFD");
+    expect(lastProjectsCollection).toBe("spertcfd_projects");
+  });
 
   it("auto-adds an existing user (Branch A): updates model + notifies",
     async () => {
@@ -351,6 +419,62 @@ describe("sendInvitationEmail happy paths", () => {
       expect(fromAddr).toContain("invitations@spertsuite.com");
       expect(fromAddr).not.toContain("noreply@");
     });
+
+  it("CFD auto-add: writes only members.{uid} (no collaborators array, " +
+    "no response slot) when the model doc has no collaborators field",
+  async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // Pre-tx model doc — CFD shape, no collaborators.
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "MyCfdProject",
+      }),
+    });
+    profilesQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{id: "uid-existing", data: () => ({})}],
+    });
+    // Branch A re-read — also no collaborators.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+      }),
+    });
+    // Throttle doc absent — notification will fire.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+
+    const out = await handler(makeReq({
+      dataOverrides: {
+        appId: "spertcfd",
+        emails: ["existing@example.com"],
+      },
+    }));
+
+    expect(out.added).toEqual(["existing@example.com"]);
+    // Verify the model update includes members but NOT collaborators
+    // or responses. The update payload is the second argument to
+    // tx.update; pull the model-update call (the one with the matching
+    // members.{uid} key) and inspect it.
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
+        undefined,
+    );
+    expect(modelUpdateCall).toBeDefined();
+    const update = modelUpdateCall![1] as Record<string, unknown>;
+    expect(update["members.uid-existing"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-existing"]).toBeUndefined();
+    expect(lastProjectsCollection).toBe("spertcfd_projects");
+  });
 });
 
 describe("sendInvitationEmail dedup", () => {
@@ -492,7 +616,82 @@ describe("sendInvitationEmail urlBase resolution", () => {
       expect(element.props.urlBase).toBe("http://localhost:5176");
     });
 
-  it("falls back to prod when the origin is not in the allowlist",
+  it("CFD: accepts http://localhost:3000 as an allowlisted origin",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          name: "MyCfdProject",
+        }),
+      });
+
+      await handler(makeReq({
+        origin: "http://localhost:3000",
+        dataOverrides: {appId: "spertcfd"},
+      }));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("http://localhost:3000");
+    });
+
+  it("CFD: accepts http://localhost:3007 as an allowlisted origin",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          name: "MyCfdProject",
+        }),
+      });
+
+      await handler(makeReq({
+        origin: "http://localhost:3007",
+        dataOverrides: {appId: "spertcfd"},
+      }));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("http://localhost:3007");
+    });
+
+  it("CFD: rejects an AHP dev port (5176) and falls back to CFD prod",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          name: "MyCfdProject",
+        }),
+      });
+
+      await handler(makeReq({
+        origin: "http://localhost:5176",
+        dataOverrides: {appId: "spertcfd"},
+      }));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const element = calls[0][0] as { props: { urlBase: string } };
+      expect(element.props.urlBase).toBe("https://cfd.spertsuite.com");
+    });
+
+  it("falls back to AHP prod when the AHP origin is not in the allowlist",
     async () => {
       fakeTx.get.mockResolvedValueOnce({
         exists: false, get: () => undefined,
@@ -506,7 +705,7 @@ describe("sendInvitationEmail urlBase resolution", () => {
       expect(element.props.urlBase).toBe("https://ahp.spertsuite.com");
     });
 
-  it("falls back to prod when the origin header is missing",
+  it("falls back to AHP prod when the origin header is missing",
     async () => {
       fakeTx.get.mockResolvedValueOnce({
         exists: false, get: () => undefined,

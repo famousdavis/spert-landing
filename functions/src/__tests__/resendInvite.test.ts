@@ -88,7 +88,7 @@ interface SnapStub {
 /**
  * Build a default invitation snapshot suitable for the
  * pre-transaction read. Override individual fields per test via the
- * overrides arg.
+ * overrides arg. Defaults to AHP appId so existing tests keep working.
  *
  * @param {Record<string, unknown>} overrides Field overrides.
  * @return {SnapStub} Snap stub.
@@ -97,6 +97,7 @@ function inviteSnap(
   overrides: Record<string, unknown> = {},
 ): SnapStub {
   const fields: Record<string, unknown> = {
+    appId: "spertahp",
     inviterUid: "uid-owner",
     status: "pending",
     emailSendCount: 1,
@@ -240,7 +241,23 @@ describe("resendInvite happy path", () => {
       const fromAddr = resendSend.mock.calls[0][0].from as string;
       expect(fromAddr).toContain("invitations@spertsuite.com");
       expect(fromAddr).not.toContain("noreply@");
+      expect(fromAddr).toContain("via SPERT AHP");
     });
+
+  it("CFD: brands From-line as 'via SPERT CFD' when invitation appId is " +
+    "spertcfd",
+  async () => {
+    invitationsDocGet.mockResolvedValueOnce(
+      inviteSnap({appId: "spertcfd"}),
+    );
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+
+    await handler(makeReq());
+
+    const fromAddr = resendSend.mock.calls[0][0].from as string;
+    expect(fromAddr).toContain("via SPERT CFD");
+    expect(fromAddr).not.toContain("via SPERT AHP");
+  });
 
   it("succeeds (no increment) if invite was revoked between pre-check and tx",
     async () => {
@@ -282,7 +299,7 @@ describe("resendInvite Resend errors", () => {
 });
 
 describe("resendInvite urlBase resolution", () => {
-  it("uses an allowlisted origin (localhost:5176)", async () => {
+  it("uses an allowlisted AHP origin (localhost:5176)", async () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap());
     fakeTx.get.mockResolvedValueOnce(inviteSnap());
 
@@ -299,7 +316,37 @@ describe("resendInvite urlBase resolution", () => {
     expect(element.props.urlBase).toBe("http://localhost:5176");
   });
 
-  it("falls back to prod when the origin is unknown", async () => {
+  it("CFD: uses an allowlisted CFD origin (localhost:3000)", async () => {
+    invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {render: mockedRender} = require("@react-email/render");
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq({origin: "http://localhost:3000"}));
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
+    const element = calls[0][0] as { props: { urlBase: string } };
+    expect(element.props.urlBase).toBe("http://localhost:3000");
+  });
+
+  it("CFD: falls back to CFD prod when the origin is unknown", async () => {
+    invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {render: mockedRender} = require("@react-email/render");
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq({origin: "http://evil.com"}));
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
+    const element = calls[0][0] as { props: { urlBase: string } };
+    expect(element.props.urlBase).toBe("https://cfd.spertsuite.com");
+  });
+
+  it("falls back to AHP prod when the origin is unknown", async () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap());
     fakeTx.get.mockResolvedValueOnce(inviteSnap());
 
@@ -315,7 +362,7 @@ describe("resendInvite urlBase resolution", () => {
     expect(element.props.urlBase).toBe("https://ahp.spertsuite.com");
   });
 
-  it("falls back to prod when the origin header is missing", async () => {
+  it("falls back to AHP prod when the origin header is missing", async () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap());
     fakeTx.get.mockResolvedValueOnce(inviteSnap());
 
@@ -327,6 +374,21 @@ describe("resendInvite urlBase resolution", () => {
 
     const calls = (mockedRender as jest.Mock).mock.calls;
     expect(calls.length).toBeGreaterThan(0);
+    const element = calls[0][0] as { props: { urlBase: string } };
+    expect(element.props.urlBase).toBe("https://ahp.spertsuite.com");
+  });
+
+  it("legacy invitation without appId field defaults to AHP prod", async () => {
+    invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: undefined}));
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: undefined}));
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {render: mockedRender} = require("@react-email/render");
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq({origin: "http://evil.com"}));
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
     const element = calls[0][0] as { props: { urlBase: string } };
     expect(element.props.urlBase).toBe("https://ahp.spertsuite.com");
   });

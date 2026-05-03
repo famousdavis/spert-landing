@@ -11,27 +11,84 @@ import {InvitationEmail} from "./emailTemplates";
 export const EXPIRATION_DAYS = 30;
 export const EXPIRATION_MS = EXPIRATION_DAYS * 86_400_000;
 
-// Origins permitted to embed their own URL into the email body.
-// Anything else falls through to FALLBACK_BASE so a spoofed Origin
-// header cannot redirect invitees off-domain.
-export const ALLOWED_ORIGINS = new Set<string>([
-  "https://ahp.spertsuite.com",
-  "http://localhost:5176",
-  "http://localhost:5177",
-  "http://localhost:5173",
+// Apps this suite-wide infrastructure serves. Adding a new app means
+// adding a row here AND in the per-app origin / brand maps below.
+export const SUPPORTED_APP_IDS = new Set<string>([
+  "spertahp",
+  "spertcfd",
 ]);
-export const FALLBACK_BASE = "https://ahp.spertsuite.com";
+
+// CFD's `next dev` defaults to port 3000 and walks up to 3001, 3002, …
+// when the previous port is in use. Allow a generous window so testers
+// don't need to reconfigure the function whenever ports shift.
+const CFD_DEV_PORT_START = 3000;
+const CFD_DEV_PORT_END = 3010;
+const cfdDevOrigins: string[] = [];
+for (let p = CFD_DEV_PORT_START; p <= CFD_DEV_PORT_END; p++) {
+  cfdDevOrigins.push(`http://localhost:${p}`);
+}
+
+// Per-app origin allowlists. Calls whose Origin matches an entry get
+// that origin embedded in the invitation email; everything else falls
+// through to the per-app prod fallback so a spoofed Origin header
+// cannot redirect invitees off-domain.
+export const ALLOWED_ORIGINS_BY_APP_ID: Record<string, Set<string>> = {
+  spertahp: new Set<string>([
+    "https://ahp.spertsuite.com",
+    "http://localhost:5173",
+    "http://localhost:5176",
+    "http://localhost:5177",
+  ]),
+  spertcfd: new Set<string>([
+    "https://cfd.spertsuite.com",
+    ...cfdDevOrigins,
+  ]),
+};
+
+// Per-app prod fallbacks. Used when the Origin header is missing,
+// spoofed, or not in this app's allowlist.
+export const FALLBACK_BASE_BY_APP_ID: Record<string, string> = {
+  spertahp: "https://ahp.spertsuite.com",
+  spertcfd: "https://cfd.spertsuite.com",
+};
+
+// Last-resort fallback for unsupported appIds (should be impossible
+// given the validation in sendInvitationEmail, but defensive).
+export const DEFAULT_FALLBACK_BASE = "https://spertsuite.com";
+
+// Per-app brand names. Surfaced in email subject + From-line.
+export const APP_NAMES_BY_APP_ID: Record<string, string> = {
+  spertahp: "SPERT AHP",
+  spertcfd: "SPERT CFD",
+};
+
+export const DEFAULT_APP_NAME = "SPERT";
 
 /**
  * Resolve the email URL base from a request Origin header. Allowlist
- * hits are passed through; anything else (missing, spoofed, or simply
- * unknown) falls back to the production app domain.
+ * hits for this appId pass through; anything else falls back to the
+ * app's prod domain.
  *
  * @param {string} origin Raw Origin header value (or empty string).
+ * @param {string} appId Caller's appId; selects the per-app allowlist
+ *   and fallback.
  * @return {string} URL base safe to embed in the email body.
  */
-export function resolveUrlBase(origin: string): string {
-  return ALLOWED_ORIGINS.has(origin) ? origin : FALLBACK_BASE;
+export function resolveUrlBase(origin: string, appId: string): string {
+  const allowed = ALLOWED_ORIGINS_BY_APP_ID[appId];
+  if (allowed && allowed.has(origin)) return origin;
+  return FALLBACK_BASE_BY_APP_ID[appId] ?? DEFAULT_FALLBACK_BASE;
+}
+
+/**
+ * Resolve the human-readable app name for use in subjects and From
+ * lines. Falls back to a generic "SPERT" brand for unknown ids.
+ *
+ * @param {string} appId Caller's appId.
+ * @return {string} Brand name to render in email surfaces.
+ */
+export function getAppName(appId: string): string {
+  return APP_NAMES_BY_APP_ID[appId] ?? DEFAULT_APP_NAME;
 }
 
 /**
@@ -46,6 +103,7 @@ export function resolveUrlBase(origin: string): string {
  * @param {string} modelName Sanitized model name.
  * @param {string} tokenId Invitation token id.
  * @param {string} urlBase Base URL for the claim link.
+ * @param {string} appName Human-readable app brand (e.g. "SPERT CFD").
  * @return {Promise<void>}
  */
 export async function sendInvitationToNewUser(
@@ -56,11 +114,12 @@ export async function sendInvitationToNewUser(
   modelName: string,
   tokenId: string,
   urlBase: string,
+  appName: string,
 ): Promise<void> {
   const subject = sanitizeSubject(
-    `${ownerName} invited you to ${modelName} in SPERT AHP`,
+    `${ownerName} invited you to ${modelName} in ${appName}`,
   );
-  const fromName = ownerName.length > 0 ? ownerName : "SPERT AHP user";
+  const fromName = ownerName.length > 0 ? ownerName : `${appName} user`;
 
   const html = await render(
     <InvitationEmail
@@ -85,7 +144,7 @@ export async function sendInvitationToNewUser(
   );
 
   const {error} = await resend.emails.send({
-    from: `${fromName} via SPERT AHP <invitations@spertsuite.com>`,
+    from: `${fromName} via ${appName} <invitations@spertsuite.com>`,
     to: recipientEmail,
     replyTo: ownerEmail,
     subject: subject,

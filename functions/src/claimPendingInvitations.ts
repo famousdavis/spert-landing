@@ -7,6 +7,7 @@ import {HttpsError, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 
 import {redactToken} from "./logging";
+import {SUPPORTED_APP_IDS} from "./invitationMailer";
 
 interface ClaimedItem {
   appId: string;
@@ -67,10 +68,12 @@ export const claimPendingInvitations = onCall(
         continue;
       }
       const inviteAppId = inviteDoc.get("appId") as string | undefined;
-      if (inviteAppId !== "spertahp") {
+      if (!inviteAppId || !SUPPORTED_APP_IDS.has(inviteAppId)) {
         // Defense in depth — never read an arbitrary collection
-        // derived from a doc field.
-        logger.debug("skipping non-spertahp invitation", {
+        // derived from a doc field. Unsupported appIds get skipped
+        // until the suite onboards them (and adds them to
+        // SUPPORTED_APP_IDS).
+        logger.debug("skipping unsupported-app invitation", {
           tokenId: redactToken(inviteDoc.id),
           appId: inviteAppId,
         });
@@ -83,6 +86,7 @@ export const claimPendingInvitations = onCall(
         (inviteDoc.get("modelName") as string | undefined) ?? "Untitled";
 
       try {
+        const projectsCollection = `${inviteAppId}_projects`;
         const outcome = await db.runTransaction(async (tx) => {
           const inviteRef = inviteDoc.ref;
           const freshInvite = await tx.get(inviteRef);
@@ -91,7 +95,7 @@ export const claimPendingInvitations = onCall(
             return "skip" as const;
           }
           const modelRef =
-            db.collection("spertahp_projects").doc(modelId);
+            db.collection(projectsCollection).doc(modelId);
           const modelSnap = await tx.get(modelRef);
           if (!modelSnap.exists) {
             tx.update(inviteRef, {
@@ -113,31 +117,43 @@ export const claimPendingInvitations = onCall(
             return "already-member" as const;
           }
 
-          const existingCollab =
-            (md.collaborators ?? []) as CollaboratorDoc[];
-          const filtered = existingCollab.filter(
-            (c) => c.userId !== callerUid,
-          );
-          filtered.push({userId: callerUid, role, isVoting});
-
+          // Universal: every supported app uses members.{uid} for
+          // access control.
           const update: Record<string, unknown> = {
-            collaborators: filtered,
             [`members.${callerUid}`]: role,
             updatedAt: Date.now(),
           };
-          const responses =
-            (md.responses ?? {}) as Record<string, unknown>;
-          if (!responses[callerUid]) {
-            update[`responses.${callerUid}`] = {
-              userId: callerUid,
-              status: "in_progress",
-              criteriaMatrix: {},
-              alternativeMatrices: {},
-              cr: {},
-              lastModifiedAt: Date.now(),
-              structureVersionAtSubmission: 0,
-            };
+
+          // AHP-shaped schema only: maintain the embedded collaborators
+          // array and seed an empty response slot. Detected by the
+          // presence of the `collaborators` field on the model
+          // document. CFD and any future apps without per-collaborator
+          // data skip both writes — the universal members map mutation
+          // alone is sufficient.
+          if (md.collaborators !== undefined) {
+            const existingCollab =
+              (md.collaborators ?? []) as CollaboratorDoc[];
+            const filtered = existingCollab.filter(
+              (c) => c.userId !== callerUid,
+            );
+            filtered.push({userId: callerUid, role, isVoting});
+            update.collaborators = filtered;
+
+            const responses =
+              (md.responses ?? {}) as Record<string, unknown>;
+            if (!responses[callerUid]) {
+              update[`responses.${callerUid}`] = {
+                userId: callerUid,
+                status: "in_progress",
+                criteriaMatrix: {},
+                alternativeMatrices: {},
+                cr: {},
+                lastModifiedAt: Date.now(),
+                structureVersionAtSubmission: 0,
+              };
+            }
           }
+
           tx.update(modelRef, update);
           tx.update(inviteRef, {
             status: "accepted",
@@ -149,7 +165,7 @@ export const claimPendingInvitations = onCall(
         });
 
         if (outcome === "added" || outcome === "already-member") {
-          claimed.push({appId: "spertahp", modelId, modelName});
+          claimed.push({appId: inviteAppId, modelId, modelName});
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
