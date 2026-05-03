@@ -19,3 +19,5 @@ setGlobalOptions({maxInstances: 10});
 export {sendInvitationEmail} from "./sendInvitationEmail";
 export {claimPendingInvitations} from "./claimPendingInvitations";
 export {expireInvitations} from "./expireInvitations";
+export {revokeInvite} from "./revokeInvite";
+export {resendInvite} from "./resendInvite";
