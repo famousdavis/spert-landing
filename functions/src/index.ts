@@ -21,3 +21,4 @@ export {claimPendingInvitations} from "./claimPendingInvitations";
 export {expireInvitations} from "./expireInvitations";
 export {revokeInvite} from "./revokeInvite";
 export {resendInvite} from "./resendInvite";
+export {updateInvite} from "./updateInvite";
