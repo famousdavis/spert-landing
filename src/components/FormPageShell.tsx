@@ -103,6 +103,7 @@ export function FormPageShell({
                 type="text"
                 id="name"
                 name="name"
+                autoComplete="name"
                 required
                 className={INPUT_CLASS}
                 placeholder="Your name"
@@ -120,6 +121,7 @@ export function FormPageShell({
                 type="email"
                 id="email"
                 name="email"
+                autoComplete="email"
                 required
                 className={INPUT_CLASS}
                 placeholder="you@example.com"
