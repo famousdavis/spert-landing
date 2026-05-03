@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.0.5',
+    date: 'May 3, 2026',
+    sections: [
+      {
+        heading: 'Accessibility',
+        items: [
+          'Added `autoComplete="name"` and `autoComplete="email"` to the shared form shell so Chrome stops flagging the autocomplete-attribute warning on the Contact, I Found a Bug, and I Have a Request forms — and so password managers and browser autofill recognize the user-name and user-email fields correctly.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.2',
     date: 'May 1, 2026',
     sections: [
