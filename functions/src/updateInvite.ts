@@ -70,7 +70,7 @@ export const updateInvite = onCall(
       });
     });
 
-    logger.info("updateInvite done", {tokenId, isVoting});
+    logger.info("updateInvite done", {isVoting});
     return {updated: true};
   },
 );

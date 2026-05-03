@@ -6,6 +6,8 @@ import {
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 
+import {redactToken} from "./logging";
+
 interface ClaimedItem {
   appId: string;
   modelId: string;
@@ -69,7 +71,7 @@ export const claimPendingInvitations = onCall(
         // Defense in depth — never read an arbitrary collection
         // derived from a doc field.
         logger.debug("skipping non-spertahp invitation", {
-          tokenId: inviteDoc.id,
+          tokenId: redactToken(inviteDoc.id),
           appId: inviteAppId,
         });
         continue;
@@ -151,8 +153,10 @@ export const claimPendingInvitations = onCall(
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        logger.warn("claim transaction failed", {tokenId: inviteDoc.id,
-          reason: msg});
+        logger.warn("claim transaction failed", {
+          tokenId: redactToken(inviteDoc.id),
+          reason: msg,
+        });
         // Continue to next invite; partial claim is better than total
         // failure.
       }
