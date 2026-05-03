@@ -16,29 +16,18 @@ import {
   sanitizeDisplayName,
   sanitizeSubject,
 } from "./mailHeaders";
+import {AddedNotificationEmail} from "./emailTemplates";
 import {
-  AddedNotificationEmail,
-  InvitationEmail,
-} from "./emailTemplates";
+  EXPIRATION_MS,
+  resolveUrlBase,
+  sendInvitationToNewUser,
+} from "./invitationMailer";
 
 const resendApiKey = defineSecret("RESEND_API_KEY");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PER_CALL_CAP = 25;
-const EXPIRATION_DAYS = 30;
-const EXPIRATION_MS = EXPIRATION_DAYS * 86_400_000;
 const THROTTLE_MS = 24 * 60 * 60 * 1000;
-
-// Origins permitted to embed their own URL into the email body.
-// Anything else falls through to FALLBACK_BASE so a spoofed Origin
-// header cannot redirect invitees off-domain.
-const ALLOWED_ORIGINS = new Set<string>([
-  "https://ahp.spertsuite.com",
-  "http://localhost:5176",
-  "http://localhost:5177",
-  "http://localhost:5173",
-]);
-const FALLBACK_BASE = "https://ahp.spertsuite.com";
 
 interface SendRequest {
   appId: string;
@@ -182,74 +171,6 @@ async function maybeSendAddedNotification(
   }
 }
 
-/**
- * Send a brand-new InvitationEmail to a user who is not yet in
- * spertsuite_profiles.
- *
- * @param {Resend} resend Resend client.
- * @param {string} recipientEmail Recipient address.
- * @param {string} ownerName Sanitized owner display name.
- * @param {string} ownerEmail Owner email (used in reply-to).
- * @param {string} modelName Sanitized model name.
- * @param {string} tokenId Invitation token id.
- * @param {string} urlBase Base URL for the claim link.
- * @return {Promise<void>}
- */
-async function sendInvitationToNewUser(
-  resend: Resend,
-  recipientEmail: string,
-  ownerName: string,
-  ownerEmail: string,
-  modelName: string,
-  tokenId: string,
-  urlBase: string,
-): Promise<void> {
-  const subject = sanitizeSubject(
-    `${ownerName} invited you to ${modelName} in SPERT AHP`,
-  );
-  const fromName = ownerName.length > 0 ? ownerName : "SPERT AHP user";
-
-  const html = await render(
-    <InvitationEmail
-      ownerName={ownerName}
-      ownerEmail={ownerEmail}
-      modelName={modelName}
-      tokenId={tokenId}
-      expirationDays={EXPIRATION_DAYS}
-      urlBase={urlBase}
-    />,
-  );
-  const text = await render(
-    <InvitationEmail
-      ownerName={ownerName}
-      ownerEmail={ownerEmail}
-      modelName={modelName}
-      tokenId={tokenId}
-      expirationDays={EXPIRATION_DAYS}
-      urlBase={urlBase}
-    />,
-    {plainText: true},
-  );
-
-  const {error} = await resend.emails.send({
-    from: `${fromName} via SPERT AHP <invitations@spertsuite.com>`,
-    to: recipientEmail,
-    replyTo: ownerEmail,
-    subject: subject,
-    html: html,
-    text: text,
-  });
-
-  if (error) {
-    logger.error("Resend send failed", {
-      code: error.name,
-      message: error.message,
-      recipient: "redacted",
-    });
-    throw new Error("send-failed");
-  }
-}
-
 export const sendInvitationEmail = onCall(
   {
     cors: true,
@@ -270,9 +191,7 @@ export const sendInvitationEmail = onCall(
     // so invitees never get redirected off-domain.
     const requestOrigin =
       (request.rawRequest.headers.origin as string | undefined) ?? "";
-    const urlBase = ALLOWED_ORIGINS.has(requestOrigin) ?
-      requestOrigin :
-      FALLBACK_BASE;
+    const urlBase = resolveUrlBase(requestOrigin);
 
     const data = request.data as SendRequest;
     const {appId, modelId, emails, role, isVoting} = data;
