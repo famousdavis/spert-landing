@@ -124,7 +124,7 @@ async function maybeSendAddedNotification(
   });
 
   if (!shouldSend) {
-    logger.debug("notification throttled", {modelId});
+    logger.debug("notification throttled");
     return;
   }
 

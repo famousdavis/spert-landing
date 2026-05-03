@@ -63,7 +63,7 @@ export const revokeInvite = onCall(
       });
     });
 
-    logger.info("revokeInvite done", {tokenId});
+    logger.info("revokeInvite done");
     return {revoked: true};
   },
 );

@@ -12,6 +12,7 @@ import {
   resolveUrlBase,
   sendInvitationToNewUser,
 } from "./invitationMailer";
+import {redactToken} from "./logging";
 
 const resendApiKey = defineSecret("RESEND_API_KEY");
 
@@ -125,7 +126,10 @@ export const resendInvite = onCall(
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error("resendInvite Resend failed", {tokenId, reason: msg});
+      logger.error("resendInvite Resend failed", {
+        tokenId: redactToken(tokenId),
+        reason: msg,
+      });
       throw new HttpsError(
         "internal",
         "Could not resend the invitation right now. Please try again.",
@@ -142,13 +146,15 @@ export const resendInvite = onCall(
       await db.runTransaction(async (tx) => {
         const fresh = await tx.get(ref);
         if (!fresh.exists) {
-          logger.warn("resendInvite: invite vanished post-send", {tokenId});
+          logger.warn("resendInvite: invite vanished post-send", {
+            tokenId: redactToken(tokenId),
+          });
           return;
         }
         if (fresh.get("status") !== "pending") {
           logger.warn(
             "resendInvite: invite no longer pending post-send",
-            {tokenId, status: fresh.get("status")},
+            {tokenId: redactToken(tokenId), status: fresh.get("status")},
           );
           return;
         }
@@ -165,11 +171,13 @@ export const resendInvite = onCall(
       // Email already sent — surface success to caller. Counter drift
       // is recoverable; a stuck owner can revoke + re-invite to reset.
       const msg = err instanceof Error ? err.message : String(err);
-      logger.error("resendInvite: post-send tx failed", {tokenId,
-        reason: msg});
+      logger.error("resendInvite: post-send tx failed", {
+        tokenId: redactToken(tokenId),
+        reason: msg,
+      });
     }
 
-    logger.info("resendInvite done", {tokenId, emailSendCount: newCount});
+    logger.info("resendInvite done", {emailSendCount: newCount});
     return {resent: true, emailSendCount: newCount};
   },
 );
