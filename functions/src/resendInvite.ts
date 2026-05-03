@@ -9,6 +9,7 @@ import {Resend} from "resend";
 
 import {denormalizeLastFirst, sanitizeDisplayName} from "./mailHeaders";
 import {
+  getAppName,
   resolveUrlBase,
   sendInvitationToNewUser,
 } from "./invitationMailer";
@@ -50,13 +51,6 @@ export const resendInvite = onCall(
         "tokenId must be a non-empty string.",
       );
     }
-
-    // Origin allowlist — same pattern as sendInvitationEmail. Spoofed
-    // or unknown origins fall back to prod so resend emails never
-    // ship a localhost or attacker-controlled URL.
-    const requestOrigin =
-      (request.rawRequest.headers.origin as string | undefined) ?? "";
-    const urlBase = resolveUrlBase(requestOrigin);
 
     const callerUid = request.auth.uid;
     const db = getFirestore();
@@ -104,11 +98,23 @@ export const resendInvite = onCall(
       (snap.get("inviterEmail") as string | undefined) ?? "";
     const modelName =
       (snap.get("modelName") as string | undefined) ?? "Untitled";
+    // Defensive: legacy invitations created before the multi-app
+    // generalization may have no appId field — assume spertahp.
+    const inviteAppId =
+      (snap.get("appId") as string | undefined) ?? "spertahp";
+    const appName = getAppName(inviteAppId);
+
+    // Origin allowlist — same pattern as sendInvitationEmail. Spoofed
+    // or unknown origins fall back to the per-app prod domain so
+    // resend emails never ship a localhost or attacker-controlled URL.
+    const requestOrigin =
+      (request.rawRequest.headers.origin as string | undefined) ?? "";
+    const urlBase = resolveUrlBase(requestOrigin, inviteAppId);
 
     const ownerName = denormalizeLastFirst(rawInviterName);
     const safeOwnerName = (() => {
       const sanitized = sanitizeDisplayName(ownerName);
-      return sanitized.length > 0 ? sanitized : "SPERT AHP user";
+      return sanitized.length > 0 ? sanitized : `${appName} user`;
     })();
     const safeModelName = sanitizeDisplayName(modelName);
 
@@ -123,6 +129,7 @@ export const resendInvite = onCall(
         safeModelName,
         tokenId,
         urlBase,
+        appName,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

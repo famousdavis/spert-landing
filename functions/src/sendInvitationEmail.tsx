@@ -19,6 +19,8 @@ import {
 import {AddedNotificationEmail} from "./emailTemplates";
 import {
   EXPIRATION_MS,
+  SUPPORTED_APP_IDS,
+  getAppName,
   resolveUrlBase,
   sendInvitationToNewUser,
 } from "./invitationMailer";
@@ -60,9 +62,13 @@ interface ResponseSlot {
 }
 
 /**
- * Build an empty response slot. Without this, the AHP client throws
- * "Response for {userId} not found" the first time the new
- * collaborator submits a judgment.
+ * Build an empty AHP response slot. Without this, the AHP client
+ * throws "Response for {userId} not found" the first time the new
+ * collaborator submits a judgment. AHP-specific — only written when
+ * the model document already carries a `collaborators` array (i.e.
+ * the AHP-shaped schema). Apps without that field (CFD) skip both
+ * the array push and the response slot — the universal members map
+ * mutation alone is sufficient.
  *
  * @param {string} uid New collaborator uid.
  * @return {ResponseSlot} Fresh in-progress slot.
@@ -92,7 +98,8 @@ function freshResponseSlot(uid: string): ResponseSlot {
  * @param {string} ownerEmail Owner email (used in reply-to).
  * @param {string} modelName Sanitized model name.
  * @param {"editor"|"viewer"} role Granted role.
- * @param {string} urlBase Base URL for the "Open SPERT AHP" CTA.
+ * @param {string} urlBase Base URL for the "Open SPERT app" CTA.
+ * @param {string} appName Human-readable app brand.
  * @return {Promise<void>}
  */
 async function maybeSendAddedNotification(
@@ -105,6 +112,7 @@ async function maybeSendAddedNotification(
   modelName: string,
   role: "editor" | "viewer",
   urlBase: string,
+  appName: string,
 ): Promise<void> {
   const db = getFirestore();
   const throttleRef = db
@@ -129,9 +137,9 @@ async function maybeSendAddedNotification(
   }
 
   const subject = sanitizeSubject(
-    `${ownerName} added you to ${modelName} in SPERT AHP`,
+    `${ownerName} added you to ${modelName} in ${appName}`,
   );
-  const fromName = ownerName.length > 0 ? ownerName : "SPERT AHP user";
+  const fromName = ownerName.length > 0 ? ownerName : `${appName} user`;
   const html = await render(
     <AddedNotificationEmail
       ownerName={ownerName}
@@ -153,7 +161,7 @@ async function maybeSendAddedNotification(
   );
 
   const {error} = await resend.emails.send({
-    from: `${fromName} via SPERT AHP <invitations@spertsuite.com>`,
+    from: `${fromName} via ${appName} <invitations@spertsuite.com>`,
     to: recipientEmail,
     replyTo: ownerEmail,
     subject: subject,
@@ -186,13 +194,6 @@ export const sendInvitationEmail = onCall(
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
 
-    // Origin allowlist — only trusted callers' origins are embedded
-    // into the email body. Spoofed/unknown origins fall back to prod
-    // so invitees never get redirected off-domain.
-    const requestOrigin =
-      (request.rawRequest.headers.origin as string | undefined) ?? "";
-    const urlBase = resolveUrlBase(requestOrigin);
-
     const data = request.data as SendRequest;
     const {appId, modelId, emails, role, isVoting} = data;
 
@@ -215,10 +216,10 @@ export const sendInvitationEmail = onCall(
         "isVoting must be a boolean.",
       );
     }
-    if (appId !== "spertahp") {
+    if (typeof appId !== "string" || !SUPPORTED_APP_IDS.has(appId)) {
       throw new HttpsError(
         "invalid-argument",
-        "appId must be \"spertahp\".",
+        "appId is not a supported SPERT app.",
       );
     }
     if (typeof modelId !== "string" || modelId.length === 0) {
@@ -228,6 +229,15 @@ export const sendInvitationEmail = onCall(
       );
     }
 
+    // Origin allowlist — only trusted callers' origins are embedded
+    // into the email body. Spoofed/unknown origins fall back to the
+    // app's prod domain so invitees never get redirected off-domain.
+    // Resolved AFTER appId validation so we always pass a valid id.
+    const requestOrigin =
+      (request.rawRequest.headers.origin as string | undefined) ?? "";
+    const urlBase = resolveUrlBase(requestOrigin, appId);
+    const appName = getAppName(appId);
+
     const callerUid = request.auth.uid;
     const rawCallerName = (request.auth.token.name as string | undefined) ??
       (request.auth.token.email as string | undefined) ?? "";
@@ -236,7 +246,8 @@ export const sendInvitationEmail = onCall(
       (request.auth.token.email as string | undefined) ?? "";
 
     const db = getFirestore();
-    const modelRef = db.collection("spertahp_projects").doc(modelId);
+    const projectsCollection = `${appId}_projects`;
+    const modelRef = db.collection(projectsCollection).doc(modelId);
     const modelSnap = await modelRef.get();
 
     if (!modelSnap.exists) {
@@ -263,7 +274,7 @@ export const sendInvitationEmail = onCall(
 
     const safeOwnerName = (() => {
       const sanitized = sanitizeDisplayName(callerName);
-      return sanitized.length > 0 ? sanitized : "SPERT AHP user";
+      return sanitized.length > 0 ? sanitized : `${appName} user`;
     })();
     const safeModelName = sanitizeDisplayName(modelName);
 
@@ -334,23 +345,38 @@ export const sendInvitationEmail = onCall(
                  m[inviteeUid] === "viewer")) {
               return "already-member";
             }
-            const existingCollab =
-              (fd.collaborators ?? []) as CollaboratorDoc[];
-            const filtered = existingCollab.filter(
-              (c) => c.userId !== inviteeUid,
-            );
-            filtered.push({userId: inviteeUid, role, isVoting});
 
+            // Universal: every supported app uses members.{uid} for
+            // access control. This single mutation is what cloud
+            // security rules + UI lookups read.
             const update: Record<string, unknown> = {
-              collaborators: filtered,
               [`members.${inviteeUid}`]: role,
               updatedAt: Date.now(),
             };
-            const responses =
-              (fd.responses ?? {}) as Record<string, unknown>;
-            if (!responses[inviteeUid]) {
-              update[`responses.${inviteeUid}`] = freshResponseSlot(inviteeUid);
+
+            // AHP-shaped schema only: maintain the embedded
+            // collaborators array AND seed an empty response slot so
+            // the new collaborator's first comparison submit doesn't
+            // throw. Detected by the presence of the `collaborators`
+            // field on the document — AHP always carries it; CFD and
+            // future apps without per-collaborator data do not.
+            if (fd.collaborators !== undefined) {
+              const existingCollab =
+                (fd.collaborators ?? []) as CollaboratorDoc[];
+              const filtered = existingCollab.filter(
+                (c) => c.userId !== inviteeUid,
+              );
+              filtered.push({userId: inviteeUid, role, isVoting});
+              update.collaborators = filtered;
+
+              const responses =
+                (fd.responses ?? {}) as Record<string, unknown>;
+              if (!responses[inviteeUid]) {
+                update[`responses.${inviteeUid}`] =
+                  freshResponseSlot(inviteeUid);
+              }
             }
+
             tx.update(modelRef, update);
             return "added";
           });
@@ -370,6 +396,7 @@ export const sendInvitationEmail = onCall(
             safeModelName,
             role,
             urlBase,
+            appName,
           );
           result.added.push(email);
         } else {
@@ -381,7 +408,7 @@ export const sendInvitationEmail = onCall(
             .collection("spertsuite_invitations")
             .doc(tokenId)
             .set({
-              appId: "spertahp",
+              appId: appId,
               modelId: modelId,
               modelName: modelName,
               inviteeEmail: email,
@@ -406,6 +433,7 @@ export const sendInvitationEmail = onCall(
             safeModelName,
             tokenId,
             urlBase,
+            appName,
           );
           result.invited.push(email);
         }

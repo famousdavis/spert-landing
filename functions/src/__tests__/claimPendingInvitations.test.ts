@@ -14,14 +14,20 @@ const queryChain = {
 };
 
 const fakeDoc = jest.fn();
+// Track which collection name `db.collection()` was last invoked with —
+// lets per-test assertions verify CFD vs AHP project routing.
+let lastCollectionName: string | null = null;
 
 const fakeDb = {
-  collection: jest.fn(() => ({
-    where: queryChain.where,
-    orderBy: queryChain.orderBy,
-    get: queryChain.get,
-    doc: fakeDoc,
-  })),
+  collection: jest.fn((name: string) => {
+    lastCollectionName = name;
+    return {
+      where: queryChain.where,
+      orderBy: queryChain.orderBy,
+      get: queryChain.get,
+      doc: fakeDoc,
+    };
+  }),
   runTransaction: jest.fn(async (fn: (tx: typeof fakeTx) => unknown) =>
     fn(fakeTx),
   ),
@@ -80,6 +86,7 @@ beforeEach(() => {
   fakeDoc.mockReset();
   fakeDb.collection.mockClear();
   fakeDb.runTransaction.mockClear();
+  lastCollectionName = null;
 });
 
 describe("claimPendingInvitations", () => {
@@ -141,6 +148,64 @@ describe("claimPendingInvitations", () => {
       inviteRef,
       expect.objectContaining({status: "accepted"}),
     );
+  });
+
+  it("CFD: claims with members.{uid} only — no collaborators or responses " +
+    "writes when model doc has no collaborators field",
+  async () => {
+    const inviteRef = {id: "tok-cfd"};
+    const inviteDoc = {
+      id: "tok-cfd",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "spertcfd",
+          modelId: "project-Z",
+          role: "editor",
+          isVoting: false,
+          modelName: "My CFD Project",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "project-Z"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        // CFD model doc shape — no `collaborators` field at all.
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+        }),
+      });
+
+    const out = await handler(makeReq());
+
+    expect(out.claimed).toEqual([
+      {appId: "spertcfd", modelId: "project-Z", modelName: "My CFD Project"},
+    ]);
+    // The model-update payload is the second arg to tx.update for the
+    // model ref. It must contain members.{uid} but MUST NOT contain
+    // collaborators or any responses.{uid} write.
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => c[0] === modelRef,
+    );
+    expect(modelUpdateCall).toBeDefined();
+    const update = modelUpdateCall![1] as Record<string, unknown>;
+    expect(update["members.uid-claim"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-claim"]).toBeUndefined();
+    // Routes to the CFD project collection.
+    expect(fakeDb.collection).toHaveBeenCalledWith("spertcfd_projects");
+    expect(lastCollectionName).toBe("spertcfd_projects");
   });
 
   it("idempotently accepts when caller is already a member", async () => {
@@ -226,27 +291,28 @@ describe("claimPendingInvitations", () => {
     );
   });
 
-  it("skips non-spertahp invitations without reading arbitrary collections",
-    async () => {
-      const inviteDoc = {
-        id: "tok-rogue",
-        ref: {id: "tok-rogue"},
-        get: (k: string) => (
-            {
-              appId: "evil_collection",
-              modelId: "x",
-              role: "editor",
-              isVoting: true,
-              modelName: "Rogue",
-              expiresAt: futureTs,
-            } as Record<string, unknown>
-        )[k],
-      };
-      queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+  it("skips unsupported-app invitations without reading arbitrary " +
+    "collections",
+  async () => {
+    const inviteDoc = {
+      id: "tok-rogue",
+      ref: {id: "tok-rogue"},
+      get: (k: string) => (
+          {
+            appId: "evil_collection",
+            modelId: "x",
+            role: "editor",
+            isVoting: true,
+            modelName: "Rogue",
+            expiresAt: futureTs,
+          } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
 
-      const out = await handler(makeReq());
+    const out = await handler(makeReq());
 
-      expect(out.claimed).toEqual([]);
-      expect(fakeDb.runTransaction).not.toHaveBeenCalled();
-    });
+    expect(out.claimed).toEqual([]);
+    expect(fakeDb.runTransaction).not.toHaveBeenCalled();
+  });
 });
