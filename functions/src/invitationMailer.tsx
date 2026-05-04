@@ -16,6 +16,7 @@ export const EXPIRATION_MS = EXPIRATION_DAYS * 86_400_000;
 export const SUPPORTED_APP_IDS = new Set<string>([
   "spertahp",
   "spertcfd",
+  "ganttapp",
 ]);
 
 // CFD's `next dev` defaults to port 3000 and walks up to 3001, 3002, …
@@ -26,6 +27,16 @@ const CFD_DEV_PORT_END = 3010;
 const cfdDevOrigins: string[] = [];
 for (let p = CFD_DEV_PORT_START; p <= CFD_DEV_PORT_END; p++) {
   cfdDevOrigins.push(`http://localhost:${p}`);
+}
+
+// GanttApp uses `next dev` with the same default port behavior as CFD.
+// Same range, listed under its own appId; no conflict because the
+// allowlists below are per-appId.
+const GANTTAPP_DEV_PORT_START = 3000;
+const GANTTAPP_DEV_PORT_END = 3010;
+const ganttappDevOrigins: string[] = [];
+for (let p = GANTTAPP_DEV_PORT_START; p <= GANTTAPP_DEV_PORT_END; p++) {
+  ganttappDevOrigins.push(`http://localhost:${p}`);
 }
 
 // Per-app origin allowlists. Calls whose Origin matches an entry get
@@ -43,6 +54,10 @@ export const ALLOWED_ORIGINS_BY_APP_ID: Record<string, Set<string>> = {
     "https://cfd.spertsuite.com",
     ...cfdDevOrigins,
   ]),
+  ganttapp: new Set<string>([
+    "https://ganttapp.spertsuite.com",
+    ...ganttappDevOrigins,
+  ]),
 };
 
 // Per-app prod fallbacks. Used when the Origin header is missing,
@@ -50,6 +65,7 @@ export const ALLOWED_ORIGINS_BY_APP_ID: Record<string, Set<string>> = {
 export const FALLBACK_BASE_BY_APP_ID: Record<string, string> = {
   spertahp: "https://ahp.spertsuite.com",
   spertcfd: "https://cfd.spertsuite.com",
+  ganttapp: "https://ganttapp.spertsuite.com",
 };
 
 // Last-resort fallback for unsupported appIds (should be impossible
@@ -60,6 +76,7 @@ export const DEFAULT_FALLBACK_BASE = "https://spertsuite.com";
 export const APP_NAMES_BY_APP_ID: Record<string, string> = {
   spertahp: "SPERT AHP",
   spertcfd: "SPERT CFD",
+  ganttapp: "GanttApp",
 };
 
 export const DEFAULT_APP_NAME = "SPERT";
