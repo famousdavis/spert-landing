@@ -259,6 +259,21 @@ describe("resendInvite happy path", () => {
     expect(fromAddr).not.toContain("via SPERT AHP");
   });
 
+  it("brands From-line as 'via GanttApp' for ganttapp invitations",
+    async () => {
+      invitationsDocGet.mockResolvedValueOnce(
+        inviteSnap({appId: "ganttapp"}),
+      );
+      fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "ganttapp"}));
+
+      await handler(makeReq());
+
+      const fromAddr = resendSend.mock.calls[0][0].from as string;
+      expect(fromAddr).toContain("via GanttApp");
+      expect(fromAddr).not.toContain("via SPERT AHP");
+      expect(fromAddr).not.toContain("via SPERT CFD");
+    });
+
   it("succeeds (no increment) if invite was revoked between pre-check and tx",
     async () => {
       invitationsDocGet.mockResolvedValueOnce(
@@ -344,6 +359,21 @@ describe("resendInvite urlBase resolution", () => {
     const calls = (mockedRender as jest.Mock).mock.calls;
     const element = calls[0][0] as { props: { urlBase: string } };
     expect(element.props.urlBase).toBe("https://cfd.spertsuite.com");
+  });
+
+  it("resolves ganttapp prod URL for unknown origin", async () => {
+    invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "ganttapp"}));
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "ganttapp"}));
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {render: mockedRender} = require("@react-email/render");
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq({origin: ""}));
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
+    const element = calls[0][0] as { props: { urlBase: string } };
+    expect(element.props.urlBase).toBe("https://ganttapp.spertsuite.com");
   });
 
   it("falls back to AHP prod when the origin is unknown", async () => {

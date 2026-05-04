@@ -208,6 +208,61 @@ describe("claimPendingInvitations", () => {
     expect(lastCollectionName).toBe("spertcfd_projects");
   });
 
+  it("ganttapp claim update omits collaborators and responses for " +
+    "members-only schema",
+  async () => {
+    const inviteRef = {id: "tok-gantt"};
+    const inviteDoc = {
+      id: "tok-gantt",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "ganttapp",
+          modelId: "project-G",
+          role: "editor",
+          isVoting: false,
+          modelName: "My Gantt Project",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "project-G"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        // GanttApp model doc shape — no `collaborators` field at all.
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+        }),
+      });
+
+    const out = await handler(makeReq());
+
+    expect(out.claimed).toEqual([
+      {appId: "ganttapp", modelId: "project-G", modelName: "My Gantt Project"},
+    ]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => c[0] === modelRef,
+    );
+    expect(modelUpdateCall).toBeDefined();
+    const update = modelUpdateCall![1] as Record<string, unknown>;
+    expect(update["members.uid-claim"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-claim"]).toBeUndefined();
+    // Routes to the GanttApp project collection.
+    expect(fakeDb.collection).toHaveBeenCalledWith("ganttapp_projects");
+    expect(lastCollectionName).toBe("ganttapp_projects");
+  });
+
   it("idempotently accepts when caller is already a member", async () => {
     const inviteRef = {id: "tok-2"};
     const inviteDoc = {
