@@ -316,8 +316,10 @@ describe("claimPendingInvitations", () => {
     const modelUpdateCall = fakeTx.update.mock.calls.find(
       (c) => c[0] === modelRef,
     );
-    expect(modelUpdateCall).toBeDefined();
-    const update = modelUpdateCall![1] as Record<string, unknown>;
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
     expect(update["members.uid-claim"]).toBe("editor");
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-claim"]).toBeUndefined();
