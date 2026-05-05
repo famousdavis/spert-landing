@@ -52,6 +52,7 @@ jest.mock("firebase-admin/firestore", () => {
   };
 });
 
+import {render as mockedRender} from "@react-email/render";
 import {resendInvite} from "../resendInvite";
 
 const handler = (
@@ -337,9 +338,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap());
     fakeTx.get.mockResolvedValueOnce(inviteSnap());
 
-    // Reach into the @react-email/render mock to inspect props.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "http://localhost:5176"}));
@@ -354,8 +352,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
     fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "http://localhost:3000"}));
@@ -369,8 +365,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
     fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "http://evil.com"}));
@@ -384,8 +378,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "ganttapp"}));
     fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "ganttapp"}));
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: ""}));
@@ -404,8 +396,6 @@ describe("resendInvite urlBase resolution", () => {
       inviteSnap({appId: "spertforecaster"}),
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "https://forecaster.spertsuite.com"}));
@@ -423,8 +413,6 @@ describe("resendInvite urlBase resolution", () => {
       inviteSnap({appId: "spertforecaster"}),
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "http://evil.com"}));
@@ -438,8 +426,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap());
     fakeTx.get.mockResolvedValueOnce(inviteSnap());
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "http://evil.com"}));
@@ -454,8 +440,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap());
     fakeTx.get.mockResolvedValueOnce(inviteSnap());
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq());
@@ -470,8 +454,6 @@ describe("resendInvite urlBase resolution", () => {
     invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: undefined}));
     fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: undefined}));
 
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const {render: mockedRender} = require("@react-email/render");
     (mockedRender as jest.Mock).mockClear();
 
     await handler(makeReq({origin: "http://evil.com"}));
