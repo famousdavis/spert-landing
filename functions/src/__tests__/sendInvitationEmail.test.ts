@@ -267,6 +267,26 @@ describe("sendInvitationEmail validation", () => {
     expect(lastProjectsCollection).toBe("spertcfd_projects");
   });
 
+  it("accepts spertforecaster as a valid appId", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // Forecaster project docs follow the same members-only schema as CFD
+    // and GanttApp — no `collaborators` array, no `responses` map.
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "MyForecasterProject",
+      }),
+    });
+    await expect(
+      handler(makeReq({dataOverrides: {appId: "spertforecaster"}})),
+    ).resolves.toMatchObject({invited: ["new@example.com"]});
+    expect(lastProjectsCollection).toBe("spertforecaster_projects");
+  });
+
   it("rejects empty modelId", async () => {
     await expect(
       handler(makeReq({dataOverrides: {modelId: ""}})),
@@ -488,6 +508,58 @@ describe("sendInvitationEmail happy paths", () => {
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-existing"]).toBeUndefined();
     expect(lastProjectsCollection).toBe("spertcfd_projects");
+  });
+
+  it("spertforecaster update contains members.{uid} but neither " +
+    "collaborators nor responses.{uid}",
+  async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // Pre-tx model doc — Forecaster shape, no collaborators.
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "MyForecasterProject",
+      }),
+    });
+    profilesQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{id: "uid-existing", data: () => ({})}],
+    });
+    // Branch A re-read — also no collaborators.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+      }),
+    });
+    // Throttle doc absent — notification will fire.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+
+    const out = await handler(makeReq({
+      dataOverrides: {
+        appId: "spertforecaster",
+        emails: ["existing@example.com"],
+      },
+    }));
+
+    expect(out.added).toEqual(["existing@example.com"]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
+        undefined,
+    );
+    expect(modelUpdateCall).toBeDefined();
+    const update = modelUpdateCall![1] as Record<string, unknown>;
+    expect(update["members.uid-existing"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-existing"]).toBeUndefined();
+    expect(lastProjectsCollection).toBe("spertforecaster_projects");
   });
 
   it("ganttapp update contains members.{uid} but neither collaborators " +

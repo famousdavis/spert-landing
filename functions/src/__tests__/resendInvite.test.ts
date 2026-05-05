@@ -259,6 +259,25 @@ describe("resendInvite happy path", () => {
     expect(fromAddr).not.toContain("via SPERT AHP");
   });
 
+  it("brands From-line as 'via SPERT Forecaster' for spertforecaster " +
+    "invitations",
+  async () => {
+    invitationsDocGet.mockResolvedValueOnce(
+      inviteSnap({appId: "spertforecaster"}),
+    );
+    fakeTx.get.mockResolvedValueOnce(
+      inviteSnap({appId: "spertforecaster"}),
+    );
+
+    await handler(makeReq());
+
+    const fromAddr = resendSend.mock.calls[0][0].from as string;
+    expect(fromAddr).toContain("via SPERT Forecaster");
+    expect(fromAddr).not.toContain("via SPERT AHP");
+    expect(fromAddr).not.toContain("via SPERT CFD");
+    expect(fromAddr).not.toContain("via GanttApp");
+  });
+
   it("brands From-line as 'via GanttApp' for ganttapp invitations",
     async () => {
       invitationsDocGet.mockResolvedValueOnce(
@@ -374,6 +393,45 @@ describe("resendInvite urlBase resolution", () => {
     const calls = (mockedRender as jest.Mock).mock.calls;
     const element = calls[0][0] as { props: { urlBase: string } };
     expect(element.props.urlBase).toBe("https://ganttapp.spertsuite.com");
+  });
+
+  it("Forecaster: uses an allowlisted Forecaster origin " +
+    "(forecaster.spertsuite.com)", async () => {
+    invitationsDocGet.mockResolvedValueOnce(
+      inviteSnap({appId: "spertforecaster"}),
+    );
+    fakeTx.get.mockResolvedValueOnce(
+      inviteSnap({appId: "spertforecaster"}),
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {render: mockedRender} = require("@react-email/render");
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq({origin: "https://forecaster.spertsuite.com"}));
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
+    const element = calls[0][0] as { props: { urlBase: string } };
+    expect(element.props.urlBase).toBe("https://forecaster.spertsuite.com");
+  });
+
+  it("resolves spertforecaster prod URL for unknown origin", async () => {
+    invitationsDocGet.mockResolvedValueOnce(
+      inviteSnap({appId: "spertforecaster"}),
+    );
+    fakeTx.get.mockResolvedValueOnce(
+      inviteSnap({appId: "spertforecaster"}),
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const {render: mockedRender} = require("@react-email/render");
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq({origin: "http://evil.com"}));
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
+    const element = calls[0][0] as { props: { urlBase: string } };
+    expect(element.props.urlBase).toBe("https://forecaster.spertsuite.com");
   });
 
   it("falls back to AHP prod when the origin is unknown", async () => {
