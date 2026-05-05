@@ -309,6 +309,25 @@ describe("sendInvitationEmail ownership", () => {
     });
   });
 
+  it("accepts owner with empty members map (Forecaster schema)", async () => {
+    // Regression for SPERT Forecaster v0.26.0 production bug: Forecaster's
+    // schema treats `owner` and `members` as orthogonal — owner UID lives in
+    // the top-level `owner` field only, never duplicated into `members`. The
+    // canonical owner check must trust the `owner` field alone.
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {},
+        name: "ForecasterProject",
+      }),
+    });
+    await expect(
+      handler(makeReq({dataOverrides: {appId: "spertforecaster"}})),
+    ).resolves.toMatchObject({invited: ["new@example.com"]});
+  });
+
   it("rejects when model doc is missing", async () => {
     projectsDocGet.mockResolvedValueOnce({exists: false, data: () => ({})});
     await expect(handler(makeReq())).rejects.toMatchObject({
