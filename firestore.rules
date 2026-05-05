@@ -14,6 +14,12 @@
 //     bulk enumeration while preserving the share-by-email lookup in
 //     SharingSection. See audit finding 3.6 Option B.
 //
+// GanttApp v0.21.0 (May 2026):
+//   - ganttapp_projects: list rule relaxed to `if isAuth()` only. The app
+//     now uses a constrained where(`members.${uid}`, 'in', [...]) query
+//     for server-side filtering. Same pattern as Story Map v0.14.3.
+//     See cloud-storage-guide/ARCHITECTURE.md §6.5 + §7.
+//
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
 //     spertsuite_notification_throttle: cross-app email invitation flow.
@@ -41,9 +47,13 @@ service cloud.firestore {
       return hasRoleGet(projectId, 'owner') || hasRoleGet(projectId, 'editor');
     }
     // ── GanttApp ─────────────────────────────────────────────
+    // v0.21.0: list rule relaxed to `if isAuth()`. App-side constrained
+    // query (where(`members.${uid}`, 'in', [...])) does the per-user
+    // filtering server-side. Rules cannot validate dynamic field paths
+    // in where() clauses, so list permission has to be authenticated-only.
+    // Matches the suite-wide canonical pattern.
     match /ganttapp_projects/{projectId} {
-      allow list: if isAuth() &&
-        request.auth.uid in resource.data.members;
+      allow list: if isAuth();
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
       allow create: if isAuth() &&
