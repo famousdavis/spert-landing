@@ -263,6 +263,65 @@ describe("claimPendingInvitations", () => {
     expect(lastCollectionName).toBe("ganttapp_projects");
   });
 
+  it("spertforecaster claim update omits collaborators and responses for " +
+    "members-only schema",
+  async () => {
+    const inviteRef = {id: "tok-forecaster"};
+    const inviteDoc = {
+      id: "tok-forecaster",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "spertforecaster",
+          modelId: "project-F",
+          role: "editor",
+          isVoting: false,
+          modelName: "My Forecaster Project",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "project-F"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        // Forecaster model doc shape — no `collaborators` field at all.
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+        }),
+      });
+
+    const out = await handler(makeReq());
+
+    expect(out.claimed).toEqual([
+      {
+        appId: "spertforecaster",
+        modelId: "project-F",
+        modelName: "My Forecaster Project",
+      },
+    ]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => c[0] === modelRef,
+    );
+    expect(modelUpdateCall).toBeDefined();
+    const update = modelUpdateCall![1] as Record<string, unknown>;
+    expect(update["members.uid-claim"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-claim"]).toBeUndefined();
+    // Routes to the Forecaster project collection.
+    expect(fakeDb.collection).toHaveBeenCalledWith("spertforecaster_projects");
+    expect(lastCollectionName).toBe("spertforecaster_projects");
+  });
+
   it("idempotently accepts when caller is already a member", async () => {
     const inviteRef = {id: "tok-2"};
     const inviteDoc = {

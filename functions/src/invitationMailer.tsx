@@ -17,6 +17,7 @@ export const SUPPORTED_APP_IDS = new Set<string>([
   "spertahp",
   "spertcfd",
   "ganttapp",
+  "spertforecaster",
 ]);
 
 // CFD's `next dev` defaults to port 3000 and walks up to 3001, 3002, …
@@ -39,6 +40,16 @@ for (let p = GANTTAPP_DEV_PORT_START; p <= GANTTAPP_DEV_PORT_END; p++) {
   ganttappDevOrigins.push(`http://localhost:${p}`);
 }
 
+// Forecaster uses `next dev` with the same default port behavior as CFD
+// and GanttApp. Same range, listed under its own appId; no conflict
+// because the allowlists below are per-appId.
+const FORECASTER_DEV_PORT_START = 3000;
+const FORECASTER_DEV_PORT_END = 3010;
+const forecasterDevOrigins: string[] = [];
+for (let p = FORECASTER_DEV_PORT_START; p <= FORECASTER_DEV_PORT_END; p++) {
+  forecasterDevOrigins.push(`http://localhost:${p}`);
+}
+
 // Per-app origin allowlists. Calls whose Origin matches an entry get
 // that origin embedded in the invitation email; everything else falls
 // through to the per-app prod fallback so a spoofed Origin header
@@ -58,6 +69,10 @@ export const ALLOWED_ORIGINS_BY_APP_ID: Record<string, Set<string>> = {
     "https://ganttapp.spertsuite.com",
     ...ganttappDevOrigins,
   ]),
+  spertforecaster: new Set<string>([
+    "https://forecaster.spertsuite.com",
+    ...forecasterDevOrigins,
+  ]),
 };
 
 // Per-app prod fallbacks. Used when the Origin header is missing,
@@ -66,6 +81,7 @@ export const FALLBACK_BASE_BY_APP_ID: Record<string, string> = {
   spertahp: "https://ahp.spertsuite.com",
   spertcfd: "https://cfd.spertsuite.com",
   ganttapp: "https://ganttapp.spertsuite.com",
+  spertforecaster: "https://forecaster.spertsuite.com",
 };
 
 // Last-resort fallback for unsupported appIds (should be impossible
@@ -77,6 +93,7 @@ export const APP_NAMES_BY_APP_ID: Record<string, string> = {
   spertahp: "SPERT AHP",
   spertcfd: "SPERT CFD",
   ganttapp: "GanttApp",
+  spertforecaster: "SPERT Forecaster",
 };
 
 export const DEFAULT_APP_NAME = "SPERT";
