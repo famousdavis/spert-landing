@@ -254,8 +254,13 @@ export const sendInvitationEmail = onCall(
       throw new HttpsError("not-found", "Model not found.");
     }
     const modelData = modelSnap.data() ?? {};
-    const members = (modelData.members ?? {}) as Record<string, string>;
-    if (modelData.owner !== callerUid || members[callerUid] !== "owner") {
+    // Canonical ownership lives in the `owner` field. Some apps (AHP, CFD,
+    // GanttApp) also duplicate the owner UID into the `members` map with
+    // role "owner" as a security-rule index; others (Forecaster) keep the
+    // members map for editors/viewers only and treat owner/members as
+    // orthogonal. Trust the canonical owner field — matches the inner
+    // transaction check below at the data-write boundary.
+    if (modelData.owner !== callerUid) {
       throw new HttpsError(
         "permission-denied",
         "Only the model owner can send invitations.",
