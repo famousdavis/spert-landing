@@ -502,8 +502,10 @@ describe("sendInvitationEmail happy paths", () => {
       (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
         undefined,
     );
-    expect(modelUpdateCall).toBeDefined();
-    const update = modelUpdateCall![1] as Record<string, unknown>;
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
     expect(update["members.uid-existing"]).toBe("editor");
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-existing"]).toBeUndefined();
@@ -554,8 +556,10 @@ describe("sendInvitationEmail happy paths", () => {
       (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
         undefined,
     );
-    expect(modelUpdateCall).toBeDefined();
-    const update = modelUpdateCall![1] as Record<string, unknown>;
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
     expect(update["members.uid-existing"]).toBe("editor");
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-existing"]).toBeUndefined();
@@ -606,8 +610,10 @@ describe("sendInvitationEmail happy paths", () => {
       (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
         undefined,
     );
-    expect(modelUpdateCall).toBeDefined();
-    const update = modelUpdateCall![1] as Record<string, unknown>;
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
     expect(update["members.uid-existing"]).toBe("editor");
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-existing"]).toBeUndefined();
