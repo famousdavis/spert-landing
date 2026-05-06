@@ -31,7 +31,7 @@ function TileContent({ app }: { app: AppInfo }) {
         style={{ backgroundColor: app.color }}
       />
       <div className="p-6">
-        <div className="mb-3 text-4xl">{app.icon}</div>
+        <div className="mb-3 text-4xl">{app.iconNode ?? app.icon}</div>
         <h2 className="mb-1 text-lg font-bold text-zinc-900 dark:text-zinc-100">
           {formatName(app.name)}
         </h2>
