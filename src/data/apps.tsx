@@ -1,12 +1,32 @@
+import type { ReactNode } from 'react';
+
 export interface AppInfo {
   name: string;
   description: string;
   url: string;
   icon: string;
+  iconNode?: ReactNode;
   color: string;
   external?: boolean; // defaults to true; set false for internal pages
   linkLabel?: string; // defaults to "Open App"
   category?: 'app' | 'support'; // defaults to 'app'
+}
+
+function GanttIcon() {
+  return (
+    <svg
+      width="36"
+      height="36"
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      role="img"
+    >
+      <rect x="2" y="5" width="14" height="4" rx="1" fill="#0891b2" />
+      <rect x="6" y="11" width="12" height="4" rx="1" fill="#0891b2" />
+      <rect x="10" y="17" width="10" height="4" rx="1" fill="#0891b2" />
+    </svg>
+  );
 }
 
 export const apps: AppInfo[] = [
@@ -31,6 +51,7 @@ export const apps: AppInfo[] = [
     description: 'Build and share a clear project timeline with uncertainty included.',
     url: 'https://ganttapp.spertsuite.com/',
     icon: '\uD83D\uDCCA',
+    iconNode: <GanttIcon />,
     color: '#0891b2',
     linkLabel: 'Build Your Timeline',
   },
