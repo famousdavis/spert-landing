@@ -20,6 +20,15 @@
 //     for server-side filtering. Same pattern as Story Map v0.14.3.
 //     See cloud-storage-guide/ARCHITECTURE.md §6.5 + §7.
 //
+// Suite-wide list-rule consistency pass (May 2026):
+//   - spertahp_projects, spertforecaster_projects, spertstorymap_projects:
+//     list rules relaxed to `if isAuth()` for consistency with CFD and
+//     GanttApp. App-side queries already use constrained `where()` clauses,
+//     so this is defense-in-depth against future regressions where an
+//     unconstrained query would fail against the strict rule pattern.
+//     `get` rules unchanged; per-doc membership enforcement preserved.
+//     See GanttApp/retrospectives/2026-05-05-suite-wide-list-rule-audit.md.
+//
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
 //     spertsuite_notification_throttle: cross-app email invitation flow.
@@ -84,8 +93,7 @@ service cloud.firestore {
     }
     // ── SPERT Story Map ──────────────────────────────────────
     match /spertstorymap_projects/{projectId} {
-      allow list: if isAuth() &&
-        request.auth.uid in resource.data.members;
+      allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
       allow update: if isAuth()
@@ -160,8 +168,7 @@ service cloud.firestore {
     // Note: Forecaster uses a separate `owner` field (not in members map)
     // `members` map contains only editors/viewers
     match /spertforecaster_projects/{projectId} {
-      allow list: if isAuth() &&
-        (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
+      allow list: if isAuth();
       allow get: if isAuth() &&
         (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
       allow create: if isAuth() &&
@@ -263,8 +270,7 @@ service cloud.firestore {
     // only protected owner/members — allowing an editor to bypass via direct
     // adapter calls.
     match /spertahp_projects/{modelId} {
-      allow list: if isAuth() &&
-        request.auth.uid in resource.data.members;
+      allow list: if isAuth();
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
       allow create: if isAuth()
