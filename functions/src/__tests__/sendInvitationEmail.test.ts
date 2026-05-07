@@ -287,6 +287,34 @@ describe("sendInvitationEmail validation", () => {
     expect(lastProjectsCollection).toBe("spertforecaster_projects");
   });
 
+  it("accepts owner with members-as-security-index (spertstorymap schema)",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      // Story Map's Firestore schema (Shape A): `members` doubles as the
+      // security index — every UID with access (including the owner and any
+      // editors) is enumerated in the map. The Cloud Function must trust the
+      // top-level `owner` field for the ownership check; the editor entry is
+      // present here purely to confirm a non-empty members map is accepted.
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {
+            "uid-owner": "owner",
+            "uid-editor": "editor",
+          },
+          name: "Test Story Map Project",
+          schemaVersion: 2,
+        }),
+      });
+      await expect(
+        handler(makeReq({dataOverrides: {appId: "spertstorymap"}})),
+      ).resolves.toMatchObject({invited: ["new@example.com"]});
+      expect(lastProjectsCollection).toBe("spertstorymap_projects");
+    });
+
   it("rejects empty modelId", async () => {
     await expect(
       handler(makeReq({dataOverrides: {modelId: ""}})),
@@ -583,6 +611,62 @@ describe("sendInvitationEmail happy paths", () => {
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-existing"]).toBeUndefined();
     expect(lastProjectsCollection).toBe("spertforecaster_projects");
+  });
+
+  it("spertstorymap update contains members.{uid} but neither " +
+    "collaborators nor responses.{uid}",
+  async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // Pre-tx model doc — Story Map shape (Shape A): owner field plus members
+    // map; no `collaborators` array, no `responses` map.
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        name: "Test Story Map Project",
+        schemaVersion: 2,
+      }),
+    });
+    profilesQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{id: "uid-existing", data: () => ({})}],
+    });
+    // Branch A re-read — also no collaborators.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+      }),
+    });
+    // Throttle doc absent — notification will fire.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+
+    const out = await handler(makeReq({
+      dataOverrides: {
+        appId: "spertstorymap",
+        emails: ["existing@example.com"],
+      },
+    }));
+
+    expect(out.added).toEqual(["existing@example.com"]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
+        undefined,
+    );
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
+    expect(update["members.uid-existing"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-existing"]).toBeUndefined();
+    expect(lastProjectsCollection).toBe("spertstorymap_projects");
   });
 
   it("ganttapp update contains members.{uid} but neither collaborators " +

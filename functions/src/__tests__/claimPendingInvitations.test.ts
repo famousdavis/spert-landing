@@ -328,6 +328,69 @@ describe("claimPendingInvitations", () => {
     expect(lastCollectionName).toBe("spertforecaster_projects");
   });
 
+  it("spertstorymap claim update omits collaborators and responses for " +
+    "members-as-security-index schema",
+  async () => {
+    const inviteRef = {id: "tok-storymap"};
+    const inviteDoc = {
+      id: "tok-storymap",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "spertstorymap",
+          modelId: "project-S",
+          role: "editor",
+          isVoting: false,
+          modelName: "My Story Map Project",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "project-S"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        // Story Map model doc shape (Shape A) — owner field plus members map
+        // doubling as the security index. No `collaborators`, no `responses`.
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          schemaVersion: 2,
+        }),
+      });
+
+    const out = await handler(makeReq());
+
+    expect(out.claimed).toEqual([
+      {
+        appId: "spertstorymap",
+        modelId: "project-S",
+        modelName: "My Story Map Project",
+      },
+    ]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => c[0] === modelRef,
+    );
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
+    expect(update["members.uid-claim"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-claim"]).toBeUndefined();
+    // Routes to the Story Map project collection.
+    expect(fakeDb.collection).toHaveBeenCalledWith("spertstorymap_projects");
+    expect(lastCollectionName).toBe("spertstorymap_projects");
+  });
+
   it("idempotently accepts when caller is already a member", async () => {
     const inviteRef = {id: "tok-2"};
     const inviteDoc = {

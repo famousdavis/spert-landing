@@ -294,6 +294,24 @@ describe("resendInvite happy path", () => {
       expect(fromAddr).not.toContain("via SPERT CFD");
     });
 
+  it("brands From-line as 'via SPERT® Story Map' for spertstorymap " +
+    "invitations",
+  async () => {
+    invitationsDocGet.mockResolvedValueOnce(
+      inviteSnap({appId: "spertstorymap"}),
+    );
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertstorymap"}));
+
+    await handler(makeReq());
+
+    const fromAddr = resendSend.mock.calls[0][0].from as string;
+    expect(fromAddr).toContain("via SPERT® Story Map");
+    expect(fromAddr).not.toContain("via SPERT AHP");
+    expect(fromAddr).not.toContain("via SPERT CFD");
+    expect(fromAddr).not.toContain("via SPERT Forecaster");
+    expect(fromAddr).not.toContain("via GanttApp");
+  });
+
   it("succeeds (no increment) if invite was revoked between pre-check and tx",
     async () => {
       invitationsDocGet.mockResolvedValueOnce(
