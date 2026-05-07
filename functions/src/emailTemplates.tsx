@@ -39,6 +39,7 @@ export interface InvitationEmailProps {
   tokenId: string;
   expirationDays: number;
   urlBase: string;
+  appName: string;
 }
 
 export function InvitationEmail({
@@ -48,6 +49,7 @@ export function InvitationEmail({
   tokenId,
   expirationDays,
   urlBase,
+  appName,
 }: InvitationEmailProps) {
   const url = `${urlBase}/?invite=${tokenId}`;
   return (
@@ -55,12 +57,12 @@ export function InvitationEmail({
       <Head />
       <Body>
         <Container style={containerStyle}>
-          <Heading>{ownerName} invited you to a SPERT AHP project</Heading>
+          <Heading>{ownerName} invited you to a {appName} project</Heading>
           <Text>
             {ownerName} ({ownerEmail}) added you as a collaborator on
             &quot;{modelName}&quot;.
           </Text>
-          <Button style={buttonStyle} href={url}>Open SPERT AHP</Button>
+          <Button style={buttonStyle} href={url}>Open {appName}</Button>
           <Text>
             <a href={url} style={linkStyle}>{url}</a>
           </Text>
@@ -81,6 +83,7 @@ export interface AddedNotificationEmailProps {
   modelName: string;
   role: "editor" | "viewer";
   urlBase: string;
+  appName: string;
 }
 
 export function AddedNotificationEmail({
@@ -89,6 +92,7 @@ export function AddedNotificationEmail({
   modelName,
   role,
   urlBase,
+  appName,
 }: AddedNotificationEmailProps) {
   const url = urlBase;
   return (
@@ -96,12 +100,12 @@ export function AddedNotificationEmail({
       <Head />
       <Body>
         <Container style={containerStyle}>
-          <Heading>You&apos;ve been added to a SPERT AHP project</Heading>
+          <Heading>You&apos;ve been added to a {appName} project</Heading>
           <Text>
             {ownerName} ({ownerEmail}) added you as a {role} on
-            &quot;{modelName}&quot;. Open SPERT AHP to participate.
+            &quot;{modelName}&quot;. Open {appName} to participate.
           </Text>
-          <Button style={buttonStyle} href={url}>Open SPERT AHP</Button>
+          <Button style={buttonStyle} href={url}>Open {appName}</Button>
           <Text>
             <a href={url} style={linkStyle}>{url}</a>
           </Text>

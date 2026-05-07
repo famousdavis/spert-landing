@@ -172,6 +172,7 @@ export async function sendInvitationToNewUser(
       tokenId={tokenId}
       expirationDays={EXPIRATION_DAYS}
       urlBase={urlBase}
+      appName={appName}
     />,
   );
   const text = await render(
@@ -182,6 +183,7 @@ export async function sendInvitationToNewUser(
       tokenId={tokenId}
       expirationDays={EXPIRATION_DAYS}
       urlBase={urlBase}
+      appName={appName}
     />,
     {plainText: true},
   );

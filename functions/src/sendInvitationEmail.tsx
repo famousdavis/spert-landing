@@ -147,6 +147,7 @@ async function maybeSendAddedNotification(
       modelName={modelName}
       role={role}
       urlBase={urlBase}
+      appName={appName}
     />,
   );
   const text = await render(
@@ -156,6 +157,7 @@ async function maybeSendAddedNotification(
       modelName={modelName}
       role={role}
       urlBase={urlBase}
+      appName={appName}
     />,
     {plainText: true},
   );
