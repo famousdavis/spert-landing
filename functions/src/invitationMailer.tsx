@@ -102,7 +102,7 @@ export const APP_NAMES_BY_APP_ID: Record<string, string> = {
   spertcfd: "SPERT CFD",
   ganttapp: "GanttApp",
   spertforecaster: "SPERT Forecaster",
-  spertstorymap: "SPERT® Story Map",
+  spertstorymap: "SPERT Story Map",
 };
 
 export const DEFAULT_APP_NAME = "SPERT";
