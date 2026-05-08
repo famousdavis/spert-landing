@@ -138,6 +138,29 @@ describe("InvitationEmail appName branding", () => {
       expect(text).not.toContain("GanttApp");
     });
 
+  it("renders the appName in heading and button for SPERT Scheduler",
+    () => {
+      // eslint-disable-next-line new-cap
+      const tree = InvitationEmail({
+        ownerName: "William W Davis",
+        ownerEmail: "wdavis@example.com",
+        modelName: "Q3 Construction Schedule",
+        tokenId: "tok123",
+        expirationDays: 30,
+        urlBase: "https://scheduler.spertsuite.com",
+        appName: "SPERT Scheduler",
+      });
+      const text = collectText(tree);
+      expect(text).toContain("invited you to a SPERT Scheduler project");
+      expect(text).toContain("Open SPERT Scheduler");
+      // No leakage of any other app's brand string.
+      expect(text).not.toContain("SPERT AHP");
+      expect(text).not.toContain("SPERT CFD");
+      expect(text).not.toContain("SPERT Forecaster");
+      expect(text).not.toContain("SPERT Story Map");
+      expect(text).not.toContain("GanttApp");
+    });
+
   it("renders the appName in the heading and button for SPERT CFD", () => {
     // Second case — confirms the rebrand isn't accidentally hardcoded to
     // any single app's name.
@@ -212,6 +235,30 @@ describe("AddedNotificationEmail appName branding", () => {
     expect(text).toContain("Open SPERT Story Map");
     expect(text).not.toContain("SPERT AHP");
     expect(text).not.toContain("SPERT CFD");
+  });
+
+  it("renders the appName in heading, body, and button for Scheduler", () => {
+    // eslint-disable-next-line new-cap
+    const tree = AddedNotificationEmail({
+      ownerName: "William W Davis",
+      ownerEmail: "wdavis@example.com",
+      modelName: "Q3 Construction Schedule",
+      role: "editor",
+      urlBase: "https://scheduler.spertsuite.com",
+      appName: "SPERT Scheduler",
+    });
+    const text = collectText(tree);
+    // Heading
+    expect(text).toContain("added to a SPERT Scheduler project");
+    // Body sentence
+    expect(text).toContain("Open SPERT Scheduler to participate");
+    // Button label
+    expect(text).toContain("Open SPERT Scheduler");
+    expect(text).not.toContain("SPERT AHP");
+    expect(text).not.toContain("SPERT CFD");
+    expect(text).not.toContain("SPERT Forecaster");
+    expect(text).not.toContain("SPERT Story Map");
+    expect(text).not.toContain("GanttApp");
   });
 
   it("renders the appName in heading, body, and button for SPERT CFD", () => {

@@ -112,9 +112,12 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == uid;
     }
     // ── SPERT Scheduler ──────────────────────────────────────
+    // v0.42.0: list rule relaxed to `if isAuth()` for suite-wide consistency
+    // with AHP, CFD, GanttApp, Forecaster, Story Map. App-side queries use
+    // a constrained where(`members.${uid}`, 'in', [...]) for server-side
+    // filtering. Mirrors the 2026-05-05 suite-wide list-rule audit.
     match /spertscheduler_projects/{projectId} {
-      allow list: if isAuth() &&
-        request.auth.uid in resource.data.members;
+      allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
       allow update: if isAuth()

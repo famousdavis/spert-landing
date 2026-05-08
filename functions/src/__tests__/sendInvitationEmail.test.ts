@@ -287,6 +287,30 @@ describe("sendInvitationEmail validation", () => {
     expect(lastProjectsCollection).toBe("spertforecaster_projects");
   });
 
+  it("accepts spertscheduler as a valid appId", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // Scheduler project docs follow Shape A — `members` map doubles as the
+    // security index. No `collaborators` array, no `responses` map (those
+    // are AHP-specific and must NOT appear in Scheduler fixtures).
+    const schedulerProjectFixture = {
+      owner: "uid-owner",
+      members: {"uid-owner": "owner"},
+      name: "MySchedulerProject",
+    } as Record<string, unknown>;
+    expect(schedulerProjectFixture.collaborators).toBeUndefined();
+    expect(schedulerProjectFixture.responses).toBeUndefined();
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => schedulerProjectFixture,
+    });
+    await expect(
+      handler(makeReq({dataOverrides: {appId: "spertscheduler"}})),
+    ).resolves.toMatchObject({invited: ["new@example.com"]});
+    expect(lastProjectsCollection).toBe("spertscheduler_projects");
+  });
+
   it("accepts owner with members-as-security-index (spertstorymap schema)",
     async () => {
       fakeTx.get.mockResolvedValueOnce({
@@ -667,6 +691,64 @@ describe("sendInvitationEmail happy paths", () => {
     expect(update.collaborators).toBeUndefined();
     expect(update["responses.uid-existing"]).toBeUndefined();
     expect(lastProjectsCollection).toBe("spertstorymap_projects");
+  });
+
+  it("spertscheduler update contains members.{uid} but neither " +
+    "collaborators nor responses.{uid}",
+  async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // Pre-tx model doc — Scheduler shape (Shape A): owner field plus members
+    // map; no `collaborators` array, no `responses` map.
+    const schedulerProjectFixture = {
+      owner: "uid-owner",
+      members: {"uid-owner": "owner"},
+      name: "Test Scheduler Project",
+    } as Record<string, unknown>;
+    expect(schedulerProjectFixture.collaborators).toBeUndefined();
+    expect(schedulerProjectFixture.responses).toBeUndefined();
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => schedulerProjectFixture,
+    });
+    profilesQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{id: "uid-existing", data: () => ({})}],
+    });
+    // Branch A re-read — also no collaborators.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+      }),
+    });
+    // Throttle doc absent — notification will fire.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+
+    const out = await handler(makeReq({
+      dataOverrides: {
+        appId: "spertscheduler",
+        emails: ["existing@example.com"],
+      },
+    }));
+
+    expect(out.added).toEqual(["existing@example.com"]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
+        undefined,
+    );
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
+    expect(update["members.uid-existing"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-existing"]).toBeUndefined();
+    expect(lastProjectsCollection).toBe("spertscheduler_projects");
   });
 
   it("ganttapp update contains members.{uid} but neither collaborators " +

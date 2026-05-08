@@ -391,6 +391,73 @@ describe("claimPendingInvitations", () => {
     expect(lastCollectionName).toBe("spertstorymap_projects");
   });
 
+  it("spertscheduler claim update omits collaborators and responses for " +
+    "members-as-security-index schema",
+  async () => {
+    const inviteRef = {id: "tok-scheduler"};
+    const inviteDoc = {
+      id: "tok-scheduler",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "spertscheduler",
+          modelId: "project-SCH",
+          role: "editor",
+          isVoting: false,
+          modelName: "My Scheduler Project",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "project-SCH"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    // Shape A fixture — owner field plus members map; no `collaborators`
+    // array, no `responses` map (those are AHP-specific and must NOT
+    // appear in Scheduler fixtures).
+    const schedulerProjectFixture = {
+      owner: "uid-owner",
+      members: {"uid-owner": "owner"},
+    } as Record<string, unknown>;
+    expect(schedulerProjectFixture.collaborators).toBeUndefined();
+    expect(schedulerProjectFixture.responses).toBeUndefined();
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => schedulerProjectFixture,
+      });
+
+    const out = await handler(makeReq());
+
+    expect(out.claimed).toEqual([
+      {
+        appId: "spertscheduler",
+        modelId: "project-SCH",
+        modelName: "My Scheduler Project",
+      },
+    ]);
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => c[0] === modelRef,
+    );
+    if (!modelUpdateCall) {
+      throw new Error("Expected modelUpdateCall to be defined");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
+    expect(update["members.uid-claim"]).toBe("editor");
+    expect(update.collaborators).toBeUndefined();
+    expect(update["responses.uid-claim"]).toBeUndefined();
+    // Routes to the Scheduler project collection.
+    expect(fakeDb.collection).toHaveBeenCalledWith("spertscheduler_projects");
+    expect(lastCollectionName).toBe("spertscheduler_projects");
+  });
+
   it("idempotently accepts when caller is already a member", async () => {
     const inviteRef = {id: "tok-2"};
     const inviteDoc = {
