@@ -19,6 +19,7 @@ export const SUPPORTED_APP_IDS = new Set<string>([
   "ganttapp",
   "spertforecaster",
   "spertstorymap",
+  "spertscheduler",
 ]);
 
 // CFD's `next dev` defaults to port 3000 and walks up to 3001, 3002, …
@@ -80,6 +81,12 @@ export const ALLOWED_ORIGINS_BY_APP_ID: Record<string, Set<string>> = {
     "https://storymap.spertsuite.com",
     "http://localhost:5173",
   ]),
+  // Scheduler is a Vite SPA; vite.config.ts has no port override so the dev
+  // server uses Vite's default 5173 (same as Story Map).
+  spertscheduler: new Set<string>([
+    "https://scheduler.spertsuite.com",
+    "http://localhost:5173",
+  ]),
 };
 
 // Per-app prod fallbacks. Used when the Origin header is missing,
@@ -90,6 +97,7 @@ export const FALLBACK_BASE_BY_APP_ID: Record<string, string> = {
   ganttapp: "https://ganttapp.spertsuite.com",
   spertforecaster: "https://forecaster.spertsuite.com",
   spertstorymap: "https://storymap.spertsuite.com",
+  spertscheduler: "https://scheduler.spertsuite.com",
 };
 
 // Last-resort fallback for unsupported appIds (should be impossible
@@ -103,6 +111,7 @@ export const APP_NAMES_BY_APP_ID: Record<string, string> = {
   ganttapp: "GanttApp",
   spertforecaster: "SPERT Forecaster",
   spertstorymap: "SPERT Story Map",
+  spertscheduler: "SPERT Scheduler",
 };
 
 export const DEFAULT_APP_NAME = "SPERT";
