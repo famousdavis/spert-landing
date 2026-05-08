@@ -311,6 +311,32 @@ describe("sendInvitationEmail validation", () => {
     expect(lastProjectsCollection).toBe("spertscheduler_projects");
   });
 
+  it("accepts myscrumbudget as a valid appId", async () => {
+    fakeTx.get.mockResolvedValueOnce({
+      exists: false, get: () => undefined,
+    });
+    // MyScrumBudget project docs follow Shape A — `members` map doubles as
+    // the security index (owner UID duplicated into `members` with role
+    // 'owner'; matches firestoreRepo.ts:151 in the MSB app). No
+    // `collaborators` array, no `responses` map (those are AHP-specific
+    // and must NOT appear in MSB fixtures).
+    const msbProjectFixture = {
+      owner: "uid-owner",
+      members: {"uid-owner": "owner"},
+      name: "MyMsbProject",
+    } as Record<string, unknown>;
+    expect(msbProjectFixture.collaborators).toBeUndefined();
+    expect(msbProjectFixture.responses).toBeUndefined();
+    projectsDocGet.mockResolvedValueOnce({
+      exists: true,
+      data: () => msbProjectFixture,
+    });
+    await expect(
+      handler(makeReq({dataOverrides: {appId: "myscrumbudget"}})),
+    ).resolves.toMatchObject({invited: ["new@example.com"]});
+    expect(lastProjectsCollection).toBe("myscrumbudget_projects");
+  });
+
   it("accepts owner with members-as-security-index (spertstorymap schema)",
     async () => {
       fakeTx.get.mockResolvedValueOnce({
