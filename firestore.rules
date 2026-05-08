@@ -21,13 +21,16 @@
 //     See cloud-storage-guide/ARCHITECTURE.md §6.5 + §7.
 //
 // Suite-wide list-rule consistency pass (May 2026):
-//   - spertahp_projects, spertforecaster_projects, spertstorymap_projects:
-//     list rules relaxed to `if isAuth()` for consistency with CFD and
-//     GanttApp. App-side queries already use constrained `where()` clauses,
-//     so this is defense-in-depth against future regressions where an
-//     unconstrained query would fail against the strict rule pattern.
-//     `get` rules unchanged; per-doc membership enforcement preserved.
+//   - spertahp_projects, spertforecaster_projects, spertstorymap_projects,
+//     spertscheduler_projects: list rules relaxed to `if isAuth()` for
+//     consistency with CFD and GanttApp. App-side queries already use
+//     constrained `where()` clauses, so this is defense-in-depth against
+//     future regressions where an unconstrained query would fail against
+//     the strict rule pattern. `get` rules unchanged; per-doc membership
+//     enforcement preserved.
 //     See GanttApp/retrospectives/2026-05-05-suite-wide-list-rule-audit.md.
+//   - spertscheduler_projects added to the relaxed set in v0.42.0 as a
+//     prerequisite for the suite-wide bulk-sharing invitation system.
 //
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
@@ -112,10 +115,11 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == uid;
     }
     // ── SPERT Scheduler ──────────────────────────────────────
-    // v0.42.0: list rule relaxed to `if isAuth()` for suite-wide consistency
-    // with AHP, CFD, GanttApp, Forecaster, Story Map. App-side queries use
-    // a constrained where(`members.${uid}`, 'in', [...]) for server-side
-    // filtering. Mirrors the 2026-05-05 suite-wide list-rule audit.
+    // v0.42.0: list rule relaxed to `if isAuth()` to match the suite-wide
+    // canonical pattern. App-side query uses constrained
+    // where(`members.${uid}`, 'in', ['owner','editor','viewer']) for
+    // server-side filtering. Required prerequisite for the bulk-sharing
+    // invitation system to discover existing users across the suite.
     match /spertscheduler_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
