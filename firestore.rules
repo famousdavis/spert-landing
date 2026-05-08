@@ -194,8 +194,7 @@ service cloud.firestore {
     }
     // ── MyScrumBudget ────────────────────────────────────────
     match /myscrumbudget_projects/{projectId} {
-      allow list: if isAuth() &&
-        request.auth.uid in resource.data.members;
+      allow list: if isAuth();
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
       allow create: if isAuth() &&
