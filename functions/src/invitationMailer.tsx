@@ -20,6 +20,7 @@ export const SUPPORTED_APP_IDS = new Set<string>([
   "spertforecaster",
   "spertstorymap",
   "spertscheduler",
+  "myscrumbudget",
 ]);
 
 // CFD's `next dev` defaults to port 3000 and walks up to 3001, 3002, …
@@ -50,6 +51,16 @@ const FORECASTER_DEV_PORT_END = 3010;
 const forecasterDevOrigins: string[] = [];
 for (let p = FORECASTER_DEV_PORT_START; p <= FORECASTER_DEV_PORT_END; p++) {
   forecasterDevOrigins.push(`http://localhost:${p}`);
+}
+
+// MyScrumBudget uses `next dev` with the same default port behavior as
+// CFD, GanttApp, and Forecaster. Same range, listed under its own
+// appId; no conflict because the allowlists below are per-appId.
+const MSB_DEV_PORT_START = 3000;
+const MSB_DEV_PORT_END = 3010;
+const msbDevOrigins: string[] = [];
+for (let p = MSB_DEV_PORT_START; p <= MSB_DEV_PORT_END; p++) {
+  msbDevOrigins.push(`http://localhost:${p}`);
 }
 
 // Per-app origin allowlists. Calls whose Origin matches an entry get
@@ -87,6 +98,10 @@ export const ALLOWED_ORIGINS_BY_APP_ID: Record<string, Set<string>> = {
     "https://scheduler.spertsuite.com",
     "http://localhost:5173",
   ]),
+  myscrumbudget: new Set<string>([
+    "https://myscrumbudget.spertsuite.com",
+    ...msbDevOrigins,
+  ]),
 };
 
 // Per-app prod fallbacks. Used when the Origin header is missing,
@@ -98,6 +113,7 @@ export const FALLBACK_BASE_BY_APP_ID: Record<string, string> = {
   spertforecaster: "https://forecaster.spertsuite.com",
   spertstorymap: "https://storymap.spertsuite.com",
   spertscheduler: "https://scheduler.spertsuite.com",
+  myscrumbudget: "https://myscrumbudget.spertsuite.com",
 };
 
 // Last-resort fallback for unsupported appIds (should be impossible
@@ -112,6 +128,7 @@ export const APP_NAMES_BY_APP_ID: Record<string, string> = {
   spertforecaster: "SPERT Forecaster",
   spertstorymap: "SPERT Story Map",
   spertscheduler: "SPERT Scheduler",
+  myscrumbudget: "MyScrumBudget",
 };
 
 export const DEFAULT_APP_NAME = "SPERT";
