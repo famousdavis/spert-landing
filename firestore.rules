@@ -95,10 +95,24 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == userId;
     }
     // ── SPERT Story Map ──────────────────────────────────────
+    // Story Map v0.29.2 security audit (M5 + L6/L7):
+    //   - create: bind top-level `owner` field to caller (matches the
+    //     pattern already used by Forecaster, CFD, AHP). Closes a footgun
+    //     where the members map said the caller was 'owner' but the
+    //     top-level `owner` could point to any other UID, breaking
+    //     driver-side guards (firestoreDriver.removeCollaborator Guard 2).
+    //   - profiles: replace `allow read` with `get` + limit(1)-constrained
+    //     `list`. Matches spertahp_profiles (v0.7.2 fix 3.6, Option B) and
+    //     spertsuite_profiles. Blocks bulk profile enumeration by any
+    //     authed SPERT user while preserving one-email-at-a-time lookups.
+    //     Companion app-side change: ProjectSharingPanel.tsx legacy
+    //     single-add query now includes limit(1).
     match /spertstorymap_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
-      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner';
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
@@ -108,7 +122,8 @@ service cloud.firestore {
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
     match /spertstorymap_profiles/{uid} {
-      allow read: if isAuth();
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == uid;
     }
     match /spertstorymap_settings/{uid} {
