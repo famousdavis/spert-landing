@@ -107,18 +107,48 @@ service cloud.firestore {
     //     authed SPERT user while preserving one-email-at-a-time lookups.
     //     Companion app-side change: ProjectSharingPanel.tsx legacy
     //     single-add query now includes limit(1).
+    //
+    // Story Map v0.29.3 security audit (M4):
+    //   - field allowlist on create + update via storyMapProjectFields().
+    //     Closes the gap where any signed-in editor/owner could write
+    //     arbitrary extra fields (1 MiB blobs, prototype-shaped keys,
+    //     fields the UI doesn't expect) into a project doc. Same defense-
+    //     in-depth pattern as spertscheduler_settings (v0.22.2) and
+    //     users (v0.22.2). On update we use `affectedKeys().hasOnly(...)`
+    //     rather than `keys().hasOnly(...)` so legacy docs with stale
+    //     unknown fields can still be edited (existing fields preserved;
+    //     no NEW unknown fields permitted). On create we use
+    //     `keys().hasOnly(...)` since createProduct writes a known
+    //     superset and any unknown key is unambiguously an attack.
+    //     Note: Firestore enforces a 1 MiB document size limit at the
+    //     platform layer; an explicit byte-size guard isn't expressible
+    //     in rules (`size()` on a map returns key count, not bytes), so
+    //     the field allowlist + the platform cap together provide the
+    //     coarse-grained size protection the audit asked for.
+    function storyMapProjectFields() {
+      return [
+        'name', 'description', 'createdAt', 'updatedAt',
+        'schemaVersion', 'sizeMapping',
+        'releases', 'sprints', 'sprintCadenceWeeks',
+        'themes', 'releaseCardOrder', 'sizingCardOrder',
+        '_originRef', '_changeLog', '_storageRef', '_exportedBy', '_exportedById',
+        'owner', 'members'
+      ];
+    }
     match /spertstorymap_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
-                    && request.resource.data.members[request.auth.uid] == 'owner';
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(storyMapProjectFields());
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(storyMapProjectFields());
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
     match /spertstorymap_profiles/{uid} {
