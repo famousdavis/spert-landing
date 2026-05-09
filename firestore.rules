@@ -20,6 +20,28 @@
 //     for server-side filtering. Same pattern as Story Map v0.14.3.
 //     See cloud-storage-guide/ARCHITECTURE.md §6.5 + §7.
 //
+// GanttApp v0.22.2 security audit (May 2026):
+//   - S1 (HIGH): ganttapp_profiles read rule was `if isAuth()`, permitting
+//     bulk enumeration of every GanttApp user's email/displayName/photoURL
+//     via a single client-side getDocs(collection(...)). Replaced with the
+//     canonical pattern (matches spertsuite_profiles, spertahp_profiles,
+//     spertstorymap_profiles): get is unrestricted-but-auth, list is
+//     limit(1)-constrained, write remains owner-of-doc.
+//   - S2 (M5): ganttapp_projects create rule did not bind the top-level
+//     `owner` field — an attacker could create a doc with members[self]
+//     = 'owner' but owner = some_other_uid, breaking driver-side guards
+//     downstream. Added `request.resource.data.owner == request.auth.uid`
+//     to match Story Map v0.29.2, Forecaster, CFD, AHP.
+//   - S4 (M4): ganttapp_projects + releases + snapshots now enforce a
+//     keys()/affectedKeys() allowlist on create/update. Closes the gap
+//     where any owner/editor could write arbitrary unknown fields (1 MiB
+//     blobs, prototype-shaped keys, fields the UI doesn't expect). Same
+//     pattern as Story Map v0.29.3 M4. Allowlist matches the fields
+//     written by projectToFirestoreMeta, releaseToFirestore, and
+//     snapshotToFirestore in GanttApp's firestore-converters.ts; if the
+//     app starts writing additional fields, this allowlist must be
+//     updated in lock-step.
+//
 // Suite-wide list-rule consistency pass (May 2026):
 //   - spertahp_projects, spertforecaster_projects, spertstorymap_projects,
 //     spertscheduler_projects: list rules relaxed to `if isAuth()` for
@@ -64,31 +86,95 @@ service cloud.firestore {
     // filtering server-side. Rules cannot validate dynamic field paths
     // in where() clauses, so list permission has to be authenticated-only.
     // Matches the suite-wide canonical pattern.
+    //
+    // v0.22.2 (S4 — field allowlists). Field lists must match the
+    // converters in src/shared/utils/firestore-converters.ts:
+    //   - ganttAppProjectFields()   ← projectToFirestoreMeta()
+    //   - ganttAppReleaseFields()   ← releaseToFirestore()
+    //   - ganttAppSnapshotFields()  ← snapshotToFirestore()
+    // If the converters start writing a new field, add it here in the
+    // same PR or the corresponding writes will start failing silently.
+    // chartColors / chartDisplaySettings are NOT on project docs — those
+    // live on ganttapp_settings/{uid} (separate collection rule below).
+    function ganttAppProjectFields() {
+      return [
+        'name', 'owner', 'members', 'finishDate', 'order',
+        'workDays', 'legendLabels',
+        'schemaVersion', 'createdAt', 'updatedAt',
+        '_originRef', '_changeLog'
+      ];
+    }
+    function ganttAppReleaseFields() {
+      return [
+        'name', 'startDate', 'earlyFinishDate', 'lateFinishDate',
+        'hidden', 'status', 'mostLikelyFinishDate', 'order'
+      ];
+    }
+    function ganttAppSnapshotFields() {
+      return [
+        'name', 'timestamp', 'releases',
+        'projectFinishDate', 'chartColors', 'legendLabels', 'preparedBy'
+      ];
+    }
     match /ganttapp_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
-      allow create: if isAuth() &&
-        request.resource.data.members[request.auth.uid] == 'owner';
+      // v0.22.2 (S2): bind top-level `owner` field to the caller's UID on
+      // create. Previously the rule only required `members[uid] == 'owner'`,
+      // permitting a malicious client to set `owner: someone_else_uid` while
+      // claiming the owner slot in the members map. Same Shape A guarantee
+      // as Story Map v0.29.2 / Forecaster / CFD / AHP.
+      // v0.22.2 (S4): keys().hasOnly() allowlist — any unknown key on a new
+      // doc is unambiguously an attack and must be rejected.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(ganttAppProjectFields());
+      // v0.22.2 (S4): affectedKeys().hasOnly() allowlist on update. We use
+      // affectedKeys() rather than keys() so legacy docs with stale unknown
+      // fields can still be edited (existing fields preserved; no NEW
+      // unknown fields permitted) — same pattern as Story Map M4.
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ganttAppProjectFields());
       allow delete: if isAuth() &&
         resource.data.members[request.auth.uid] == 'owner';
+      // v0.22.2 (S4): split `allow write` into create + update + delete so
+      // we can apply the field allowlist on create/update without affecting
+      // delete (which has no resource.data to allowlist against on the
+      // request side).
       match /releases/{releaseId} {
         allow read: if isMemberGet(projectId);
-        allow write: if canWriteGet(projectId);
+        allow create: if canWriteGet(projectId)
+                      && request.resource.data.keys().hasOnly(ganttAppReleaseFields());
+        allow update: if canWriteGet(projectId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ganttAppReleaseFields());
+        allow delete: if canWriteGet(projectId);
       }
       match /snapshots/{snapshotId} {
         allow read: if isMemberGet(projectId);
-        allow write: if canWriteGet(projectId);
+        allow create: if canWriteGet(projectId)
+                      && request.resource.data.keys().hasOnly(ganttAppSnapshotFields());
+        allow update: if canWriteGet(projectId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ganttAppSnapshotFields());
+        allow delete: if canWriteGet(projectId);
       }
     }
+    // v0.22.2 (S1): replaced `allow read: if isAuth()` with get +
+    // limit(1)-constrained list. Blocks bulk profile enumeration by any
+    // authenticated SPERT user (shared auth tenant). Matches
+    // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles.
+    // The companion app-side change deletes the legacy single-email
+    // shareProject() helper (which did a full-collection getDocs scan)
+    // along with the unreachable INVITATIONS_ENABLED-off panel.
     match /ganttapp_profiles/{userId} {
-      allow read: if isAuth();
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == userId;
     }
     match /ganttapp_settings/{userId} {
