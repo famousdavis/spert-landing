@@ -165,11 +165,22 @@ export function getAppName(appId: string): string {
  * sendInvitationEmail (Branch B — first send to a new user) and by
  * resendInvite (owner clicked Resend on a pending invitation).
  *
+ * Two pairs of name parameters because header quoting and visible-text
+ * quoting are different concerns:
+ *  - headerOwnerName goes only into the From header and must be RFC 5322
+ *    quoted when it contains specials (commas in "Last, First", etc.).
+ *  - displayOwnerName / displayModelName flow into the rendered subject
+ *    and email body. They are CRLF-stripped (header-injection defense)
+ *    but never RFC-quoted, so the React-Email body's literal `"…"`
+ *    wrapper is the sole source of visible quotes around the project
+ *    name. Mixing the two produced double-quoted project names in v0.29.
+ *
  * @param {Resend} resend Resend client.
  * @param {string} recipientEmail Recipient address.
- * @param {string} ownerName Sanitized owner display name.
+ * @param {string} headerOwnerName RFC 5322-quoted owner name (From header).
+ * @param {string} displayOwnerName Display-safe owner name (subject + body).
  * @param {string} ownerEmail Owner email (used in reply-to).
- * @param {string} modelName Sanitized model name.
+ * @param {string} displayModelName Display-safe model name (subject + body).
  * @param {string} tokenId Invitation token id.
  * @param {string} urlBase Base URL for the claim link.
  * @param {string} appName Human-readable app brand (e.g. "SPERT CFD").
@@ -178,23 +189,25 @@ export function getAppName(appId: string): string {
 export async function sendInvitationToNewUser(
   resend: Resend,
   recipientEmail: string,
-  ownerName: string,
+  headerOwnerName: string,
+  displayOwnerName: string,
   ownerEmail: string,
-  modelName: string,
+  displayModelName: string,
   tokenId: string,
   urlBase: string,
   appName: string,
 ): Promise<void> {
   const subject = sanitizeSubject(
-    `${ownerName} invited you to ${modelName} in ${appName}`,
+    `${displayOwnerName} invited you to "${displayModelName}" in ${appName}`,
   );
-  const fromName = ownerName.length > 0 ? ownerName : `${appName} user`;
+  const fromName =
+    headerOwnerName.length > 0 ? headerOwnerName : `${appName} user`;
 
   const html = await render(
     <InvitationEmail
-      ownerName={ownerName}
+      ownerName={displayOwnerName}
       ownerEmail={ownerEmail}
-      modelName={modelName}
+      modelName={displayModelName}
       tokenId={tokenId}
       expirationDays={EXPIRATION_DAYS}
       urlBase={urlBase}
@@ -203,9 +216,9 @@ export async function sendInvitationToNewUser(
   );
   const text = await render(
     <InvitationEmail
-      ownerName={ownerName}
+      ownerName={displayOwnerName}
       ownerEmail={ownerEmail}
-      modelName={modelName}
+      modelName={displayModelName}
       tokenId={tokenId}
       expirationDays={EXPIRATION_DAYS}
       urlBase={urlBase}

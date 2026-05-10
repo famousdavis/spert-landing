@@ -56,3 +56,17 @@ export function denormalizeLastFirst(s: string): string {
 export function sanitizeSubject(s: string): string {
   return s.replace(/[\r\n]/g, "");
 }
+
+/**
+ * Strip CRLF from a value bound for visible email content (subject body
+ * text, React-Email template props). This is the display-safe sanitizer:
+ * it provides header-injection defense without the RFC 5322 quoting that
+ * sanitizeDisplayName applies. Use sanitizeDisplayName for values that
+ * flow into the From header; use this for values rendered to humans.
+ *
+ * @param {string} s Raw user-controlled string.
+ * @return {string} Same string with CR and LF removed.
+ */
+export function stripCrlf(s: string): string {
+  return s.replace(/[\r\n]/g, "");
+}

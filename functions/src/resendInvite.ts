@@ -7,7 +7,11 @@ import {defineSecret} from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import {Resend} from "resend";
 
-import {denormalizeLastFirst, sanitizeDisplayName} from "./mailHeaders";
+import {
+  denormalizeLastFirst,
+  sanitizeDisplayName,
+  stripCrlf,
+} from "./mailHeaders";
 import {
   getAppName,
   resolveUrlBase,
@@ -112,11 +116,16 @@ export const resendInvite = onCall(
     const urlBase = resolveUrlBase(requestOrigin, inviteAppId);
 
     const ownerName = denormalizeLastFirst(rawInviterName);
-    const safeOwnerName = (() => {
-      const sanitized = sanitizeDisplayName(ownerName);
-      return sanitized.length > 0 ? sanitized : `${appName} user`;
+    // displayOwnerName / displayModelName: visible-text safe (CRLF stripped
+    // only). safeOwnerName: RFC 5322-quoted form for the From header. We keep
+    // both pairs because mixing them caused the v0.29 double-quoted project
+    // name regression — see invitationMailer.tsx sendInvitationToNewUser.
+    const displayOwnerName = (() => {
+      const stripped = stripCrlf(ownerName);
+      return stripped.length > 0 ? stripped : `${appName} user`;
     })();
-    const safeModelName = sanitizeDisplayName(modelName);
+    const safeOwnerName = sanitizeDisplayName(displayOwnerName);
+    const displayModelName = stripCrlf(modelName);
 
     const resend = new Resend(resendApiKey.value());
 
@@ -125,8 +134,9 @@ export const resendInvite = onCall(
         resend,
         inviteeEmail,
         safeOwnerName,
+        displayOwnerName,
         inviterEmail,
-        safeModelName,
+        displayModelName,
         tokenId,
         urlBase,
         appName,

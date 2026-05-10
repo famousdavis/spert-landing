@@ -2,6 +2,7 @@ import {
   denormalizeLastFirst,
   sanitizeDisplayName,
   sanitizeSubject,
+  stripCrlf,
 } from "../mailHeaders";
 
 describe("sanitizeDisplayName", () => {
@@ -69,6 +70,27 @@ describe("denormalizeLastFirst", () => {
     // "Davis," → after split/trim/filter → ["Davis"] → length < 2 →
     // returns s.trim() unchanged.
     expect(denormalizeLastFirst("Davis,")).toBe("Davis,");
+  });
+});
+
+describe("stripCrlf", () => {
+  it("passes plain ASCII through unchanged", () => {
+    expect(stripCrlf("Virtual Art Museum")).toBe("Virtual Art Museum");
+  });
+
+  it("preserves RFC 5322 specials without quoting (display-safe, not " +
+    "header-safe)", () => {
+    // Unlike sanitizeDisplayName, stripCrlf does NOT wrap commas in
+    // quotes. It is meant for visible body/subject text where the
+    // React-Email template's literal &quot;…&quot; is the sole source
+    // of any visible quoting.
+    expect(stripCrlf("Thomas, Jenny")).toBe("Thomas, Jenny");
+    expect(stripCrlf("a\"b\\c,")).toBe("a\"b\\c,");
+  });
+
+  it("strips CR and LF (header-injection defense)", () => {
+    expect(stripCrlf("Alice\r\nBcc: x@y.com")).toBe("AliceBcc: x@y.com");
+    expect(stripCrlf("line1\rline2\nline3")).toBe("line1line2line3");
   });
 });
 
