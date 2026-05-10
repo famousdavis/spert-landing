@@ -20,27 +20,29 @@
 //     for server-side filtering. Same pattern as Story Map v0.14.3.
 //     See cloud-storage-guide/ARCHITECTURE.md §6.5 + §7.
 //
-// GanttApp v0.22.2 security audit (May 2026):
+// GanttApp v0.22.2 (May 2026) — security audit:
 //   - S1 (HIGH): ganttapp_profiles read rule was `if isAuth()`, permitting
 //     bulk enumeration of every GanttApp user's email/displayName/photoURL
-//     via a single client-side getDocs(collection(...)). Replaced with the
+//     via a single getDocs(collection(...)) call. Replaced with the
 //     canonical pattern (matches spertsuite_profiles, spertahp_profiles,
-//     spertstorymap_profiles): get is unrestricted-but-auth, list is
-//     limit(1)-constrained, write remains owner-of-doc.
+//     spertstorymap_profiles): get is auth-only, list is limit(1)-
+//     constrained, write remains owner-of-doc.
 //   - S2 (M5): ganttapp_projects create rule did not bind the top-level
 //     `owner` field — an attacker could create a doc with members[self]
-//     = 'owner' but owner = some_other_uid, breaking driver-side guards
-//     downstream. Added `request.resource.data.owner == request.auth.uid`
-//     to match Story Map v0.29.2, Forecaster, CFD, AHP.
+//     == 'owner' but owner == some_other_uid, breaking driver-side guards.
+//     Added `request.resource.data.owner == request.auth.uid` to match
+//     Story Map v0.29.2 / Forecaster / CFD / AHP.
 //   - S4 (M4): ganttapp_projects + releases + snapshots now enforce a
-//     keys()/affectedKeys() allowlist on create/update. Closes the gap
-//     where any owner/editor could write arbitrary unknown fields (1 MiB
-//     blobs, prototype-shaped keys, fields the UI doesn't expect). Same
-//     pattern as Story Map v0.29.3 M4. Allowlist matches the fields
-//     written by projectToFirestoreMeta, releaseToFirestore, and
-//     snapshotToFirestore in GanttApp's firestore-converters.ts; if the
-//     app starts writing additional fields, this allowlist must be
-//     updated in lock-step.
+//     keys()/affectedKeys() allowlist on create/update via three helper
+//     functions. Allowlists match the converters in
+//     src/shared/utils/firestore-converters.ts (projectToFirestoreMeta /
+//     releaseToFirestore / snapshotToFirestore); if the converters start
+//     writing a new field, the allowlist must be updated in lock-step.
+//   - Companion app-side change ships as GanttApp v0.22.2: deletes the
+//     legacy single-email shareProject() helper (which performed the
+//     unbounded getDocs scan blocked by S1) plus the dead FirestoreDriver
+//     class. App-code is independent of this deploy and would not have
+//     caused live failures even if shipped first.
 //
 // Suite-wide list-rule consistency pass (May 2026):
 //   - spertahp_projects, spertforecaster_projects, spertstorymap_projects,
@@ -53,6 +55,30 @@
 //     See GanttApp/retrospectives/2026-05-05-suite-wide-list-rule-audit.md.
 //   - spertscheduler_projects added to the relaxed set in v0.42.0 as a
 //     prerequisite for the suite-wide bulk-sharing invitation system.
+//
+// SPERT Scheduler v0.42.6 (May 2026) — security audit:
+//   - H1 (M5 pattern): spertscheduler_projects create rule did not bind
+//     the top-level `owner` field. Scheduler was the last major app with
+//     this gap open after Story Map v0.29.2 / GanttApp v0.22.2 / AHP /
+//     CFD / Forecaster all closed it. Added
+//     `request.resource.data.owner == request.auth.uid` to the create
+//     rule to prevent split-state attacks where members[self] == 'owner'
+//     but the top-level `owner` points elsewhere (would break
+//     firestore-driver.ts:411 removeCollaborator Guard 2).
+//   - H2 (M4 pattern): spertscheduler_projects create + update did not
+//     enforce a field allowlist. Added spertSchedulerProjectFields()
+//     helper and keys()/affectedKeys().hasOnly() guards. Allowlist must
+//     stay in sync with src/domain/schemas/project.schema.ts ProjectSchema
+//     (the 13 schema-defined keys) plus the driver-added `members` and
+//     `updatedAt`. If ProjectSchema gains a field, this allowlist must be
+//     updated in the same PR or saves will fail silently.
+//   - H3 (L1/L6/L7 pattern): spertscheduler_profiles read rule was
+//     `if isAuth()`, permitting bulk enumeration of every Scheduler
+//     user's email/displayName/photoURL. Split into auth-only `get` and
+//     limit(1)-constrained `list`, matching spertsuite_profiles,
+//     spertahp_profiles, spertstorymap_profiles, ganttapp_profiles.
+//     Companion app-side fix in v0.42.6: src/infrastructure/firebase/
+//     firestore-sharing.ts findUserByEmail() query now includes limit(1).
 //
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
@@ -120,11 +146,7 @@ service cloud.firestore {
       allow list: if isAuth();
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
-      // v0.22.2 (S2): bind top-level `owner` field to the caller's UID on
-      // create. Previously the rule only required `members[uid] == 'owner'`,
-      // permitting a malicious client to set `owner: someone_else_uid` while
-      // claiming the owner slot in the members map. Same Shape A guarantee
-      // as Story Map v0.29.2 / Forecaster / CFD / AHP.
+      // v0.22.2 (S2): bind top-level `owner` field to caller's UID.
       // v0.22.2 (S4): keys().hasOnly() allowlist — any unknown key on a new
       // doc is unambiguously an attack and must be rejected.
       allow create: if isAuth()
@@ -134,7 +156,7 @@ service cloud.firestore {
       // v0.22.2 (S4): affectedKeys().hasOnly() allowlist on update. We use
       // affectedKeys() rather than keys() so legacy docs with stale unknown
       // fields can still be edited (existing fields preserved; no NEW
-      // unknown fields permitted) — same pattern as Story Map M4.
+      // unknown fields permitted).
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
@@ -169,9 +191,8 @@ service cloud.firestore {
     // limit(1)-constrained list. Blocks bulk profile enumeration by any
     // authenticated SPERT user (shared auth tenant). Matches
     // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles.
-    // The companion app-side change deletes the legacy single-email
-    // shareProject() helper (which did a full-collection getDocs scan)
-    // along with the unreachable INVITATIONS_ENABLED-off panel.
+    // Companion app-side change deletes the legacy single-email
+    // shareProject() helper (which did a full-collection getDocs scan).
     match /ganttapp_profiles/{userId} {
       allow get: if isAuth();
       allow list: if isAuth() && request.query.limit <= 1;
@@ -193,48 +214,18 @@ service cloud.firestore {
     //     authed SPERT user while preserving one-email-at-a-time lookups.
     //     Companion app-side change: ProjectSharingPanel.tsx legacy
     //     single-add query now includes limit(1).
-    //
-    // Story Map v0.29.3 security audit (M4):
-    //   - field allowlist on create + update via storyMapProjectFields().
-    //     Closes the gap where any signed-in editor/owner could write
-    //     arbitrary extra fields (1 MiB blobs, prototype-shaped keys,
-    //     fields the UI doesn't expect) into a project doc. Same defense-
-    //     in-depth pattern as spertscheduler_settings (v0.22.2) and
-    //     users (v0.22.2). On update we use `affectedKeys().hasOnly(...)`
-    //     rather than `keys().hasOnly(...)` so legacy docs with stale
-    //     unknown fields can still be edited (existing fields preserved;
-    //     no NEW unknown fields permitted). On create we use
-    //     `keys().hasOnly(...)` since createProduct writes a known
-    //     superset and any unknown key is unambiguously an attack.
-    //     Note: Firestore enforces a 1 MiB document size limit at the
-    //     platform layer; an explicit byte-size guard isn't expressible
-    //     in rules (`size()` on a map returns key count, not bytes), so
-    //     the field allowlist + the platform cap together provide the
-    //     coarse-grained size protection the audit asked for.
-    function storyMapProjectFields() {
-      return [
-        'name', 'description', 'createdAt', 'updatedAt',
-        'schemaVersion', 'sizeMapping',
-        'releases', 'sprints', 'sprintCadenceWeeks',
-        'themes', 'releaseCardOrder', 'sizingCardOrder',
-        '_originRef', '_changeLog', '_storageRef', '_exportedBy', '_exportedById',
-        'owner', 'members'
-      ];
-    }
     match /spertstorymap_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
-                    && request.resource.data.members[request.auth.uid] == 'owner'
-                    && request.resource.data.keys().hasOnly(storyMapProjectFields());
+                    && request.resource.data.members[request.auth.uid] == 'owner';
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    )
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(storyMapProjectFields());
+                    );
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
     match /spertstorymap_profiles/{uid} {
@@ -251,20 +242,65 @@ service cloud.firestore {
     // where(`members.${uid}`, 'in', ['owner','editor','viewer']) for
     // server-side filtering. Required prerequisite for the bulk-sharing
     // invitation system to discover existing users across the suite.
+    //
+    // v0.42.6 (H2 — field allowlist). The list below MUST stay in sync
+    // with src/domain/schemas/project.schema.ts ProjectSchema (the
+    // 13 schema-defined keys) plus the cloud-only fields written by
+    // src/infrastructure/firebase/firestore-driver.ts:
+    //   - schema-defined: name, createdAt, schemaVersion, owner,
+    //     globalCalendarOverride, convertedWorkDays, targetFinishDate,
+    //     showTargetOnGantt, showActivityIds, ganttAppearance, scenarios,
+    //     archived, tileColor
+    //   - driver-only: members (set in create() at line 213), updatedAt
+    //     (serverTimestamp on every save at line 264)
+    //   - intentionally omitted: id (the doc id, destructured out before
+    //     setDoc at firestore-driver.ts:207 and 260)
+    // If ProjectSchema gains a field OR the driver starts writing a new
+    // field, add it here in the SAME PR or saves will fail silently with
+    // PERMISSION_DENIED on the client (caught and logged in
+    // firestore-driver.ts:280).
+    function spertSchedulerProjectFields() {
+      return [
+        'name', 'owner', 'members',
+        'schemaVersion', 'createdAt', 'updatedAt',
+        'scenarios', 'globalCalendarOverride', 'convertedWorkDays',
+        'targetFinishDate', 'showTargetOnGantt', 'showActivityIds',
+        'ganttAppearance', 'archived', 'tileColor'
+      ];
+    }
     match /spertscheduler_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
-      allow create: if isAuth() && request.resource.data.members[request.auth.uid] == 'owner';
+      // v0.42.6 (H1): bind top-level `owner` field to caller's UID.
+      // v0.42.6 (H2): keys().hasOnly() allowlist on create.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(spertSchedulerProjectFields());
+      // v0.42.6 (H2): affectedKeys().hasOnly() allowlist on update. Uses
+      // affectedKeys() not keys() so legacy docs with stale unknown fields
+      // can still be edited (existing fields preserved; no NEW unknown
+      // fields permitted on the diff).
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertSchedulerProjectFields());
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
+    // v0.42.6 (H3): replaced `allow read: if isAuth()` with get +
+    // limit(1)-constrained list. Blocks bulk profile enumeration by any
+    // authenticated SPERT user (shared auth tenant). Matches
+    // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles /
+    // ganttapp_profiles. Companion app-side fix in v0.42.6:
+    // src/infrastructure/firebase/firestore-sharing.ts findUserByEmail()
+    // query now includes limit(1) so the app-side path stays correct
+    // even if this rule is regressed in the future.
     match /spertscheduler_profiles/{userId} {
-      allow read: if isAuth();
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == userId;
     }
     // v0.22.2 security fix (L2): added hasOnly() to prevent arbitrary field writes
@@ -456,6 +492,23 @@ service cloud.firestore {
     // invitee branch protects against unverified email-password Firebase
     // Auth identities (irrelevant today since SPERT only uses Google +
     // Microsoft OAuth, but durable against future provider expansion).
+    //
+    // SECURITY MODEL — `allow write: if false` is the architectural backstop
+    // for the invitation lifecycle. Two implications:
+    //   1. Resend cap (5×/invitation): enforced server-side in the
+    //      `resendInvite` Cloud Function, which reads emailSendCount and
+    //      rejects further sends when count >= 5. The client-side button
+    //      disable in SharingSection.tsx (BulkSharingSection > pending list)
+    //      is UX only — it is NOT the security control. Removing the disable
+    //      would not unlock more sends; the CF would still reject.
+    //   2. emailSendCount tampering: impossible. Clients cannot patch the
+    //      counter to reset it because all writes are blocked at the rule
+    //      layer. Only the resendInvite Cloud Function (Admin SDK) can
+    //      increment the counter.
+    // If this rule is ever relaxed (e.g., to allow client-side
+    // acknowledgement writes), the resend cap MUST be re-enforced via a
+    // matching `request.resource.data.emailSendCount <=
+    // resource.data.emailSendCount + 1` constraint on the new write rule.
     //
     // spertsuite_profiles: cross-app profile mirror. Each app writes its
     // own user's profile here on sign-in (alongside its app-specific
