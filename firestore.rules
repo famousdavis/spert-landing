@@ -80,6 +80,32 @@
 //     Companion app-side fix in v0.42.6: src/infrastructure/firebase/
 //     firestore-sharing.ts findUserByEmail() query now includes limit(1).
 //
+// SPERT-CFD v0.12.2 (May 2026) — security audit:
+//   - M-1 (L1/L6/L7 pattern): spertcfd_profiles read rule was
+//     `if isAuth()`, permitting bulk enumeration of every CFD user's
+//     email/displayName/photoURL. Split into auth-only `get` and
+//     limit(1)-constrained `list`, matching spertsuite_profiles,
+//     spertahp_profiles, spertstorymap_profiles, ganttapp_profiles,
+//     spertscheduler_profiles. Companion app-side change in CFD
+//     v0.12.2 deletes the legacy single-email handleAddMemberLegacy
+//     path in sharing-modal.tsx (which performed an unbounded
+//     getDocs(where('email','==',...)) scan that this rule now blocks).
+//     CFD's primary share path runs through callSendInvitationEmail
+//     (Cloud Function), which bypasses the client-side rule entirely.
+//   - M-2 (M4 pattern): spertcfd_projects create + update did not
+//     enforce a field allowlist. Added spertCfdProjectFields() helper
+//     and keys()/affectedKeys().hasOnly() guards. Allowlist must stay
+//     in sync with src/lib/firestore-driver.ts createProject and
+//     buildSavePayload. If the driver starts writing a new field, add
+//     it here in the same PR or saves will fail silently with
+//     PERMISSION_DENIED.
+//   - L-2: spertcfd_settings write rule did not enforce a key
+//     allowlist. Today the doc stores only `projectOrder` (per
+//     firestore-driver.ts loadProjectOrder/createProject/deleteProject/
+//     reorderProjects). Added keys().hasOnly(['projectOrder']) on
+//     write. If CFD ever stores more per-user settings server-side,
+//     the allowlist must be updated in lock-step.
+//
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
 //     spertsuite_notification_throttle: cross-app email invitation flow.
@@ -396,6 +422,28 @@ service cloud.firestore {
     function isCfdEditor(data) {
       return data.members[request.auth.uid] in ['owner', 'editor'];
     }
+    // v0.12.2 (M-2 — field allowlist). Field list MUST stay in sync
+    // with src/lib/firestore-driver.ts:
+    //   - createProject (top-level keys written on doc creation):
+    //     name, createdAt, updatedAt, workflow, snapshots, settings,
+    //     _version, owner, members, schemaVersion, _originRef,
+    //     _changeLog
+    //   - buildSavePayload (debounced saveProject merge):
+    //     name, updatedAt, workflow, snapshots, settings, _version
+    //   - removeCollaborator transaction: members, updatedAt
+    //   - sharing-modal.tsx handleChangeRole: members
+    // If the driver starts writing a new top-level field, add it here
+    // in the SAME PR or saves will fail silently with PERMISSION_DENIED
+    // on the client (caught and logged in firestore-driver.ts).
+    function spertCfdProjectFields() {
+      return [
+        'name', 'owner', 'members',
+        'createdAt', 'updatedAt',
+        'workflow', 'snapshots', 'settings',
+        '_version', 'schemaVersion',
+        '_originRef', '_changeLog'
+      ];
+    }
     // ── SPERT-CFD Projects (monolithic docs, no subcollections) ──
     match /spertcfd_projects/{projectId} {
       // Intentionally more permissive than other apps — list returns all
@@ -403,10 +451,17 @@ service cloud.firestore {
       allow list: if isAuth();
       allow get: if isAuth() && isCfdMember(resource.data);
 
+      // v0.12.2 (M-2): keys().hasOnly() allowlist on create. Any unknown
+      // key on a new doc is unambiguously an attack and must be rejected.
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
-                    && request.resource.data.members[request.auth.uid] == 'owner';
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(spertCfdProjectFields());
 
+      // v0.12.2 (M-2): affectedKeys().hasOnly() allowlist on update. Uses
+      // affectedKeys() rather than keys() so legacy docs with stale unknown
+      // fields can still be edited (existing fields preserved; no NEW
+      // unknown fields permitted on the diff).
       allow update: if isAuth()
                     && isCfdEditor(resource.data)
                     && (
@@ -415,18 +470,38 @@ service cloud.firestore {
                         .hasAny(['owner', 'members']))
                       // Owners can change anything
                       || isCfdOwner(resource.data)
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertCfdProjectFields());
 
       allow delete: if isAuth() && isCfdOwner(resource.data);
     }
     // ── SPERT-CFD User Profiles ──
+    // v0.12.2 (M-1): replaced `allow read: if isAuth()` with get +
+    // limit(1)-constrained list. Blocks bulk profile enumeration by any
+    // authenticated SPERT user (shared auth tenant). Matches
+    // spertsuite_profiles / spertahp_profiles / spertstorymap_profiles /
+    // ganttapp_profiles / spertscheduler_profiles. Companion app-side
+    // change in CFD v0.12.2: deletes the legacy handleAddMemberLegacy
+    // path in sharing-modal.tsx, which was the only code path that did
+    // a profile-collection scan (single-email lookup). The active bulk-
+    // invite path goes through callSendInvitationEmail (Cloud Function)
+    // and never reads spertcfd_profiles directly.
     match /spertcfd_profiles/{userId} {
-      allow read: if isAuth();
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == userId;
     }
     // ── SPERT-CFD Per-User Settings ──
+    // v0.12.2 (L-2): added keys().hasOnly() to prevent arbitrary field
+    // writes. Today CFD stores only `projectOrder` here (per
+    // src/lib/firestore-driver.ts loadProjectOrder / createProject /
+    // deleteProject / reorderProjects). If CFD ever adds more per-user
+    // settings, this allowlist must be updated in lock-step.
     match /spertcfd_settings/{userId} {
-      allow read, write: if isAuth() && request.auth.uid == userId;
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if isAuth()
+                   && request.auth.uid == userId
+                   && request.resource.data.keys().hasOnly(['projectOrder']);
     }
     // ── SPERT-AHP (v0.2.0, April 2026; hardened v0.7.2) ──────
     // Monolithic document model: one doc per AHP decision at
