@@ -504,6 +504,37 @@ describe("resendInvite urlBase resolution", () => {
   });
 });
 
+describe("resendInvite body quoting (v0.29 double-quote regression)", () => {
+  // Locks in the v0.29.4 fix: the resend path must pass display-safe
+  // (CRLF stripped, NOT RFC 5322-quoted) name values to the body
+  // template. The body template supplies the visible quotes around
+  // the project name; pre-quoting upstream produced ""…"" in v0.29.
+  it("passes a comma-bearing modelName to the template WITHOUT RFC 5322 " +
+    "quotes; subject has exactly one pair of literal quotes", async () => {
+    invitationsDocGet.mockResolvedValueOnce(
+      inviteSnap({modelName: "Virtual Art Museum - Thomas, Jenny"}),
+    );
+    fakeTx.get.mockResolvedValueOnce(
+      inviteSnap({modelName: "Virtual Art Museum - Thomas, Jenny"}),
+    );
+
+    (mockedRender as jest.Mock).mockClear();
+
+    await handler(makeReq());
+
+    const calls = (mockedRender as jest.Mock).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    const props = (calls[0][0] as { props: Record<string, string> }).props;
+    expect(props.modelName).toBe("Virtual Art Museum - Thomas, Jenny");
+    expect(props.modelName.startsWith("\"")).toBe(false);
+    expect(props.modelName.endsWith("\"")).toBe(false);
+
+    const subject = resendSend.mock.calls[0][0].subject as string;
+    expect(subject).toContain("\"Virtual Art Museum - Thomas, Jenny\"");
+    expect(subject).not.toContain("\"\"Virtual");
+  });
+});
+
 describe("resendInvite name normalization", () => {
   it("denormalizes Microsoft 'Last, First Middle' inviterName",
     async () => {

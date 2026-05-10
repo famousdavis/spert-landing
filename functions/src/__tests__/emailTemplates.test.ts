@@ -278,3 +278,54 @@ describe("AddedNotificationEmail appName branding", () => {
     expect(text).not.toContain("SPERT Story Map");
   });
 });
+
+describe("model name quoting (regression: v0.29 double-quote bug)", () => {
+  // Prior bug: sanitizeDisplayName was applied to modelName upstream
+  // (which RFC 5322-quotes commas), then the body templates wrapped the
+  // already-quoted value in &quot;…&quot; again, producing
+  // ""Virtual Art Museum - Thomas, Jenny"". The upstream now passes the
+  // raw display string; the templates remain the sole source of visible
+  // quotes. Lock that in for both templates and several name shapes so
+  // future changes either upstream or in the template trip a test.
+  const adversarialNames = [
+    "Virtual Art Museum - Thomas, Jenny",
+    "MyProject",
+    "Project: Q3, 2026",
+    "a\"b",
+  ];
+
+  for (const name of adversarialNames) {
+    it(`InvitationEmail wraps modelName="${name}" in exactly one pair of ` +
+      "quotes", () => {
+      // eslint-disable-next-line new-cap
+      const tree = InvitationEmail({
+        ownerName: "William W Davis",
+        ownerEmail: "wdavis@example.com",
+        modelName: name,
+        tokenId: "tok123",
+        expirationDays: 30,
+        urlBase: "https://storymap.spertsuite.com",
+        appName: "SPERT Story Map",
+      });
+      const text = collectText(tree);
+      expect(text).toContain(`"${name}"`);
+      expect(text).not.toContain(`""${name}""`);
+    });
+
+    it(`AddedNotificationEmail wraps modelName="${name}" in exactly one ` +
+      "pair of quotes", () => {
+      // eslint-disable-next-line new-cap
+      const tree = AddedNotificationEmail({
+        ownerName: "William W Davis",
+        ownerEmail: "wdavis@example.com",
+        modelName: name,
+        role: "editor",
+        urlBase: "https://storymap.spertsuite.com",
+        appName: "SPERT Story Map",
+      });
+      const text = collectText(tree);
+      expect(text).toContain(`"${name}"`);
+      expect(text).not.toContain(`""${name}""`);
+    });
+  }
+});

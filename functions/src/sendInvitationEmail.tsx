@@ -15,6 +15,7 @@ import {
   denormalizeLastFirst,
   sanitizeDisplayName,
   sanitizeSubject,
+  stripCrlf,
 } from "./mailHeaders";
 import {AddedNotificationEmail} from "./emailTemplates";
 import {
@@ -90,13 +91,18 @@ function freshResponseSlot(uid: string): ResponseSlot {
  * by a 24h transactional throttle on
  * spertsuite_notification_throttle/{recipientUid}_{modelId}.
  *
+ * Two name pairs separate the From-header concern from visible body
+ * text — see sendInvitationToNewUser in invitationMailer.tsx for the
+ * full rationale.
+ *
  * @param {Resend} resend Resend client.
  * @param {string} recipientEmail Recipient address.
  * @param {string} recipientUid Recipient uid.
  * @param {string} modelId Model id.
- * @param {string} ownerName Sanitized owner display name.
+ * @param {string} headerOwnerName RFC 5322-quoted owner name (From header).
+ * @param {string} displayOwnerName Display-safe owner name (subject + body).
  * @param {string} ownerEmail Owner email (used in reply-to).
- * @param {string} modelName Sanitized model name.
+ * @param {string} displayModelName Display-safe model name (subject + body).
  * @param {"editor"|"viewer"} role Granted role.
  * @param {string} urlBase Base URL for the "Open SPERT app" CTA.
  * @param {string} appName Human-readable app brand.
@@ -107,9 +113,10 @@ async function maybeSendAddedNotification(
   recipientEmail: string,
   recipientUid: string,
   modelId: string,
-  ownerName: string,
+  headerOwnerName: string,
+  displayOwnerName: string,
   ownerEmail: string,
-  modelName: string,
+  displayModelName: string,
   role: "editor" | "viewer",
   urlBase: string,
   appName: string,
@@ -137,14 +144,15 @@ async function maybeSendAddedNotification(
   }
 
   const subject = sanitizeSubject(
-    `${ownerName} added you to ${modelName} in ${appName}`,
+    `${displayOwnerName} added you to "${displayModelName}" in ${appName}`,
   );
-  const fromName = ownerName.length > 0 ? ownerName : `${appName} user`;
+  const fromName =
+    headerOwnerName.length > 0 ? headerOwnerName : `${appName} user`;
   const html = await render(
     <AddedNotificationEmail
-      ownerName={ownerName}
+      ownerName={displayOwnerName}
       ownerEmail={ownerEmail}
-      modelName={modelName}
+      modelName={displayModelName}
       role={role}
       urlBase={urlBase}
       appName={appName}
@@ -152,9 +160,9 @@ async function maybeSendAddedNotification(
   );
   const text = await render(
     <AddedNotificationEmail
-      ownerName={ownerName}
+      ownerName={displayOwnerName}
       ownerEmail={ownerEmail}
-      modelName={modelName}
+      modelName={displayModelName}
       role={role}
       urlBase={urlBase}
       appName={appName}
@@ -279,11 +287,16 @@ export const sendInvitationEmail = onCall(
 
     const resend = new Resend(resendApiKey.value());
 
-    const safeOwnerName = (() => {
-      const sanitized = sanitizeDisplayName(callerName);
-      return sanitized.length > 0 ? sanitized : `${appName} user`;
+    // displayOwnerName / displayModelName: visible-text safe (CRLF stripped
+    // only). safeOwnerName: RFC 5322-quoted form for the From header. We keep
+    // both pairs because mixing them caused the v0.29 double-quoted project
+    // name regression — see invitationMailer.tsx sendInvitationToNewUser.
+    const displayOwnerName = (() => {
+      const stripped = stripCrlf(callerName);
+      return stripped.length > 0 ? stripped : `${appName} user`;
     })();
-    const safeModelName = sanitizeDisplayName(modelName);
+    const safeOwnerName = sanitizeDisplayName(displayOwnerName);
+    const displayModelName = stripCrlf(modelName);
 
     const result: SendResponse = {added: [], invited: [], failed: []};
 
@@ -399,8 +412,9 @@ export const sendInvitationEmail = onCall(
             inviteeUid,
             modelId,
             safeOwnerName,
+            displayOwnerName,
             callerEmail,
-            safeModelName,
+            displayModelName,
             role,
             urlBase,
             appName,
@@ -436,8 +450,9 @@ export const sendInvitationEmail = onCall(
             resend,
             email,
             safeOwnerName,
+            displayOwnerName,
             callerEmail,
-            safeModelName,
+            displayModelName,
             tokenId,
             urlBase,
             appName,

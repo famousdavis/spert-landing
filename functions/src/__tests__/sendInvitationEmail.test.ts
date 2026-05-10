@@ -1202,6 +1202,134 @@ describe("sendInvitationEmail modelName resolution", () => {
   });
 });
 
+describe("sendInvitationEmail body quoting (v0.29 double-quote regression)",
+  () => {
+    // Locks in the v0.29.4 fix: upstream must pass display-safe (CRLF
+    // stripped, NOT RFC 5322-quoted) name values to the body templates.
+    // The body templates supply the visible quotes around the project
+    // name; if the upstream pre-quotes via sanitizeDisplayName, the body
+    // ends up with ""Project, Name"" instead of "Project, Name".
+    it("Branch B: passes a comma-bearing modelName to the template " +
+      "WITHOUT RFC 5322 quotes",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          title: "Virtual Art Museum - Thomas, Jenny",
+          collaborators: [],
+          responses: {},
+        }),
+      });
+
+      await handler(makeReq());
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const props = (calls[0][0] as { props: Record<string, string> }).props;
+      // The template adds visible quotes around modelName; the upstream
+      // must NOT pre-quote, otherwise the body shows ""…"".
+      expect(props.modelName).toBe("Virtual Art Museum - Thomas, Jenny");
+      expect(props.modelName.startsWith("\"")).toBe(false);
+      expect(props.modelName.endsWith("\"")).toBe(false);
+
+      // Subject template now adds literal quotes — exactly one pair,
+      // regardless of whether the name has commas.
+      const subject = resendSend.mock.calls[0][0].subject as string;
+      expect(subject).toContain("\"Virtual Art Museum - Thomas, Jenny\"");
+      expect(subject).not.toContain("\"\"Virtual");
+
+      // From header still uses RFC 5322 quoting for the owner name when
+      // it contains specials. Owner name "Alice Owner" has no specials,
+      // so it is NOT quoted here.
+      const fromAddr = resendSend.mock.calls[0][0].from as string;
+      expect(fromAddr).toContain("Alice Owner via SPERT AHP");
+    });
+
+    it("Branch B: From header RFC 5322-quotes a comma-bearing owner name " +
+      "while the body shows the un-quoted display form",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      // Caller's token name is the AD "Last, First" form; after
+      // denormalizeLastFirst it becomes "William W Davis" — no comma —
+      // so the From header passes through without RFC quoting. Use a
+      // name that retains a comma after denormalization to actually
+      // exercise the header-quoting path. denormalizeLastFirst on a
+      // single-token "Cher" returns "Cher"; with a comma but only one
+      // part after filter, it returns the trimmed source unchanged.
+      // Easiest: bypass denormalization by providing a name with no
+      // comma but with another RFC special — e.g. an `@` from a typo.
+      const out = await handler(makeReq({
+        tokenOverrides: {name: "DevOps@Acme"},
+      }));
+      expect(out.invited).toEqual(["new@example.com"]);
+
+      const fromAddr = resendSend.mock.calls[0][0].from as string;
+      // RFC 5322 wraps the name in quotes because of the '@'.
+      expect(fromAddr).toContain("\"DevOps@Acme\" via SPERT AHP");
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      const props = (calls[0][0] as { props: Record<string, string> }).props;
+      // Body sees the raw display form — NOT the RFC-quoted form.
+      expect(props.ownerName).toBe("DevOps@Acme");
+    });
+
+    it("Branch A: passes display-safe (un-quoted) modelName + ownerName " +
+      "to the AddedNotificationEmail template",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+      projectsDocGet.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          title: "Virtual Art Museum - Thomas, Jenny",
+          collaborators: [],
+          responses: {},
+        }),
+      });
+      profilesQueryGet.mockResolvedValueOnce({
+        empty: false,
+        docs: [{id: "uid-existing", data: () => ({})}],
+      });
+      fakeTx.get.mockResolvedValueOnce({
+        exists: true,
+        data: () => ({
+          owner: "uid-owner",
+          members: {"uid-owner": "owner"},
+          collaborators: [],
+          responses: {},
+        }),
+      });
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      await handler(makeReq({
+        dataOverrides: {emails: ["existing@example.com"]},
+      }));
+
+      const calls = (mockedRender as jest.Mock).mock.calls;
+      expect(calls.length).toBeGreaterThan(0);
+      const props = (calls[0][0] as { props: Record<string, string> }).props;
+      expect(props.modelName).toBe("Virtual Art Museum - Thomas, Jenny");
+      expect(props.modelName.startsWith("\"")).toBe(false);
+
+      const subject = resendSend.mock.calls[0][0].subject as string;
+      expect(subject).toContain("\"Virtual Art Museum - Thomas, Jenny\"");
+      expect(subject).not.toContain("\"\"Virtual");
+    });
+  });
+
 describe("sendInvitationEmail invalid-email filter", () => {
   it("flags invalid-email without calling Resend or writing invitations",
     async () => {
