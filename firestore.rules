@@ -106,6 +106,35 @@
 //     write. If CFD ever stores more per-user settings server-side,
 //     the allowlist must be updated in lock-step.
 //
+// MyScrumBudget v0.28.2 (May 2026) — security audit:
+//   - H1 (L1/L6/L7 pattern): myscrumbudget_profiles read rule was
+//     `if isAuth()`, permitting bulk enumeration of every MSB user's
+//     email/displayName/photoURL. MSB was the LAST app in the suite
+//     with this gap. Split into auth-only `get` and limit(1)-
+//     constrained `list`, matching spertsuite_profiles,
+//     spertahp_profiles, spertstorymap_profiles, ganttapp_profiles,
+//     spertscheduler_profiles, spertcfd_profiles. Companion app-side
+//     change in MSB v0.28.2 deletes the legacy SharingSection.tsx
+//     plus findUidByEmail/addProjectMember in sharing.ts (dead under
+//     INVITATIONS_ENABLED=true since v0.28.0). The active bulk-invite
+//     path runs through callSendInvitationEmail (Cloud Function) and
+//     never reads myscrumbudget_profiles directly.
+//   - M4 (M5 pattern): myscrumbudget_projects create rule did not bind
+//     the top-level `owner` field. MSB was the last app with this gap
+//     after Story Map v0.29.2 / GanttApp v0.22.2 / Scheduler v0.42.6 /
+//     CFD v0.12.2 / Forecaster / AHP all closed it. Added
+//     `request.resource.data.owner == request.auth.uid` to prevent
+//     split-state attacks where members[self] == 'owner' but the top-
+//     level `owner` points to another UID (would break removeCollaborator
+//     Guard 2 in src/lib/firebase/invitations.ts:79).
+//   - M5 (M4 pattern): myscrumbudget_projects create + update did not
+//     enforce a field allowlist. Added myScrumBudgetProjectFields()
+//     helper and keys()/affectedKeys().hasOnly() guards. Allowlist must
+//     stay in sync with src/lib/storage/firestoreRepo.ts createProject /
+//     saveProject / importAll. If firestoreRepo starts writing a new
+//     top-level field, add it here in the same PR or saves will fail
+//     silently with PERMISSION_DENIED.
+//
 // Suite-wide invitation infrastructure (introduced with SPERT AHP v0.11.0):
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
 //     spertsuite_notification_throttle: cross-app email invitation flow.
@@ -390,23 +419,63 @@ service cloud.firestore {
       allow read, write: if isAuth() && request.auth.uid == uid;
     }
     // ── MyScrumBudget ────────────────────────────────────────
+    // v0.28.2 (M5 — field allowlist). Field list MUST stay in sync with
+    // src/lib/storage/firestoreRepo.ts:
+    //   - createProject (line 144): top-level keys on doc creation
+    //   - saveProject (line 124): subset of keys on every merge save
+    //   - importAll (line 230): same as createProject (full setDoc, no merge)
+    //   - removeCollaborator transaction in src/lib/firebase/invitations.ts:85
+    //     uses dot-path `members.${targetUid}`; affectedKeys() resolves to
+    //     ['members'] which is on the allowlist.
+    // If firestoreRepo starts writing a new top-level field, add it here in
+    // the SAME PR or saves will fail silently with PERMISSION_DENIED.
+    function myScrumBudgetProjectFields() {
+      return [
+        'name', 'startDate', 'endDate',
+        'reforecasts', 'activeReforecastId',
+        'owner', 'members', 'order',
+        '_teamSnapshot', '_originRef', '_changeLog',
+        'schemaVersion', 'createdAt', 'updatedAt'
+      ];
+    }
     match /myscrumbudget_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
-      allow create: if isAuth() &&
-        request.resource.data.members[request.auth.uid] == 'owner';
+      // v0.28.2 (M4): bind top-level `owner` field to caller's UID.
+      // v0.28.2 (M5): keys().hasOnly() allowlist on create.
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(myScrumBudgetProjectFields());
+      // v0.28.2 (M5): affectedKeys().hasOnly() allowlist on update. Uses
+      // affectedKeys() not keys() so legacy docs with stale unknown fields
+      // can still be edited (existing fields preserved; no NEW unknown
+      // fields permitted on the diff).
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(myScrumBudgetProjectFields());
       allow delete: if isAuth() &&
         resource.data.members[request.auth.uid] == 'owner';
     }
+    // v0.28.2 (H1): replaced `allow read: if isAuth()` with auth-only
+    // `get` plus limit(1)-constrained `list`. Blocks bulk profile
+    // enumeration by any authenticated SPERT user (shared auth tenant).
+    // Matches spertsuite_profiles / spertahp_profiles /
+    // spertstorymap_profiles / ganttapp_profiles / spertscheduler_profiles
+    // / spertcfd_profiles. Companion app-side change in MSB v0.28.2
+    // deletes the legacy SharingSection.tsx + sharing.ts findUidByEmail /
+    // addProjectMember (dead under INVITATIONS_ENABLED=true since
+    // v0.28.0). Active bulk-invite path runs through
+    // callSendInvitationEmail (Cloud Function) and never reads
+    // myscrumbudget_profiles directly.
     match /myscrumbudget_profiles/{userId} {
-      allow read: if isAuth();
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == userId;
     }
     match /myscrumbudget_settings/{userId} {
