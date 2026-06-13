@@ -411,8 +411,25 @@ service cloud.firestore {
       allow delete: if isAuth() &&
         resource.data.owner == request.auth.uid;
     }
+    // Forecaster profiles hardening (companion fix: spert-forecaster
+    // v0.35.3, PR #138, commit 4082e00): replaced `allow read: if isAuth()`
+    // with auth-only `get` plus limit(1)-constrained `list`. This was the
+    // LONE remaining un-hardened profile rule in the suite — closed in this
+    // pass so all profile collections now share the canonical get +
+    // limit(1)-list pattern (matches the other seven: spertsuite_profiles /
+    // spertahp_profiles / spertstorymap_profiles / ganttapp_profiles /
+    // spertscheduler_profiles / spertcfd_profiles / myscrumbudget_profiles).
+    // Blocks bulk enumeration of every Forecaster user's
+    // email/displayName/photoURL by any authenticated SPERT user (shared
+    // auth tenant). The companion app-side fix constrained the legacy
+    // findUserByEmail query to limit(1) so the app-side path stays correct
+    // even if this rule is regressed. Client-side audit confirmed the
+    // collaborator-hydration and owner-display paths use individual getDoc()
+    // calls (unaffected by a list constraint); the active invite path routes
+    // through sendInvitationEmail (Cloud Function, Admin SDK, bypasses rules).
     match /spertforecaster_profiles/{uid} {
-      allow read: if isAuth();
+      allow get: if isAuth();
+      allow list: if isAuth() && request.query.limit <= 1;
       allow write: if isAuth() && request.auth.uid == uid;
     }
     match /spertforecaster_settings/{uid} {
@@ -704,6 +721,76 @@ service cloud.firestore {
                      'appId',
                      'authProvider'
                    ]);
+    }
+    // ── AI Connectivity (anonymous sessions) ─────────────────
+    // Phase 1 of the AI Connectivity feature (SPERT Story Map). Pairs an
+    // unauthenticated browser with the user's AI chatbot via a short-lived
+    // capability token (the sessionId UUID). The MCP server (mcpSpertSuite
+    // Cloud Function) reads/writes via the Admin SDK and bypasses these
+    // rules; the rules below govern only direct browser access.
+    //
+    // THREAT MODEL (accepted for Phase 1 — see AI plan §4 / D2):
+    //   - Session create is unauthenticated (anonymous capability token).
+    //   - ops/ is Admin-SDK-only (write:false) — no browser injection
+    //     surface into the AI's instruction stream.
+    //   - snapshot/ is browser-writable (the browser pushes the read-mode
+    //     snapshot) but NOT browser-readable: only the Admin-SDK MCP server
+    //     reads it (S4 hardening — get:false).
+    //   - A sessionId-holder can tamper consentRead / openProductId /
+    //     heartbeat fields — accepted under the capability-token model.
+    //   - list is disabled everywhere to prevent enumeration of tokens.
+    match /anonymous_sessions/{sessionId} {
+      // Create: exactly the 9 browser-owned fields. lastSeq is set to 0
+      // here; the MCP server (Admin SDK) owns every later increment, and
+      // the update rule below blocks the browser from changing it.
+      // aiLastSeenAt is MCP-server-owned and must be ABSENT on create —
+      // hasOnly() rejects it.
+      allow create: if
+        request.resource.data.keys().hasAll([
+          'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
+          'openProductId', 'consentWrite', 'consentRead', 'lastSeq',
+          'appVersion'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
+          'openProductId', 'consentWrite', 'consentRead', 'lastSeq',
+          'appVersion'
+        ])
+        && request.resource.data.consentWrite == true
+        && request.resource.data.consentRead is bool
+        && request.resource.data.lastSeq == 0;
+      allow get: if true;
+      allow list: if false;
+      // Browser may update only heartbeat fields, openProductId, and
+      // consentRead. aiLastSeenAt and lastSeq stay Admin-only.
+      allow update: if
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'browserConnectedAt', 'lastActiveAt', 'expiresAt',
+          'openProductId', 'consentRead'
+        ])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['consentRead'])
+          || request.resource.data.consentRead is bool
+        );
+      allow delete: if false; // teardownAiSession callable uses Admin SDK
+      match /ops/{opId} {
+        allow get, list: if true;
+        allow write: if false; // Admin SDK only — prevents prompt injection
+      }
+      match /snapshot/{doc} {
+        // S4: the browser only WRITES the snapshot (read-mode push); the
+        // MCP server reads it via Admin SDK. get:false shrinks the browser
+        // read surface to zero.
+        allow get: if false;
+        allow list: if false;
+        allow write: if true; // browser enforces the consentRead gate
+      }
+    }
+    match /pairing_codes/{code} {
+      // Admin-only: generatePairingCode + resolve_session_code use the
+      // Admin SDK (bypasses rules). No browser access.
+      allow read, write: if false;
     }
   }
 }
