@@ -44,6 +44,15 @@ export function Footer({ linkVersion = true }: FooterProps) {
         </a>
         {' | '}
         <a
+          href="/ai-privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-600 transition-colors"
+        >
+          AI Privacy Notice
+        </a>
+        {' | '}
+        <a
           href="https://github.com/famousdavis/spert-landing/blob/main/LICENSE"
           target="_blank"
           rel="noopener noreferrer"

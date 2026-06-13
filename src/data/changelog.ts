@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.1.0',
+    date: 'June 12, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'Updated Terms of Service and Privacy Policy to v06-12-2026 ahead of the upcoming AI Connectivity ("Connect AI") feature.',
+          'Published the SPERT® AI Privacy Notice v1.0 at the permanent URL /ai-privacy and added an "AI Privacy Notice" link to the footer legal links.',
+          'Published the SPERT® AI Connectivity Consent Notice v1.0 at /ai-consent-notice (background reference document; publicly accessible but not linked in navigation).',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.0.5',
     date: 'May 3, 2026',
     sections: [
