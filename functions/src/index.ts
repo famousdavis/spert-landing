@@ -24,3 +24,4 @@ export {resendInvite} from "./resendInvite";
 export {updateInvite} from "./updateInvite";
 export {mcpSpertSuite} from "./mcp/index";
 export {generatePairingCode} from "./mcp/pairing";
+export {teardownAiSession} from "./mcp/teardown";
