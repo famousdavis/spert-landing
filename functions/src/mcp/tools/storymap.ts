@@ -67,11 +67,37 @@ const themeSchema = z.object({
   backbones: z.array(backboneSchema).max(5),
 });
 
+// Fine-grained tool shapes. Raw ZodRawShape objects (not z.object wrappers)
+// because server.tool() takes Args extends ZodRawShape. entityIdSchema mirrors
+// the bulk_import id caps (stable strings, not enforced UUID format — quality
+// guidance to mint UUIDs lives in the tool descriptions).
+const entityIdSchema = z.string().min(1).max(100);
+
+const updateBackboneShape = {
+  sessionId: z.string().uuid(),
+  themeId: entityIdSchema,
+  backboneId: entityIdSchema,
+  name: z.string().min(1).max(1000).optional(),
+  description: z.string().max(2000).optional(),
+};
+
+const updateRibShape = {
+  sessionId: z.string().uuid(),
+  themeId: entityIdSchema,
+  backboneId: entityIdSchema,
+  ribId: entityIdSchema,
+  name: z.string().min(1).max(1000).optional(),
+  description: z.string().max(2000).optional(),
+  category: z.enum(["core", "non-core"]).optional(),
+  notes: z.string().max(2000).optional(),
+  size: z.enum(["XS", "S", "M", "L", "XL", "XXL", "XXXL"])
+    .nullable().optional(),
+};
+
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
- * Phase 1 exposes resolve_session_code, get_session_info,
- * storymap_bulk_import, and storymap_get_project; the fine-grained
- * create_/update_ tools are stubs that redirect callers to bulk_import.
+ * Exposes: resolve_session_code, get_session_info, storymap_bulk_import,
+ * storymap_get_project, and six fine-grained create/update tools.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -137,11 +163,14 @@ call get_session_info.`,
   server.tool(
     "get_session_info",
     `Check session status and learn which project is currently open in
-SPERT Story Map. Call this after resolve_session_code and before
-storymap_bulk_import. Once a project is open, ask the user what product
-they are planning and which story-map modeling approach they want BEFORE
-calling storymap_bulk_import. Do not build a structure until the user has
-confirmed the approach.`,
+SPERT Story Map. Call this after resolve_session_code.
+To build a map from scratch: ask the user what product they are
+planning and which modeling approach fits, then call
+storymap_bulk_import. Do not build until confirmed.
+To add to or edit an existing map: call storymap_get_project first
+to discover the structure and entity IDs (requires Read Mode — if
+not enabled, ask the user to turn it on in the Connect AI panel).
+Then use the fine-grained tools.`,
     {sessionId: z.string().uuid()},
     async ({sessionId}) => {
       let session: DocumentData | null = null;
@@ -168,7 +197,14 @@ confirmed the approach.`,
         browserConnected: isBrowserConnected(session),
         appVersion: session.appVersion,
         message: session.openProductId ?
-          "A project is open. Call storymap_bulk_import to build it." :
+          "A project is open. To build from scratch: storymap_bulk_import " +
+            "(ask the user for the product description and approach first). " +
+            "To add/edit an existing map: call storymap_get_project to get " +
+            "entity IDs (Read Mode required — if off, ask the user to enable " +
+            "it in the Connect AI panel), then use storymap_create_theme, " +
+            "storymap_create_backbone, storymap_create_rib, " +
+            "storymap_update_theme, storymap_update_backbone, or " +
+            "storymap_update_rib." :
           "No project is open. Ask the user to open one in SPERT " +
             "Story Map.",
       });
@@ -303,26 +339,402 @@ has enabled Read Mode in the Connect AI panel.`,
     },
   );
 
-  // Phase 1 fine-grained stubs: direct callers to bulk_import.
-  const stubs = [
+  server.tool(
     "storymap_create_theme",
+    `Add a new theme to the open story map.
+FOR TARGETED ADDITIONS to an existing map only. To build a new map
+from scratch, use storymap_bulk_import — faster and avoids mid-build
+failures from partial sequences.
+ID GENERATION: generate a UUID for the themeId. The IDs returned by
+storymap_get_project identify existing entities for UPDATE calls —
+do not reuse them for CREATE calls or the create will be a no-op.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.
+IDEMPOTENCY: calling twice with the same themeId is a no-op (no
+duplicate created), but each call consumes a rate-limit token.`,
+    {
+      sessionId: z.string().uuid(),
+      themeId: entityIdSchema,
+      name: z.string().min(1).max(1000),
+    },
+    async ({sessionId, themeId, name}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "create_theme", payload: {themeId, name}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        themeId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
     "storymap_create_backbone",
+    `Add a new backbone under an existing theme.
+FOR TARGETED ADDITIONS to an existing map only. Prefer
+storymap_bulk_import when building from scratch.
+PREREQUISITES: the theme (themeId) must already exist. Call
+storymap_get_project (Read Mode required) to discover existing IDs.
+ID GENERATION: generate a UUID for the backboneId.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.
+IDEMPOTENCY: calling twice with the same backboneId is a no-op.`,
+    {
+      sessionId: z.string().uuid(),
+      themeId: entityIdSchema,
+      backboneId: entityIdSchema,
+      name: z.string().min(1).max(1000),
+      description: z.string().max(2000).optional(),
+    },
+    async ({sessionId, themeId, backboneId, name, description}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [{
+          op: "create_backbone",
+          payload: {
+            themeId,
+            backboneId,
+            name,
+            ...(description !== undefined && {description}),
+          },
+        }]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        backboneId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
     "storymap_create_rib",
-    "storymap_update_theme",
-    "storymap_update_backbone",
-    "storymap_update_rib",
-  ];
-  for (const name of stubs) {
-    server.tool(
+    `Add a new rib item to an existing backbone.
+FOR TARGETED ADDITIONS to an existing map only. Prefer
+storymap_bulk_import when building from scratch.
+PREREQUISITES: both the theme (themeId) and backbone (backboneId)
+must already exist. Call storymap_get_project (Read Mode required)
+to discover existing IDs.
+ID GENERATION: generate a UUID for the ribId.
+category defaults to "core" when omitted. An invalid category value
+is rejected (unlike storymap_bulk_import which coerces to "core").
+SIZE: ribs are created without a size. Use storymap_update_rib to
+set size on individual ribs, or have the user size them in the Sizing
+tab. Note each update_rib call consumes a rate-limit token.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.
+IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
+    {
+      sessionId: z.string().uuid(),
+      themeId: entityIdSchema,
+      backboneId: entityIdSchema,
+      ribId: entityIdSchema,
+      name: z.string().min(1).max(1000),
+      description: z.string().max(2000).optional(),
+      category: z.enum(["core", "non-core"]).optional(),
+      notes: z.string().max(2000).optional(),
+    },
+    async ({
+      sessionId,
+      themeId,
+      backboneId,
+      ribId,
       name,
-      "Phase 1 stub. Use storymap_bulk_import instead.",
-      {sessionId: z.string().uuid()},
-      async () =>
-        ok({
-          status: "not_implemented",
-          message: `${name} is not yet available. Use ` +
-            "storymap_bulk_import.",
-        }),
-    );
-  }
+      description,
+      category,
+      notes,
+    }) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [{
+          op: "create_rib",
+          payload: {
+            themeId,
+            backboneId,
+            ribId,
+            name,
+            ...(description !== undefined && {description}),
+            ...(category !== undefined && {category}),
+            ...(notes !== undefined && {notes}),
+          },
+        }]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_update_theme",
+    `Rename an existing theme.
+Only name is updatable — theme color is user-controlled. Call
+storymap_get_project (Read Mode required) to discover the themeId.
+No-op on the browser if the themeId does not exist.`,
+    {
+      sessionId: z.string().uuid(),
+      themeId: entityIdSchema,
+      name: z.string().min(1).max(1000),
+    },
+    async ({sessionId, themeId, name}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "update_theme", payload: {themeId, name}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        themeId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_update_backbone",
+    `Update an existing backbone's name and/or description.
+All fields are optional — provide only those to change. Call
+storymap_get_project (Read Mode required) to discover IDs.
+To clear a description, set it to an empty string ("").
+No-op on the browser if the backboneId does not exist. Calling
+with no updateable fields returns success without writing an op.`,
+    updateBackboneShape,
+    async ({sessionId, themeId, backboneId, name, description}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (name === undefined && description === undefined) {
+        return ok({
+          status: "success",
+          backboneId,
+          browserConnected: isBrowserConnected(session),
+          message: "No fields to update; nothing written.",
+        });
+      }
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [{
+          op: "update_backbone",
+          payload: {
+            themeId,
+            backboneId,
+            ...(name !== undefined && {name}),
+            ...(description !== undefined && {description}),
+          },
+        }]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        backboneId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_update_rib",
+    `Update one or more fields on an existing rib item.
+All fields are optional — provide only those to change. Call
+storymap_get_project (Read Mode required) to discover IDs.
+size: "XS"|"S"|"M"|"L"|"XL"|"XXL"|"XXXL"|null to clear.
+size is silently ignored for ribs with sprint progress recorded
+(in-progress size is locked to preserve historical analytics).
+cardColor is user-controlled and not exposed here.
+No-op on the browser if the ribId does not exist. Calling with no
+updateable fields returns success without writing an op.`,
+    updateRibShape,
+    async ({
+      sessionId,
+      themeId,
+      backboneId,
+      ribId,
+      name,
+      description,
+      category,
+      notes,
+      size,
+    }) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (
+        name === undefined &&
+        description === undefined &&
+        category === undefined &&
+        notes === undefined &&
+        size === undefined
+      ) {
+        return ok({
+          status: "success",
+          ribId,
+          browserConnected: isBrowserConnected(session),
+          message: "No fields to update; nothing written.",
+        });
+      }
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [{
+          op: "update_rib",
+          payload: {
+            themeId,
+            backboneId,
+            ribId,
+            ...(name !== undefined && {name}),
+            ...(description !== undefined && {description}),
+            ...(category !== undefined && {category}),
+            ...(notes !== undefined && {notes}),
+            // size !== undefined is true when size is null (null-clear).
+            ...(size !== undefined && {size}),
+          },
+        }]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
 }
