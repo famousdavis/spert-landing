@@ -64,7 +64,7 @@ const backboneSchema = z.object({
 const themeSchema = z.object({
   themeId: z.string().min(1).max(100),
   name: z.string().min(1).max(1000),
-  backbones: z.array(backboneSchema).max(5),
+  backbones: z.array(backboneSchema).max(10),
 });
 
 // Fine-grained tool shapes. Raw ZodRawShape objects (not z.object wrappers)
@@ -234,7 +234,7 @@ WORKFLOW
 3. Generate all ids yourself (UUIDs are typical) before calling.
 4. Call this tool only after the approach is confirmed.
 
-Caps: 5 themes x 5 backbones x 10 ribs. Per rib you may set description,
+Caps: 5 themes x 10 backbones x 10 ribs. Per rib you may set description,
 category ("core" | "non-core"), and notes. Keep names short (a few
 words); descriptions and notes may be a sentence or two.`,
     {
