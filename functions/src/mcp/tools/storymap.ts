@@ -4,6 +4,7 @@
 import {z} from "zod";
 import type {McpServer} from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {DocumentData, Firestore} from "firebase-admin/firestore";
+import * as logger from "firebase-functions/logger";
 import {
   getSession,
   touchSession,
@@ -117,46 +118,102 @@ call get_session_info.`,
     async ({code}) => {
       const normalized = code.toUpperCase();
       const ref = db.collection("pairing_codes").doc(normalized);
-      let sessionId = "";
+      const generateNewCodeMsg =
+        "Ask the user to generate a new code from the Connect AI panel.";
+      const successMsg =
+        "Session resolved. Call get_session_info to learn which " +
+        "project is open.";
       try {
-        await db.runTransaction(async (tx) => {
-          const snap = await tx.get(ref);
-          if (!snap.exists) {
-            throw Object.assign(new Error(), {reason: "not_found"});
+        const snap = await ref.get();
+
+        // Branch 1: the code does not exist.
+        if (!snap.exists) {
+          return ok({
+            status: "error",
+            error: "code_not_found",
+            message: generateNewCodeMsg,
+          });
+        }
+        const d = snap.data();
+        if (!d) {
+          return ok({
+            status: "error",
+            error: "code_not_found",
+            message: generateNewCodeMsg,
+          });
+        }
+
+        // Branch 2: expired or invalid expiresAt. Fail closed: missing or
+        // non-Timestamp expiresAt counts as expired. Runs before used.
+        const t = d.expiresAt;
+        const exp = t && typeof t.toDate === "function" ? t.toDate() : null;
+        if (!exp || exp < new Date()) {
+          return ok({
+            status: "error",
+            error: "code_expired",
+            message: generateNewCodeMsg,
+          });
+        }
+
+        // Branch 3: already claimed. Re-confirm against the linked
+        // session instead of erroring, so re-resolve calls are idempotent.
+        if (d.used) {
+          const session = await getSession(db, d.sessionId as string);
+          if (!session) {
+            // Branch 3b: the session has ended (gone or past 7-day expiry).
+            logger.warn(
+              "resolve_session_code re-confirm on ended session",
+              {sessionId: d.sessionId},
+            );
+            return sessionNotFound();
           }
-          const d = snap.data();
-          if (!d) throw Object.assign(new Error(), {reason: "not_found"});
-          if (d.used) {
-            throw Object.assign(new Error(), {reason: "already_used"});
+          // Branch 3a: live session. Byte-identical to a first claim.
+          return ok({
+            status: "ok",
+            sessionId: d.sessionId,
+            message: successMsg,
+          });
+        }
+
+        // Branch 4: first claim. The transaction returns a discriminated
+        // result and never throws for expected outcomes.
+        const claim = await db.runTransaction(async (tx) => {
+          const fresh = await tx.get(ref);
+          const fd = fresh.exists ? fresh.data() : undefined;
+          // 4b: deleted between the plain read and the transaction.
+          if (!fd) return {kind: "deleted"} as const;
+          // 4c: another caller won the claim first (race loser).
+          if (fd.used) {
+            return {kind: "raceLoser", sessionId: fd.sessionId} as const;
           }
-          if (d.expiresAt?.toDate() < new Date()) {
-            throw Object.assign(new Error(), {reason: "expired"});
-          }
+          // 4d: win the claim.
           tx.update(ref, {used: true});
-          sessionId = d.sessionId as string;
+          return {kind: "claimed", sessionId: fd.sessionId} as const;
         });
-      } catch (e: unknown) {
-        const reason = (e as {reason?: string}).reason ?? "not_found";
-        const errorMap: Record<string, string> = {
-          not_found: "code_not_found",
-          already_used: "code_already_used",
-          expired: "code_expired",
-        };
+
+        if (claim.kind === "deleted") {
+          // Same guidance as branch 1: the code is gone.
+          return ok({
+            status: "error",
+            error: "code_not_found",
+            message: generateNewCodeMsg,
+          });
+        }
+        // 4c race loser or 4d first claim: both resolve to success.
+        return ok({
+          status: "ok",
+          sessionId: claim.sessionId,
+          message: successMsg,
+        });
+      } catch {
+        // Transient/unexpected error from a live Firestore read. Expected
+        // error responses return inline above and never reach here.
         return ok({
           status: "error",
-          error: errorMap[reason] ?? "code_not_found",
-          message:
-            "Ask the user to generate a new code from the Connect AI " +
-            "panel.",
+          error: "internal",
+          message: "Temporary error; retry.",
         });
       }
-      return ok({
-        status: "ok",
-        sessionId,
-        message:
-          "Session resolved. Call get_session_info to learn which " +
-          "project is open.",
-      });
     },
   );
 
