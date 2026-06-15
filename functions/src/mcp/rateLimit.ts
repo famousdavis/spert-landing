@@ -39,21 +39,28 @@ function checkLimit(
 }
 
 /**
- * Per-IP request limit for the MCP endpoint: 60 requests/minute.
+ * Per-IP request limit for the MCP endpoint: 150 requests/minute.
+ * Kept above the per-session write cap so it does not become the binding
+ * limit during a large single-session fine-grained build.
  *
  * @param {string} ip Caller IP (leftmost x-forwarded-for; spoofable, D2).
  * @return {boolean} True if allowed; false if over limit.
  */
 export function checkIpRateLimit(ip: string): boolean {
-  return checkLimit(ipMap, ip, 60);
+  return checkLimit(ipMap, ip, 150);
 }
 
 /**
- * Per-session write limit: 30 write ops/minute.
+ * Per-session write limit: 100 write ops/minute. Sized so a full
+ * fine-grained AI build (one write op per theme/backbone/rib) completes
+ * in a single window; bulk_import is a single op and never nears it.
+ * Raised from 30 (the PR #50 placeholder) to stop large fine-grained
+ * maps from truncating mid-build when a client does not pause-and-retry
+ * on a rate_limited response.
  *
  * @param {string} sessionId Target session.
  * @return {boolean} True if allowed; false if over limit.
  */
 export function checkSessionWriteLimit(sessionId: string): boolean {
-  return checkLimit(sessMap, sessionId, 30);
+  return checkLimit(sessMap, sessionId, 100);
 }
