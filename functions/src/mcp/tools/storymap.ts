@@ -97,9 +97,17 @@ const updateRibShape = {
 
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
- * Exposes: resolve_session_code, get_session_info, storymap_bulk_import,
- * storymap_get_project, and ten fine-grained tools: theme, backbone,
- * and rib create/update plus rib release-allocation and sizing.
+ *
+ * Session / discovery (3): resolve_session_code, get_session_info,
+ * storymap_get_project.
+ *
+ * Fine-grained operations (10): storymap_create_theme,
+ * storymap_create_backbone, storymap_create_rib, storymap_update_theme,
+ * storymap_update_backbone, storymap_update_rib, storymap_create_release,
+ * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib.
+ *
+ * Bulk operations (4): storymap_bulk_import, storymap_bulk_create_releases,
+ * storymap_bulk_allocate, storymap_bulk_size.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -1026,6 +1034,179 @@ SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
           "Queued. If Read Mode is enabled, verify the result with " +
             "storymap_get_project." :
           "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  // --- Phase 4: bulk operations --------------------------------------
+
+  server.tool(
+    "storymap_bulk_create_releases",
+    `Create multiple named releases in one call.
+Generate a fresh UUID for each releaseId. Does NOT require Read Mode.
+Create ALL releases before allocating ribs — storymap_bulk_allocate
+silently skips an allocation whose target release does not exist yet.
+IDEMPOTENT: duplicate releaseIds are skipped by the browser.
+Max 50 releases per call; split larger sets across multiple calls.`,
+    {
+      sessionId: z.string().uuid(),
+      releases: z.array(z.object({
+        releaseId: entityIdSchema,
+        name: z.string().min(1).max(1000),
+      })).min(1).max(50),
+    },
+    async ({sessionId, releases}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_create_releases", payload: {releases}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: releases.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${releases.length} release(s). Call ` +
+            "storymap_bulk_allocate next." :
+          `Queued ${releases.length} release(s) — no browser tab open; ` +
+            "applies on reconnect.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_bulk_allocate",
+    `Allocate many ribs to releases in one call. Each entry assigns one
+rib 100% to one release.
+PREREQUISITES: call storymap_get_project first (Read Mode required)
+to read ribIds, each rib's releaseIds, and locked state. Releases must
+already exist (storymap_bulk_create_releases or storymap_create_release).
+ADDITIVE: the browser skips ribs that are locked, already allocated, or
+whose target release does not exist. Re-running is safe.
+Max 500 allocations per call; split larger sets across multiple calls.`,
+    {
+      sessionId: z.string().uuid(),
+      allocations: z.array(z.object({
+        ribId: entityIdSchema,
+        releaseId: entityIdSchema,
+      })).min(1).max(500),
+    },
+    async ({sessionId, allocations}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_allocate", payload: {allocations}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: allocations.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${allocations.length} allocation(s). Locked and ` +
+            "already-allocated ribs are skipped." :
+          `Queued ${allocations.length} allocation(s) — no browser tab ` +
+            "open; applies on reconnect.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_bulk_size",
+    `Assign t-shirt sizes to many ribs in one call.
+PREREQUISITES: call storymap_get_project first (Read Mode required)
+to read ribIds, each rib's current size and locked state, and the
+project's sizeMapping (the valid labels and their point values).
+SIZE VALUES: pass labels taken from sizeMapping verbatim — not a fixed
+XS/S/M/L scale. An unknown label is silently skipped by the browser.
+ADDITIVE: the browser skips ribs that are locked or already validly
+sized. Re-running is safe. Prefer this over storymap_update_rib for
+sizing — it validates against the project's actual sizeMapping.
+Max 500 sizings per call; split larger sets across multiple calls.`,
+    {
+      sessionId: z.string().uuid(),
+      sizes: z.array(z.object({
+        ribId: entityIdSchema,
+        size: z.string().min(1).max(100),
+      })).min(1).max(500),
+    },
+    async ({sessionId, sizes}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_size", payload: {sizes}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: sizes.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${sizes.length} sizing assignment(s). Locked, ` +
+            "already-sized, and unknown-label ribs are skipped." :
+          `Queued ${sizes.length} sizing assignment(s) — no browser ` +
+            "tab open; applies on reconnect.",
       });
     },
   );
