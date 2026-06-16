@@ -98,7 +98,8 @@ const updateRibShape = {
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
  * Exposes: resolve_session_code, get_session_info, storymap_bulk_import,
- * storymap_get_project, and six fine-grained create/update tools.
+ * storymap_get_project, and ten fine-grained tools: theme, backbone,
+ * and rib create/update plus rib release-allocation and sizing.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -717,6 +718,10 @@ storymap_get_project (Read Mode required) to discover IDs.
 size: "XS"|"S"|"M"|"L"|"XL"|"XXL"|"XXXL"|null to clear.
 size is silently ignored for ribs with sprint progress recorded
 (in-progress size is locked to preserve historical analytics).
+For sizing, prefer storymap_size_rib — it validates against the
+project's actual sizeMapping and skips already-sized ribs. Use the
+size parameter here only to explicitly override or clear an existing
+size.
 cardColor is user-controlled and not exposed here.
 No-op on the browser if the ribId does not exist. Calling with no
 updateable fields returns success without writing an op.`,
@@ -773,6 +778,236 @@ updateable fields returns success without writing an op.`,
             ...(size !== undefined && {size}),
           },
         }]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  // --- Phase 2: release planning -------------------------------------
+
+  server.tool(
+    "storymap_create_release",
+    `Create a named release in the open story map.
+Generate a fresh UUID for releaseId. Does NOT require reading the
+current project state first — no storymap_get_project needed.
+Create ALL releases before allocating any ribs: storymap_allocate_rib
+silently skips if the release does not exist yet.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.
+IDEMPOTENCY: calling twice with the same releaseId is a no-op (the
+browser skips an existing release), but each call consumes a
+rate-limit token.`,
+    {
+      sessionId: z.string().uuid(),
+      releaseId: entityIdSchema,
+      name: z.string().min(1).max(1000),
+    },
+    async ({sessionId, releaseId, name}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "create_release", payload: {releaseId, name}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        releaseId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_allocate_rib",
+    `Allocate a rib 100% to a release.
+PREREQUISITES: call storymap_get_project first (Read Mode required)
+to read the ribId, the rib's releaseIds, and its locked state. The
+release must already exist (storymap_create_release) — the browser
+silently skips a non-existent release.
+ADDITIVE: the browser skips ribs that are already allocated and skips
+locked ribs. Re-running is safe.
+To MOVE a rib to a different release: call storymap_unassign_rib
+first, then this tool.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
+    {
+      sessionId: z.string().uuid(),
+      ribId: entityIdSchema,
+      releaseId: entityIdSchema,
+    },
+    async ({sessionId, ribId, releaseId}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "allocate_rib", payload: {ribId, releaseId}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_unassign_rib",
+    `Remove ALL release allocations from a rib.
+PREREQUISITES: call storymap_get_project first (Read Mode required)
+to read the ribId and the rib's locked state.
+WARNING: this removes the rib from every release it belongs to, not
+just one. If the rib has more than one entry in releaseIds, warn the
+user before calling.
+The browser skips locked ribs; an already-unassigned rib is a no-op.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
+    {
+      sessionId: z.string().uuid(),
+      ribId: entityIdSchema,
+    },
+    async ({sessionId, ribId}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "unassign_rib", payload: {ribId}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  // --- Phase 3: sizing -----------------------------------------------
+
+  server.tool(
+    "storymap_size_rib",
+    `Assign a t-shirt size to an unsized rib.
+PREREQUISITES: call storymap_get_project first (Read Mode required)
+to read the product's sizeMapping (the valid labels and their point
+values), each rib's current size, and each rib's locked state.
+SIZE VALUE: pass a label taken from sizeMapping verbatim — not a
+fixed XS/S/M/L scale. An unknown label is silently skipped by the
+browser with no error. If sizeMapping is empty, tell the user to
+define sizes in Settings first.
+ADDITIVE: the browser skips ribs that already have a valid size and
+skips locked ribs. Re-running is safe.
+This CANNOT resize or clear an existing size — use the Sizing board
+in the app for that.
+SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
+    {
+      sessionId: z.string().uuid(),
+      ribId: entityIdSchema,
+      // size is a label from the product's live sizeMapping, not a
+      // fixed enum — passed through verbatim for the browser to
+      // validate against the live mapping. Bounded like an id token.
+      size: z.string().min(1).max(100),
+    },
+    async ({sessionId, ribId, size}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "size_rib", payload: {ribId, size}},
+        ]);
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
