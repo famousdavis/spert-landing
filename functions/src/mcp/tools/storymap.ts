@@ -106,8 +106,8 @@ const updateRibShape = {
  * storymap_update_backbone, storymap_update_rib, storymap_create_release,
  * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib.
  *
- * Bulk operations (4): storymap_bulk_import, storymap_bulk_create_releases,
- * storymap_bulk_allocate, storymap_bulk_size.
+ * Bulk operations (5): storymap_bulk_import, storymap_bulk_create_releases,
+ * storymap_bulk_allocate, storymap_bulk_size, storymap_bulk_unassign.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -414,7 +414,7 @@ failures from partial sequences.
 ID GENERATION: generate a UUID for the themeId. The IDs returned by
 storymap_get_project identify existing entities for UPDATE calls —
 do not reuse them for CREATE calls or the create will be a no-op.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.
+Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same themeId is a no-op (no
 duplicate created), but each call consumes a rate-limit token.`,
     {
@@ -469,7 +469,7 @@ storymap_bulk_import when building from scratch.
 PREREQUISITES: the theme (themeId) must already exist. Call
 storymap_get_project (Read Mode required) to discover existing IDs.
 ID GENERATION: generate a UUID for the backboneId.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.
+Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same backboneId is a no-op.`,
     {
       sessionId: z.string().uuid(),
@@ -537,7 +537,7 @@ is rejected (unlike storymap_bulk_import which coerces to "core").
 SIZE: ribs are created without a size. Use storymap_update_rib to
 set size on individual ribs, or have the user size them in the Sizing
 tab. Note each update_rib call consumes a rate-limit token.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.
+Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
     {
       sessionId: z.string().uuid(),
@@ -727,9 +727,9 @@ size: "XS"|"S"|"M"|"L"|"XL"|"XXL"|"XXXL"|null to clear.
 size is silently ignored for ribs with sprint progress recorded
 (in-progress size is locked to preserve historical analytics).
 For sizing, prefer storymap_size_rib — it validates against the
-project's actual sizeMapping and skips already-sized ribs. Use the
-size parameter here only to explicitly override or clear an existing
-size.
+project's actual sizeMapping and skips already-sized ribs. For many
+ribs at once, use storymap_bulk_size. Use the size parameter here
+only to explicitly override or clear an existing size.
 cardColor is user-controlled and not exposed here.
 No-op on the browser if the ribId does not exist. Calling with no
 updateable fields returns success without writing an op.`,
@@ -817,7 +817,7 @@ Generate a fresh UUID for releaseId. Does NOT require reading the
 current project state first — no storymap_get_project needed.
 Create ALL releases before allocating any ribs: storymap_allocate_rib
 silently skips if the release does not exist yet.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.
+Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same releaseId is a no-op (the
 browser skips an existing release), but each call consumes a
 rate-limit token.`,
@@ -876,7 +876,7 @@ ADDITIVE: the browser skips ribs that are already allocated and skips
 locked ribs. Re-running is safe.
 To MOVE a rib to a different release: call storymap_unassign_rib
 first, then this tool.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
+Chain calls back-to-back within one response; do not yield between calls.`,
     {
       sessionId: z.string().uuid(),
       ribId: entityIdSchema,
@@ -930,7 +930,7 @@ WARNING: this removes the rib from every release it belongs to, not
 just one. If the rib has more than one entry in releaseIds, warn the
 user before calling.
 The browser skips locked ribs; an already-unassigned rib is a no-op.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
+Chain calls back-to-back within one response; do not yield between calls.`,
     {
       sessionId: z.string().uuid(),
       ribId: entityIdSchema,
@@ -990,7 +990,7 @@ ADDITIVE: the browser skips ribs that already have a valid size and
 skips locked ribs. Re-running is safe.
 This CANNOT resize or clear an existing size — use the Sizing board
 in the app for that.
-SEQUENTIAL CALLS REQUIRED: await each result before the next.`,
+Chain calls back-to-back within one response; do not yield between calls.`,
     {
       sessionId: z.string().uuid(),
       ribId: entityIdSchema,
@@ -1207,6 +1207,62 @@ Max 500 sizings per call; split larger sets across multiple calls.`,
             "already-sized, and unknown-label ribs are skipped." :
           `Queued ${sizes.length} sizing assignment(s) — no browser ` +
             "tab open; applies on reconnect.",
+      });
+    },
+  );
+
+  // --- Phase 5: bulk unassign ----------------------------------------
+  server.tool(
+    "storymap_bulk_unassign",
+    `Removes all release allocations from multiple ribs in one call.
+Requires Read Mode — call storymap_get_project first to obtain ribIds
+and each rib's locked state. Locked ribs and already-unassigned ribs
+are silently skipped; only unlocked, allocated ribs are cleared.
+WARNING: unassign removes ALL of a rib's release allocations, not just
+one — if a rib is split across multiple releases (releaseIds.length >
+1), warn the user before including it in this call.
+ADDITIVE / RE-RUN: re-running is safe — already-unassigned ribs skip.
+Max 500 ribIds per call; split larger batches.`,
+    {
+      sessionId: z.string().uuid(),
+      ribIds: z.array(entityIdSchema).min(1).max(500),
+    },
+    async ({sessionId, ribIds}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_unassign", payload: {ribIds}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: ribIds.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${ribIds.length} unassignment(s). Locked and ` +
+            "already-unassigned ribs are skipped." :
+          `Queued ${ribIds.length} unassignment(s) — no browser tab ` +
+            "open; applies on reconnect.",
       });
     },
   );
