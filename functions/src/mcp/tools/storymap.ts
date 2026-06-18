@@ -106,8 +106,9 @@ const updateRibShape = {
  * storymap_update_backbone, storymap_update_rib, storymap_create_release,
  * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib.
  *
- * Bulk operations (5): storymap_bulk_import, storymap_bulk_create_releases,
- * storymap_bulk_allocate, storymap_bulk_size, storymap_bulk_unassign.
+ * Bulk operations (6): storymap_bulk_import, storymap_bulk_create_releases,
+ * storymap_bulk_allocate, storymap_bulk_size, storymap_bulk_unassign,
+ * storymap_bulk_update_ribs.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -1262,6 +1263,73 @@ Max 500 ribIds per call; split larger batches.`,
           `Queued ${ribIds.length} unassignment(s). Locked and ` +
             "already-unassigned ribs are skipped." :
           `Queued ${ribIds.length} unassignment(s) — no browser tab ` +
+            "open; applies on reconnect.",
+      });
+    },
+  );
+
+  // --- Phase 6: bulk update ribs -------------------------------------
+  server.tool(
+    "storymap_bulk_update_ribs",
+    `
+Update description, category, and/or notes on multiple rib items in one call.
+Read Mode required — call storymap_get_project first to obtain ribId values.
+Provide an updates array; each entry must have a ribId plus at least one of:
+description (string), category ("core" or "non-core"), notes (string).
+Fields omitted from an entry are left unchanged.
+An empty string "" clears a field.
+Locked (in-progress) ribs can still have their text fields updated.
+For sizing ribs, use storymap_bulk_size instead.
+For renaming ribs, use storymap_update_rib instead.
+Chain calls back-to-back within one response; do not yield between calls.
+Max 500 entries per call; split larger batches.
+NOTE: storymap_get_project does not return existing notes values — you cannot
+read notes before writing. Verify description and category writes with a
+follow-up storymap_get_project call.`,
+    {
+      sessionId: z.string().uuid(),
+      updates: z.array(z.object({
+        ribId: entityIdSchema,
+        description: z.string().max(2000).optional(),
+        category: z.enum(["core", "non-core"]).optional(),
+        notes: z.string().max(2000).optional(),
+      })).min(1).max(500),
+    },
+    async ({sessionId, updates}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_update_ribs", payload: {updates}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: updates.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${updates.length} rib update(s). Omitted fields ` +
+            "are left unchanged." :
+          `Queued ${updates.length} rib update(s) — no browser tab ` +
             "open; applies on reconnect.",
       });
     },

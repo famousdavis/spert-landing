@@ -32,7 +32,7 @@ export const mcpSpertSuite = onRequest(
       return;
     }
     const db = getFirestore();
-    const server = new McpServer({name: "spert-suite", version: "1.3.0"});
+    const server = new McpServer({name: "spert-suite", version: "1.4.0"});
     registerStorymapTools(server, db);
     // Stateless: one fresh McpServer + transport per POST. Validated via
     // emulator POC (tools/call works with no prior initialize; cross-POST
