@@ -269,6 +269,38 @@ service cloud.firestore {
     //     authed SPERT user while preserving one-email-at-a-time lookups.
     //     Companion app-side change: ProjectSharingPanel.tsx legacy
     //     single-add query now includes limit(1).
+    //
+    // v0.46.2 security audit (field allowlist on UPDATE). spertstorymap_projects
+    // was the only project collection without a hasOnly() field allowlist, so an
+    // editor could add arbitrary fields to a project doc via a crafted update
+    // (the owner/members escalation guard below was the only constraint). This
+    // closes that gap on the UPDATE path. The list below MUST stay in sync with
+    // src/lib/validateProduct.ts KNOWN_PRODUCT_FIELDS (minus the export-only
+    // fields _storageRef/_exportedBy/_exportedById, which firestoreDriver strips
+    // before write) plus the driver-written owner/members/updatedAt. If
+    // validateProduct gains a persisted field OR firestoreDriver.doSaveProduct
+    // starts writing a new one, add it here in the SAME deploy or saves will
+    // fail silently with PERMISSION_DENIED.
+    //
+    // UPDATE-only (not create): firestoreDriver.createProduct strips only `id`
+    // (unlike doSaveProduct, which also strips the _owner/_members aliases and
+    // the export-only fields), so a keys().hasOnly() on create could reject a
+    // legitimate create that still carries an alias field. The create rule
+    // already binds owner == caller and members[caller] == 'owner', so the
+    // create surface is self-owned. affectedKeys().hasOnly() on update is safe:
+    // doSaveProduct's mergeFields only ever touch allowlisted fields; the
+    // _changeLog arrayUnion write touches only _changeLog; owner member-
+    // management touches members. Legacy docs with stale unknown fields stay
+    // editable — affectedKeys() checks only the changed keys, not the whole doc.
+    function spertStoryMapProjectFields() {
+      return [
+        'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
+        'sizeMapping', 'releases', 'sprints', 'sprintCadenceWeeks',
+        'themes', 'releaseCardOrder', 'sizingCardOrder', 'cardColorLabels',
+        '_originRef', '_changeLog',
+        'owner', 'members'
+      ];
+    }
     match /spertstorymap_projects/{projectId} {
       allow list: if isAuth();
       allow get: if isAuth() && request.auth.uid in resource.data.members;
@@ -280,7 +312,8 @@ service cloud.firestore {
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertStoryMapProjectFields());
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
     match /spertstorymap_profiles/{uid} {
