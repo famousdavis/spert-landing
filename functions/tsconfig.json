@@ -2,6 +2,7 @@
   "compilerOptions": {
     "module": "NodeNext",
     "esModuleInterop": true,
+    "isolatedModules": true,
     "jsx": "react-jsx",
     "moduleResolution": "nodenext",
     "noImplicitReturns": true,
