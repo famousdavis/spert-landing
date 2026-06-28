@@ -17,7 +17,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.15.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^1.4.0",
     "firebase-admin": "^13.6.0",
@@ -38,6 +38,9 @@
     "jest": "^29.7.0",
     "ts-jest": "29.4.9",
     "typescript": "^6.0.0"
+  },
+  "overrides": {
+    "react-dom": "^19.2.5"
   },
   "private": true
 }

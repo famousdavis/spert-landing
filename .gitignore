@@ -46,3 +46,4 @@ CLAUDE.md
 MEMORY_*.md
 
 .audit-baseline.json
+.audit-functions-baseline.json
