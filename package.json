@@ -1,9 +1,9 @@
 {
   "name": "spert-landing-page",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "private": true,
   "engines": {
-    "node": "22.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
@@ -18,7 +18,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.4",
-    "@types/node": "^22",
+    "@types/node": "24.12.2",
     "@types/react": "^19",
     "@types/react-dom": "^19.2.3",
     "eslint": "^9",

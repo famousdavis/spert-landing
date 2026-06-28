@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.1.2',
+    date: 'June 28, 2026',
+    sections: [
+      {
+        heading: 'Dependencies',
+        items: [
+          'Adopted Node.js 24 runtime.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.1.1',
     date: 'June 28, 2026',
     sections: [
