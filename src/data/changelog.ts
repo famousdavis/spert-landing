@@ -9,6 +9,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.1.1',
+    date: 'June 28, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Updated the underlying framework and build tooling to address security advisories.',
+        ],
+      },
+      {
+        heading: 'Dependencies',
+        items: [
+          'Adopted TypeScript 6.0.3.',
+          'Updated React, Tailwind CSS, and related build dependencies.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.1.0',
     date: 'June 12, 2026',
     sections: [
