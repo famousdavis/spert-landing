@@ -95,20 +95,42 @@ const updateRibShape = {
     .nullable().optional(),
 };
 
+// Phase 7 move shapes. "At least one target present" cannot be expressed on
+// a raw ZodRawShape (no .refine() attachment point) — the fine-grained
+// handler checks it inline; a targetless bulk entry is a browser-side
+// per-entry skip (matching bulk_update_ribs' pattern, so one bad entry
+// cannot reject a whole 500-entry call).
+const moveRibShape = {
+  sessionId: z.string().uuid(),
+  ribId: entityIdSchema,
+  targetBackboneId: entityIdSchema.optional(),
+  targetReleaseId: entityIdSchema.optional(),
+};
+
+const bulkMoveRibsShape = {
+  sessionId: z.string().uuid(),
+  moves: z.array(z.object({
+    ribId: entityIdSchema,
+    targetBackboneId: entityIdSchema.optional(),
+    targetReleaseId: entityIdSchema.optional(),
+  })).min(1).max(500),
+};
+
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
  *
  * Session / discovery (3): resolve_session_code, get_session_info,
  * storymap_get_project.
  *
- * Fine-grained operations (10): storymap_create_theme,
+ * Fine-grained operations (11): storymap_create_theme,
  * storymap_create_backbone, storymap_create_rib, storymap_update_theme,
  * storymap_update_backbone, storymap_update_rib, storymap_create_release,
- * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib.
+ * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib,
+ * storymap_move_rib.
  *
- * Bulk operations (6): storymap_bulk_import, storymap_bulk_create_releases,
+ * Bulk operations (7): storymap_bulk_import, storymap_bulk_create_releases,
  * storymap_bulk_allocate, storymap_bulk_size, storymap_bulk_unassign,
- * storymap_bulk_update_ribs.
+ * storymap_bulk_update_ribs, storymap_bulk_move_ribs.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -732,8 +754,10 @@ project's actual sizeMapping and skips already-sized ribs. For many
 ribs at once, use storymap_bulk_size. Use the size parameter here
 only to explicitly override or clear an existing size.
 cardColor is user-controlled and not exposed here.
-No-op on the browser if the ribId does not exist. Calling with no
-updateable fields returns success without writing an op.`,
+No-op on the browser if the ribId does not exist — or if the rib was
+moved (storymap_move_rib) and your cached themeId/backboneId is
+stale; re-read IDs with storymap_get_project after any move. Calling
+with no updateable fields returns success without writing an op.`,
     updateRibShape,
     async ({
       sessionId,
@@ -875,8 +899,8 @@ release must already exist (storymap_create_release) — the browser
 silently skips a non-existent release.
 ADDITIVE: the browser skips ribs that are already allocated and skips
 locked ribs. Re-running is safe.
-To MOVE a rib to a different release: call storymap_unassign_rib
-first, then this tool.
+To MOVE a rib to a different release (or backbone), use
+storymap_move_rib instead.
 Chain calls back-to-back within one response; do not yield between calls.`,
     {
       sessionId: z.string().uuid(),
@@ -1331,6 +1355,147 @@ follow-up storymap_get_project call.`,
             "are left unchanged." :
           `Queued ${updates.length} rib update(s) — no browser tab ` +
             "open; applies on reconnect.",
+      });
+    },
+  );
+
+  // --- Phase 7: move rib ---------------------------------------------
+  server.tool(
+    "storymap_move_rib",
+    `Moves a rib item to a different backbone and/or reassigns its release
+allocation, in one call. Provide targetBackboneId, targetReleaseId, or
+both — at least one is required. targetBackboneId may belong to any
+theme, not just the rib's current one.
+PREREQUISITES: call storymap_get_project first (Read Mode required) to
+read entity IDs and each rib's releaseIds, locked, and partial fields.
+SKIP-THEN-REPLACE semantics — the browser silently skips a leg
+(applying the other if valid) when: the target backbone or release
+does not exist; the rib is locked (in progress) — this blocks the
+RELEASE change only, the backbone change still applies; the rib's
+current allocation is a split (releaseIds has more than one entry) or
+partial (partial: true — a single allocation under 100%) — the release
+leg is skipped rather than overwritten; or the rib is already at the
+requested target for that leg. Check locked, releaseIds, and partial
+BEFORE calling to know whether the release leg will apply.
+On an eligible rib the release leg REPLACES the allocation wholesale —
+it is not additive. For an unallocated or single-100%-allocated rib,
+this replaces the old unassign-then-allocate two-step; for a split or
+partial rib, call storymap_unassign_rib first, then this tool. To
+clear a rib's allocation without setting a new one, use
+storymap_unassign_rib alone.
+If Read Mode is enabled, verify the result with storymap_get_project.
+Chain calls back-to-back within one response; do not yield between calls.`,
+    moveRibShape,
+    async ({sessionId, ribId, targetBackboneId, targetReleaseId}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (targetBackboneId === undefined && targetReleaseId === undefined) {
+        return ok({
+          status: "success",
+          ribId,
+          browserConnected: isBrowserConnected(session),
+          message: "No target provided; nothing written.",
+        });
+      }
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [{
+          op: "move_rib",
+          payload: {
+            ribId,
+            ...(targetBackboneId !== undefined && {targetBackboneId}),
+            ...(targetReleaseId !== undefined && {targetReleaseId}),
+          },
+        }]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Queued. If Read Mode is enabled, verify the result with " +
+            "storymap_get_project." :
+          "Queued — will apply when the browser reconnects.",
+      });
+    },
+  );
+
+  server.tool(
+    "storymap_bulk_move_ribs",
+    `Moves multiple rib items in one call — each entry relocates one rib to
+a different backbone and/or reassigns its release allocation. Provide
+targetBackboneId, targetReleaseId, or both per entry; an entry with
+neither is skipped. targetBackboneId may belong to any theme.
+PREREQUISITES: call storymap_get_project first (Read Mode required) to
+read entity IDs and each rib's releaseIds, locked, and partial fields.
+Same SKIP-THEN-REPLACE semantics as storymap_move_rib, applied per
+entry: a leg is silently skipped when its target does not exist, the
+rib is locked (blocks the RELEASE change only — the backbone change
+still applies), the current allocation is a split (releaseIds has more
+than one entry) or partial (partial: true), or the rib is already at
+the target. On an eligible rib the release leg REPLACES the allocation
+wholesale — it is not additive. For a split or partial rib, unassign
+first, then move. A skipped or invalid entry never affects the other
+entries in the same call.
+Prefer this over many sequential storymap_move_rib calls for
+reorg-sized work — one call consumes one rate-limit token regardless
+of array size. Verify results with storymap_get_project after.
+Max 500 moves per call; split larger sets across multiple calls.`,
+    bulkMoveRibsShape,
+    async ({sessionId, moves}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_move_ribs", payload: {moves}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: moves.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${moves.length} move(s). Ineligible legs (locked, ` +
+            "split/partial, missing targets) are skipped per entry." :
+          `Queued ${moves.length} move(s) — no browser tab open; ` +
+            "applies on reconnect.",
       });
     },
   );
