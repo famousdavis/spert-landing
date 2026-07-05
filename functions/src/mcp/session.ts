@@ -79,20 +79,22 @@ export function isBrowserConnected(session: DocumentData): boolean {
  * @param {Firestore} db Admin Firestore instance.
  * @param {string} sessionId Target session.
  * @param {Array<{op: string, payload: object}>} ops Ops to append.
- * @return {Promise<void>} Resolves when the transaction commits.
+ * @return {Promise<{firstSeq: number, lastSeq: number}>} The inclusive seq
+ *   range assigned to the batch. An empty batch resolves to {firstSeq: 0,
+ *   lastSeq: 0} (unreachable from any tool — they guard on op count first).
  */
 export async function writeOpBatch(
   db: Firestore,
   sessionId: string,
   ops: Array<{op: string; payload: object}>,
-): Promise<void> {
-  if (!ops.length) return;
+): Promise<{firstSeq: number; lastSeq: number}> {
+  if (!ops.length) return {firstSeq: 0, lastSeq: 0};
   if (ops.length > 400) {
     throw new Error(`Op batch too large: ${ops.length} (max 400)`);
   }
   const sessionRef = db.collection(SESSION_COLLECTION).doc(sessionId);
   const exp = newExpiry();
-  await db.runTransaction(async (tx) => {
+  return await db.runTransaction(async (tx) => {
     const sessionDoc = await tx.get(sessionRef);
     if (!sessionDoc.exists) throw new Error("session_not_found");
     const data = sessionDoc.data();
@@ -115,5 +117,6 @@ export async function writeOpBatch(
         source: "ai",
       });
     }
+    return {firstSeq: currentSeq + 1, lastSeq: currentSeq + ops.length};
   });
 }

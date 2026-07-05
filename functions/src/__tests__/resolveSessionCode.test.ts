@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 
 // resolve_session_code is an unexported inline closure registered via
-// server.tool() inside registerStorymapTools. These tests use a capture
+// server.tool() inside registerSharedSessionTools. These tests use a capture
 // shim: a fake McpServer records each tool handler by name, then we call
 // the resolve_session_code handler directly with a configurable mock db.
 //
@@ -26,7 +26,7 @@ jest.mock("firebase-functions/logger", () => ({
 }));
 
 import {getSession} from "../mcp/session";
-import {registerStorymapTools} from "../mcp/tools/storymap";
+import {registerSharedSessionTools} from "../mcp/tools/shared";
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 
@@ -88,9 +88,9 @@ function makeDb(opts: {
 }
 
 /**
- * Register the storymap tools against a capturing fake McpServer and
+ * Register the shared session tools against a capturing fake McpServer and
  * return the resolve_session_code handler bound to the given db.
- * @param {object} db Mock db injected into registerStorymapTools.
+ * @param {object} db Mock db injected into registerSharedSessionTools.
  * @return {Handler} The resolve_session_code tool handler.
  */
 function resolveHandler(db: object): Handler {
@@ -101,9 +101,9 @@ function resolveHandler(db: object): Handler {
       handlers[name] = toolArgs[toolArgs.length - 1] as Handler;
     },
   };
-  registerStorymapTools(
-    fakeServer as unknown as Parameters<typeof registerStorymapTools>[0],
-    db as Parameters<typeof registerStorymapTools>[1],
+  registerSharedSessionTools(
+    fakeServer as unknown as Parameters<typeof registerSharedSessionTools>[0],
+    db as Parameters<typeof registerSharedSessionTools>[1],
   );
   return handlers["resolve_session_code"];
 }

@@ -773,9 +773,11 @@ service cloud.firestore {
     //     heartbeat fields — accepted under the capability-token model.
     //   - list is disabled everywhere to prevent enumeration of tokens.
     match /anonymous_sessions/{sessionId} {
-      // Create: exactly the 9 browser-owned fields. lastSeq is set to 0
-      // here; the MCP server (Admin SDK) owns every later increment, and
-      // the update rule below blocks the browser from changing it.
+      // Create: the 9 required browser-owned fields, plus an OPTIONAL appId
+      // (hasOnly-allowed, not hasAll-required, for the rollout window — old
+      // browser builds omit it, and a missing appId must pass). lastSeq is
+      // set to 0 here; the MCP server (Admin SDK) owns every later increment,
+      // and the update rule below blocks the browser from changing it.
       // aiLastSeenAt is MCP-server-owned and must be ABSENT on create —
       // hasOnly() rejects it.
       allow create: if
@@ -787,7 +789,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
           'openProductId', 'consentWrite', 'consentRead', 'lastSeq',
-          'appVersion'
+          'appVersion', 'appId'
         ])
         && request.resource.data.consentWrite == true
         && request.resource.data.consentRead is bool
