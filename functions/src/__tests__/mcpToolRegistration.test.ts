@@ -9,9 +9,11 @@
 
 import {registerSharedSessionTools} from "../mcp/tools/shared";
 import {registerStorymapTools} from "../mcp/tools/storymap";
+import {registerSchedulerTools} from "../mcp/tools/scheduler";
 
 type SharedParams = Parameters<typeof registerSharedSessionTools>;
 type StorymapParams = Parameters<typeof registerStorymapTools>;
+type SchedulerParams = Parameters<typeof registerSchedulerTools>;
 
 interface CollidingServer {
   names: Set<string>;
@@ -67,8 +69,26 @@ describe("MCP tool registration collision", () => {
     expect(names.has("get_session_info")).toBe(false);
   });
 
-  // Converted to a real test in Unit 3 once registerSchedulerTools exists.
-  test.todo(
+  test(
     "Stage B: shared + storymap + scheduler register without collision",
-  );
+    () => {
+      const {names, server} = collidingServer();
+      expect(() => {
+        registerSharedSessionTools(
+          server as unknown as SharedParams[0],
+          db as SharedParams[1],
+        );
+        registerStorymapTools(
+          server as unknown as StorymapParams[0],
+          db as StorymapParams[1],
+        );
+        registerSchedulerTools(
+          server as unknown as SchedulerParams[0],
+          db as SchedulerParams[1],
+        );
+      }).not.toThrow();
+      expect(names.has("scheduler_get_project")).toBe(true);
+      expect(names.has("scheduler_create_activity")).toBe(true);
+      expect(names.has("resolve_session_code")).toBe(true);
+    });
 });
