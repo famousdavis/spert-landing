@@ -275,6 +275,7 @@ scenario's setting.`,
       max: z.number().nonnegative(),
       confidenceLevel: z.string().min(1).max(50).optional(),
       distributionType: z.enum(DISTRIBUTIONS).optional(),
+      description: z.string().max(2000).optional(),
     },
     async ({sessionId, ...payload}) =>
       runWrite(db, sessionId, [{op: "create_activity", payload}],
@@ -309,6 +310,20 @@ estimate must keep min <= mostLikely <= max. Invalidates simulation results.`,
     async ({sessionId, ...payload}) =>
       runWrite(db, sessionId, [{op: "rename_activity", payload}],
         queued("Rename")),
+  );
+
+  server.tool(
+    "scheduler_set_activity_description",
+    `Set an activity's plain-language scope description (max 2000 chars),
+overwriting any existing description. An EMPTY STRING CLEARS the description.
+This is destructive (overwrite, not append) and INVALIDATES simulation results,
+so prefer setting description at create time, or enable Read Mode first so you
+can see the text you would replace.`,
+    {sessionId: sid, scenarioId: scenarioIdOpt, id: entityId,
+      description: z.string().max(2000)},
+    async ({sessionId, ...payload}) =>
+      runWrite(db, sessionId, [{op: "set_activity_description", payload}],
+        queued("Description")),
   );
 
   server.tool(

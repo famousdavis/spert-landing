@@ -89,6 +89,7 @@ describe("MCP tool registration collision", () => {
       }).not.toThrow();
       expect(names.has("scheduler_get_project")).toBe(true);
       expect(names.has("scheduler_create_activity")).toBe(true);
+      expect(names.has("scheduler_set_activity_description")).toBe(true);
       expect(names.has("resolve_session_code")).toBe(true);
     });
 });
