@@ -139,6 +139,28 @@
 //   - spertsuite_invitations, spertsuite_profiles, spertsuite_rate_limits,
 //     spertsuite_notification_throttle: cross-app email invitation flow.
 //     See block comments below.
+//
+// AI Connectivity — appId (July 2026):
+//   - anonymous_sessions create rule: added `appId` to the hasOnly()
+//     allowlist (NOT hasAll — optional during the rollout window). appId
+//     identifies which SPERT app a session belongs to; get_session_info
+//     returns it so the paired AI selects that app's toolset. Scheduler
+//     writes 'scheduler', Story Map writes 'storymap'. Old browser builds
+//     omit it and must still pass (missing appId is allowed, never required).
+//
+// SPERT Scheduler forcedWorkDays allowlist hotfix (July 2026):
+//   - spertscheduler_projects create/update allowlist
+//     (spertSchedulerProjectFields) was missing `forcedWorkDays`, a
+//     ProjectSchema field shipped in Scheduler v0.50.0 (schema v22). The
+//     v21→v22 migration injects `forcedWorkDays: []` into every upgraded
+//     project, so every migrated project failed the create-rule
+//     keys().hasOnly() check: cloning (and any first-time cloud create)
+//     was rejected with PERMISSION_DENIED and surfaced as the
+//     "Cloud sync error" toast. Fresh v22+ projects (forcedWorkDays never
+//     set, hence absent from the doc) were unaffected — which is why only
+//     older projects failed. Added `forcedWorkDays` to the allowlist.
+//     Rules-only deploy; no app-code change. Exactly the "add it in the
+//     same PR or saves fail silently" footgun the v0.42.6 (H2) note warns of.
 
 rules_version = '2';
 service cloud.firestore {
@@ -333,12 +355,12 @@ service cloud.firestore {
     //
     // v0.42.6 (H2 — field allowlist). The list below MUST stay in sync
     // with src/domain/schemas/project.schema.ts ProjectSchema (the
-    // 13 schema-defined keys) plus the cloud-only fields written by
+    // 14 schema-defined keys) plus the cloud-only fields written by
     // src/infrastructure/firebase/firestore-driver.ts:
     //   - schema-defined: name, createdAt, schemaVersion, owner,
-    //     globalCalendarOverride, convertedWorkDays, targetFinishDate,
-    //     showTargetOnGantt, showActivityIds, ganttAppearance, scenarios,
-    //     archived, tileColor
+    //     globalCalendarOverride, convertedWorkDays, forcedWorkDays,
+    //     targetFinishDate, showTargetOnGantt, showActivityIds,
+    //     ganttAppearance, scenarios, archived, tileColor
     //   - driver-only: members (set in create() at line 213), updatedAt
     //     (serverTimestamp on every save at line 264)
     //   - intentionally omitted: id (the doc id, destructured out before
@@ -347,13 +369,20 @@ service cloud.firestore {
     // field, add it here in the SAME PR or saves will fail silently with
     // PERMISSION_DENIED on the client (caught and logged in
     // firestore-driver.ts:280).
+    //
+    // forcedWorkDays (July 2026 hotfix): shipped in ProjectSchema at
+    // Scheduler v0.50.0 (schema v22) but was omitted from this allowlist
+    // until now, so every migrated project (the v21→v22 migration injects
+    // forcedWorkDays: []) failed the create-rule keys().hasOnly() check —
+    // clones and first-time cloud creates were rejected with
+    // PERMISSION_DENIED. See the header entry for the full write-up.
     function spertSchedulerProjectFields() {
       return [
         'name', 'owner', 'members',
         'schemaVersion', 'createdAt', 'updatedAt',
         'scenarios', 'globalCalendarOverride', 'convertedWorkDays',
-        'targetFinishDate', 'showTargetOnGantt', 'showActivityIds',
-        'ganttAppearance', 'archived', 'tileColor'
+        'forcedWorkDays', 'targetFinishDate', 'showTargetOnGantt',
+        'showActivityIds', 'ganttAppearance', 'archived', 'tileColor'
       ];
     }
     match /spertscheduler_projects/{projectId} {
