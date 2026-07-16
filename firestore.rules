@@ -161,6 +161,22 @@
 //     older projects failed. Added `forcedWorkDays` to the allowlist.
 //     Rules-only deploy; no app-code change. Exactly the "add it in the
 //     same PR or saves fail silently" footgun the v0.42.6 (H2) note warns of.
+//
+// MyScrumBudget color + archived allowlist (July 2026):
+//   - myScrumBudgetProjectFields() was missing `color` (top-level
+//     ProjectColor tile tint shipped in MSB v0.33.0) and `archived` (the
+//     project-archiving visibility flag shipping in MSB v0.34.0).
+//     firestoreRepo writes both on every create/save as `field ?? null`.
+//     Added both to the allowlist. `color` never caused a live failure
+//     despite being un-allowlisted since v0.33.0 because a new project
+//     writes `color: null`, and a null-valued field is not counted by
+//     keys().hasOnly() — contrast Scheduler's non-null `forcedWorkDays: []`,
+//     which WAS rejected (hotfix above). The archive toggle writes a
+//     NON-null `archived: true` on update, so this entry closes the gap
+//     before that path can trip affectedKeys().hasOnly(). Rules-only
+//     deploy; safe against old app code (color was already being written;
+//     archived is inert until MSB v0.34.0 ships). Mirrors the sibling
+//     Scheduler allowlist, which already carries `archived`/`tileColor`.
 
 rules_version = '2';
 service cloud.firestore {
@@ -500,18 +516,21 @@ service cloud.firestore {
     // ── MyScrumBudget ────────────────────────────────────────
     // v0.28.2 (M5 — field allowlist). Field list MUST stay in sync with
     // src/lib/storage/firestoreRepo.ts:
-    //   - createProject (line 144): top-level keys on doc creation
-    //   - saveProject (line 124): subset of keys on every merge save
-    //   - importAll (line 230): same as createProject (full setDoc, no merge)
-    //   - removeCollaborator transaction in src/lib/firebase/invitations.ts:85
+    //   - createProject: top-level keys on doc creation
+    //   - saveProject: subset of keys on every merge save
+    //   - importAll: same as createProject (full setDoc, no merge)
+    //   - removeCollaborator transaction in src/lib/firebase/invitations.ts
     //     uses dot-path `members.${targetUid}`; affectedKeys() resolves to
     //     ['members'] which is on the allowlist.
     // If firestoreRepo starts writing a new top-level field, add it here in
     // the SAME PR or saves will fail silently with PERMISSION_DENIED.
+    // color + archived (July 2026): both are top-level scalar fields written
+    // as `field ?? null`; see the header entry for why color's null default
+    // slipped past keys().hasOnly() while a non-null value would not.
     function myScrumBudgetProjectFields() {
       return [
         'name', 'startDate', 'endDate',
-        'reforecasts', 'activeReforecastId',
+        'reforecasts', 'activeReforecastId', 'color', 'archived',
         'owner', 'members', 'order',
         '_teamSnapshot', '_originRef', '_changeLog',
         'schemaVersion', 'createdAt', 'updatedAt'
