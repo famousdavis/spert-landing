@@ -10,7 +10,8 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "contract:hash": "node scripts/contract-hash.mjs src/mcp/ai-op-contract.json"
   },
   "engines": {
     "node": "24"

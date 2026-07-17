@@ -107,6 +107,11 @@ const bulkMoveRibsShape = {
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
  * @return {void}
+ *
+ * CONTRACT: every op string written below (writeOpBatch({op: "..."})) must stay
+ * listed under `storymapOps` in BOTH copies of ai-op-contract.json and disjoint
+ * from `schedulerOps`. Adding/renaming/removing a storymap op? Update the
+ * fixture in both repos — the mcpToolRegistration test guards the invariant.
  */
 export function registerStorymapTools(
   server: McpServer,
