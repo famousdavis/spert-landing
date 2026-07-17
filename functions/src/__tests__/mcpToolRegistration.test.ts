@@ -7,9 +7,23 @@
 // never again by any app's register*Tools. Stage A covers shared + storymap;
 // Stage B (todo) covers scheduler, converted to a real test in Unit 3.
 
+import {readFileSync} from "fs";
+import {join} from "path";
 import {registerSharedSessionTools} from "../mcp/tools/shared";
 import {registerStorymapTools} from "../mcp/tools/storymap";
 import {registerSchedulerTools} from "../mcp/tools/scheduler";
+
+// Shared AI op-name registry (duplicated verbatim across repos; see
+// ai-op-contract.json). Both op-name lists live in the fixture so a future
+// contributor adding an op (see the pointer note in storymap.ts) updates one
+// place, and this test guards the cross-product uniqueness invariant.
+const contract: {
+  ops: {[op: string]: {tool: string}};
+  schedulerOps: string[];
+  storymapOps: string[];
+} = JSON.parse(
+  readFileSync(join(__dirname, "../mcp/ai-op-contract.json"), "utf8"),
+);
 
 type SharedParams = Parameters<typeof registerSharedSessionTools>;
 type StorymapParams = Parameters<typeof registerStorymapTools>;
@@ -90,6 +104,31 @@ describe("MCP tool registration collision", () => {
       expect(names.has("scheduler_get_project")).toBe(true);
       expect(names.has("scheduler_create_activity")).toBe(true);
       expect(names.has("scheduler_set_activity_description")).toBe(true);
+      expect(names.has("scheduler_bulk_create_activities")).toBe(true);
+      expect(names.has("scheduler_bulk_create_dependencies")).toBe(true);
+      expect(names.has("scheduler_bulk_create_milestones")).toBe(true);
+      expect(names.has("scheduler_bulk_assign_milestones")).toBe(true);
       expect(names.has("resolve_session_code")).toBe(true);
     });
+});
+
+describe("AI op-name registry (contract fixture)", () => {
+  test("scheduler and storymap op names are disjoint", () => {
+    const intersection = contract.schedulerOps.filter((o) =>
+      contract.storymapOps.includes(o),
+    );
+    expect(intersection).toEqual([]);
+  });
+
+  test("every fixture bulk op maps to a registered scheduler tool", () => {
+    const {names, server} = collidingServer();
+    registerSchedulerTools(
+      server as unknown as SchedulerParams[0],
+      db as SchedulerParams[1],
+    );
+    for (const op of Object.keys(contract.ops)) {
+      expect(contract.schedulerOps).toContain(op);
+      expect(names.has(contract.ops[op].tool)).toBe(true);
+    }
+  });
 });

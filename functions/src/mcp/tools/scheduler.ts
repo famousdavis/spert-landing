@@ -16,6 +16,27 @@ import {ok, sessionNotFound, readNotPermitted, rateLimited} from "./shared";
 const SESSIONS = "anonymous_sessions";
 const DISTRIBUTIONS = ["normal", "logNormal", "triangular", "uniform"] as const;
 const DEP_TYPES = ["FS", "SS", "FF"] as const;
+// RSM confidence levels, duplicated from the scheduler client
+// (src/domain/models/types.ts RSM_LEVELS). Declared `as const` so Zod 3's
+// z.enum() receives a non-empty tuple type. Domain carried in the contract
+// fixture ai-op-contract.json (P0.5).
+const RSM_LEVELS = [
+  "nearCertainty",
+  "veryHighConfidence",
+  "highConfidence",
+  "mediumHighConfidence",
+  "mediumConfidence",
+  "mediumLowConfidence",
+  "lowConfidence",
+  "veryLowConfidence",
+  "extremelyLowConfidence",
+  "guesstimate",
+] as const;
+
+// Bulk op payload byte ceiling (P0.3 step 0). Measured on a JSON proxy of
+// {op, payload}; the ~248 KB headroom to Firestore's 1 MiB covers the envelope
+// fields writeOpBatch adds and JSON-vs-Firestore accounting (Spike V1 checks).
+const BULK_BYTE_LIMIT = 800_000;
 
 type Envelope = ReturnType<typeof ok>;
 type Op = {op: string; payload: object};
@@ -116,61 +137,74 @@ async function runWrite(
   return writeAndRespond(db, sessionId, loaded.session, ops, describe);
 }
 
+interface SnapshotScenario {
+  id: string;
+  dependencyMode?: boolean;
+  activityIds: string[];
+}
+
 /**
- * Read the snapshot and confirm the target scenario exists with dependency
- * mode ON (§4.6 server-side gate). Returns an error envelope to refuse, or
- * null to proceed.
+ * Read Mode + snapshot gate, split out (decision 15 / P0.3) so callers can act
+ * on the returned scenario. Confirms consent, that a snapshot exists, and that
+ * it carries the named scenario; returns the scenario record (id,
+ * dependencyMode, activity ids) or a refusal envelope. Does NOT assert
+ * dependency mode — the caller layers that on (the dependency gate) or omits it
+ * (the read gate, Phase 3). The read_not_permitted refusal reuses the
+ * field-less readNotPermitted() envelope, the norm for every read-gated write.
  * @param {Firestore} db Admin Firestore instance.
+ * @param {DocumentData} session The already-loaded session doc.
  * @param {string} sessionId Session id.
  * @param {string} scenarioId Target scenario id.
- * @return {Promise<object>} Refusal envelope, or null when allowed.
+ * @return {Promise<object>} {scenario} to proceed, else {error}.
  */
-async function checkDependencyScenario(
+async function fetchSnapshotScenario(
   db: Firestore,
+  session: DocumentData,
   sessionId: string,
   scenarioId: string,
-): Promise<Envelope | null> {
+): Promise<{scenario: SnapshotScenario} | {error: Envelope}> {
+  if (!session.consentRead) return {error: readNotPermitted()};
   let data: DocumentData | undefined;
   try {
     const snap = await db.collection(SESSIONS).doc(sessionId)
       .collection("snapshot").doc("current").get();
     if (!snap.exists) {
-      return ok({
+      return {error: ok({
         status: "error",
         error: "no_snapshot",
         message: "No snapshot yet. Ask the user to open SPERT Scheduler " +
           "with Read Mode enabled, then retry.",
-      });
+      })};
     }
     data = snap.data();
   } catch {
-    return ok({
+    return {error: ok({
       status: "error",
       error: "internal",
       message: "Snapshot read failed; retry.",
-    });
+    })};
   }
   const project = data?.project as {
-    scenarios?: Array<{id: string; dependencyMode?: boolean}>;
+    scenarios?: Array<{
+      id: string;
+      dependencyMode?: boolean;
+      activities?: Array<{id: string}>;
+    }>;
   } | undefined;
   const scenario = project?.scenarios?.find((s) => s.id === scenarioId);
   if (!scenario) {
-    return ok({
+    return {error: ok({
       status: "error",
       error: "scenario_not_found",
       message: `No scenario '${scenarioId}' in the snapshot. Call ` +
         "scheduler_get_project to see the current scenario ids.",
-    });
+    })};
   }
-  if (!scenario.dependencyMode) {
-    return ok({
-      status: "error",
-      error: "dependency_mode_off",
-      message: `Scenario '${scenarioId}' does not have dependency mode on. ` +
-        "Ask the user to enable it for that scenario, then retry.",
-    });
-  }
-  return null;
+  return {scenario: {
+    id: scenario.id,
+    dependencyMode: scenario.dependencyMode,
+    activityIds: (scenario.activities ?? []).map((a) => a.id),
+  }};
 }
 
 /**
@@ -193,10 +227,159 @@ async function runDependencyWrite(
   const loaded = await loadSessionOrError(db, sessionId);
   if ("error" in loaded) return loaded.error;
   const {session} = loaded;
-  if (!session.consentRead) return readNotPermitted();
-  const gate = await checkDependencyScenario(db, sessionId, scenarioId);
-  if (gate) return gate;
+  const gate = await fetchSnapshotScenario(db, session, sessionId, scenarioId);
+  if ("error" in gate) return gate.error;
+  if (!gate.scenario.dependencyMode) {
+    return ok({
+      status: "error",
+      error: "dependency_mode_off",
+      message: `Scenario '${scenarioId}' does not have dependency mode on. ` +
+        "Ask the user to enable it for that scenario, then retry.",
+    });
+  }
   return writeAndRespond(db, sessionId, session, ops, describe);
+}
+
+/**
+ * Byte guard for bulk ops (P0.3 step 0 — before loadSession, a pure payload
+ * computation, so an oversized call costs zero Firestore reads and no rate
+ * token). F3-11: an oversized call that also has a bad session or a failing
+ * gate reports payload_too_large first. Returns a refusal envelope, else null.
+ * @param {string} op Op name.
+ * @param {object} payload Op payload.
+ * @return {Envelope | null} Refusal envelope when too large, else null.
+ */
+function checkPayloadSize(op: string, payload: object): Envelope | null {
+  if (Buffer.byteLength(JSON.stringify({op, payload})) > BULK_BYTE_LIMIT) {
+    return ok({
+      status: "error",
+      error: "payload_too_large",
+      message: "Split this call into smaller batches.",
+    });
+  }
+  return null;
+}
+
+/**
+ * Build the connected-aware "packed" message for a bulk write tool. `packed` is
+ * the item count packed into the single queued op — all-or-nothing at this
+ * layer (server Zod is all-or-nothing); per-item results appear client-side.
+ * @param {string} noun Human label for what was packed (e.g. "Activities").
+ * @return {Function} Message builder keyed on browser presence.
+ */
+function packed(noun: string): (connected: boolean) => string {
+  return (connected: boolean): string =>
+    connected ?
+      `${noun} packed into one queued op; per-item results appear as it ` +
+        "applies. Verify with scheduler_get_project." :
+      `${noun} packed into one queued op; applies when the user reopens ` +
+        "SPERT Scheduler. Verify with scheduler_get_project.";
+}
+
+/**
+ * Rate-limit, write the single fat op, and build the "packed" success envelope
+ * (carrying the item count and assigned seq range). Assumes the session is
+ * loaded and any gate has passed.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {DocumentData} session The already-loaded session doc.
+ * @param {Op} op The single bulk op to append.
+ * @param {number} count Items packed into the op.
+ * @param {Function} describe Success-message builder.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function writeBulkAndRespond(
+  db: Firestore,
+  sessionId: string,
+  session: DocumentData,
+  op: Op,
+  count: number,
+  describe: (connected: boolean) => string,
+): Promise<Envelope> {
+  if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+  let range: {firstSeq: number; lastSeq: number};
+  try {
+    range = await writeOpBatch(db, sessionId, [op]);
+  } catch (e: unknown) {
+    const msg = (e as Error).message;
+    if (msg === "session_not_found") return sessionNotFound();
+    return ok({
+      status: "error",
+      error: "internal",
+      message: `Op write failed: ${msg}`,
+    });
+  }
+  const connected = isBrowserConnected(session);
+  return ok({
+    status: "success",
+    packed: count,
+    firstSeq: range.firstSeq,
+    lastSeq: range.lastSeq,
+    browserConnected: connected,
+    message: describe(connected),
+  });
+}
+
+/**
+ * The default bulk write path (1A/1C/1D): byte guard, load session, write.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {Op} op The single bulk op to append.
+ * @param {number} count Items packed into the op.
+ * @param {Function} describe Success-message builder.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function runBulkWrite(
+  db: Firestore,
+  sessionId: string,
+  op: Op,
+  count: number,
+  describe: (connected: boolean) => string,
+): Promise<Envelope> {
+  const sizeErr = checkPayloadSize(op.op, op.payload);
+  if (sizeErr) return sizeErr;
+  const loaded = await loadSessionOrError(db, sessionId);
+  if ("error" in loaded) return loaded.error;
+  return writeBulkAndRespond(
+    db, sessionId, loaded.session, op, count, describe,
+  );
+}
+
+/**
+ * The dependency bulk write path (1B): byte guard, load session, dependency
+ * gate (Read Mode + snapshot proving dependencyMode ON), write.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {string} scenarioId Target scenario id (required for dep ops).
+ * @param {Op} op The single bulk op to append.
+ * @param {number} count Items packed into the op.
+ * @param {Function} describe Success-message builder.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function runBulkDependencyWrite(
+  db: Firestore,
+  sessionId: string,
+  scenarioId: string,
+  op: Op,
+  count: number,
+  describe: (connected: boolean) => string,
+): Promise<Envelope> {
+  const sizeErr = checkPayloadSize(op.op, op.payload);
+  if (sizeErr) return sizeErr;
+  const loaded = await loadSessionOrError(db, sessionId);
+  if ("error" in loaded) return loaded.error;
+  const {session} = loaded;
+  const gate = await fetchSnapshotScenario(db, session, sessionId, scenarioId);
+  if ("error" in gate) return gate.error;
+  if (!gate.scenario.dependencyMode) {
+    return ok({
+      status: "error",
+      error: "dependency_mode_off",
+      message: `Scenario '${scenarioId}' does not have dependency mode on. ` +
+        "Ask the user to enable it for that scenario, then retry.",
+    });
+  }
+  return writeBulkAndRespond(db, sessionId, session, op, count, describe);
 }
 
 // ── Reusable field schemas ───────────────────────────────────────────────────
@@ -206,6 +389,57 @@ const entityId = z.string().min(1).max(64);
 const items = z.array(
   z.object({id: entityId, text: z.string().min(1).max(200)}),
 ).min(1).max(50);
+
+// ── Bulk tool raw shapes (Phase 1) ───────────────────────────────────────────
+// server.tool() takes a ZodRawShape (a plain object of Zod fields). These are
+// exported so ai-op-contract.test.ts can drive them — asserting field names,
+// required/optional, enum domains, bounds, and array caps against the fixture
+// without walking Zod _def internals (P0.2 / F3-7).
+export const bulkCreateActivitiesShape = {
+  sessionId: sid,
+  scenarioId: scenarioIdOpt,
+  activities: z.array(z.object({
+    id: entityId,
+    name: z.string().min(1).max(200),
+    min: z.number().nonnegative(),
+    mostLikely: z.number().nonnegative(),
+    max: z.number().nonnegative(),
+    confidenceLevel: z.enum(RSM_LEVELS).optional(),
+    distributionType: z.enum(DISTRIBUTIONS).optional(),
+    description: z.string().max(2000).optional(),
+    note: z.string().min(1).max(2000).optional(),
+  })).min(1).max(100),
+};
+
+export const bulkCreateDependenciesShape = {
+  sessionId: sid,
+  scenarioId: entityId,
+  dependencies: z.array(z.object({
+    fromActivityId: entityId,
+    toActivityId: entityId,
+    type: z.enum(DEP_TYPES).optional(),
+    lagDays: z.number().int().min(-365).max(365).optional(),
+  })).min(1).max(500),
+};
+
+export const bulkCreateMilestonesShape = {
+  sessionId: sid,
+  scenarioId: scenarioIdOpt,
+  milestones: z.array(z.object({
+    id: entityId,
+    name: z.string().min(1).max(200),
+    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  })).min(1).max(100),
+};
+
+export const bulkAssignMilestonesShape = {
+  sessionId: sid,
+  scenarioId: scenarioIdOpt,
+  assignments: z.array(z.object({
+    activityId: entityId,
+    milestoneId: entityId,
+  })).min(1).max(500),
+};
 
 /**
  * Register the SPERT Scheduler MCP tools on the given server instance. Reads
@@ -273,7 +507,7 @@ scenario's setting.`,
       min: z.number().nonnegative(),
       mostLikely: z.number().nonnegative(),
       max: z.number().nonnegative(),
-      confidenceLevel: z.string().min(1).max(50).optional(),
+      confidenceLevel: z.enum(RSM_LEVELS).optional(),
       distributionType: z.enum(DISTRIBUTIONS).optional(),
       description: z.string().max(2000).optional(),
     },
@@ -294,7 +528,7 @@ estimate must keep min <= mostLikely <= max. Invalidates simulation results.`,
       min: z.number().nonnegative().optional(),
       mostLikely: z.number().nonnegative().optional(),
       max: z.number().nonnegative().optional(),
-      confidenceLevel: z.string().min(1).max(50).optional(),
+      confidenceLevel: z.enum(RSM_LEVELS).optional(),
       distributionType: z.enum(DISTRIBUTIONS).optional(),
     },
     async ({sessionId, ...payload}) =>
@@ -463,5 +697,72 @@ results.`,
     async ({sessionId, ...payload}) =>
       runDependencyWrite(db, sessionId, payload.scenarioId,
         [{op: "update_dependency", payload}], queued("Dependency update")),
+  );
+
+  // ── Bulk tools (Phase 1) ───────────────────────────────────────────────────
+
+  server.tool(
+    "scheduler_bulk_create_activities",
+    `Create many activities in one call — the PRIMARY way to build a schedule.
+Recommended batch size: 25-50 items when descriptions/notes are heavily
+populated; up to 100 for light items. If your runtime truncates a large tool
+call, the server rejects the malformed arguments with a schema error — the
+cause is your own output limit, not the data. Generate a stable id per
+activity; give a three-point estimate in WORKING DAYS with
+min <= mostLikely <= max. distributionType is auto-recommended per item when
+omitted; confidenceLevel defaults to the scenario setting. Optional per item: a
+scope description and an initial note. Duplicate ids, cap overflow, and items
+that fail validation are skipped individually — the rest apply. Verify with
+scheduler_get_project.`,
+    bulkCreateActivitiesShape,
+    async ({sessionId, ...payload}) =>
+      runBulkWrite(db, sessionId,
+        {op: "bulk_create_activities", payload},
+        payload.activities.length, packed("Activities")),
+  );
+
+  server.tool(
+    "scheduler_bulk_create_dependencies",
+    `Create many dependency edges in one call. REQUIRES Read Mode and a scenario
+whose dependencyMode is already enabled by the user (pass its scenarioId); the
+tool refuses otherwise. type defaults to "FS"; lagDays defaults to 0. An edge
+set that is acyclic TOGETHER WITH the scenario's existing dependencies applies
+fully regardless of array order. Array order matters only when the submitted
+set — combined with the existing dependencies — contains a cycle: it decides
+WHICH edges skip as "cycle". Fix the cycle and resubmit only the skipped edges.
+Unknown endpoints, self-edges, duplicates, and cap overflow skip per item.
+Invalidates simulation results.`,
+    bulkCreateDependenciesShape,
+    async ({sessionId, ...payload}) =>
+      runBulkDependencyWrite(db, sessionId, payload.scenarioId,
+        {op: "bulk_create_dependencies", payload},
+        payload.dependencies.length, packed("Dependencies")),
+  );
+
+  server.tool(
+    "scheduler_bulk_create_milestones",
+    `Create many milestones in one call. Generate a stable id per milestone;
+give a name and a targetDate (YYYY-MM-DD). Duplicate ids, cap overflow, and
+malformed dates skip individually — the rest apply. Invalidates simulation
+results. Verify with scheduler_get_project.`,
+    bulkCreateMilestonesShape,
+    async ({sessionId, ...payload}) =>
+      runBulkWrite(db, sessionId,
+        {op: "bulk_create_milestones", payload},
+        payload.milestones.length, packed("Milestones")),
+  );
+
+  server.tool(
+    "scheduler_bulk_assign_milestones",
+    `Assign many activities to milestones in one call. Each entry assigns one
+activity to one existing milestone (both must exist). Unknown activity or
+milestone ids and already-present assignments skip individually. Repeated
+activityId entries are last-wins. Invalidates simulation results. Verify with
+scheduler_get_project.`,
+    bulkAssignMilestonesShape,
+    async ({sessionId, ...payload}) =>
+      runBulkWrite(db, sessionId,
+        {op: "bulk_assign_milestones", payload},
+        payload.assignments.length, packed("Assignments")),
   );
 }

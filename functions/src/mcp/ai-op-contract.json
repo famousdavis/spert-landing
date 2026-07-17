@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "phase": 1,
+  "_comment": "Shared AI bulk-op contract. Duplicated VERBATIM (by data) in spert-landing-page (functions/src/mcp/ai-op-contract.json) and spert-scheduler (src/app/api/ai-op-contract.json). The two repos author schemas independently — server strict (Zod 3), client structural (Zod 4) — but must agree on this shape. The landing test asserts item fields + required/optional + enums + bounds + caps against the exported raw shapes; the client test asserts op names + item fields + required/optional + caps only (its schemas are deliberately structural, so the enum/bounds rows are landing-only). Change this file in lockstep in both repos; `npm run contract:hash` digests MUST match before a phase ships (decision 13 / P0.2). Op names must stay disjoint from storymap's — the mcpToolRegistration test guards it.",
+  "ops": {
+    "bulk_create_activities": {
+      "tool": "scheduler_bulk_create_activities",
+      "array": "activities",
+      "cap": { "min": 1, "max": 100 },
+      "item": {
+        "id": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "name": { "required": true, "type": "string", "minLen": 1, "maxLen": 200 },
+        "min": { "required": true, "type": "number", "nonnegative": true },
+        "mostLikely": { "required": true, "type": "number", "nonnegative": true },
+        "max": { "required": true, "type": "number", "nonnegative": true },
+        "confidenceLevel": {
+          "required": false,
+          "type": "string",
+          "enum": [
+            "nearCertainty",
+            "veryHighConfidence",
+            "highConfidence",
+            "mediumHighConfidence",
+            "mediumConfidence",
+            "mediumLowConfidence",
+            "lowConfidence",
+            "veryLowConfidence",
+            "extremelyLowConfidence",
+            "guesstimate"
+          ]
+        },
+        "distributionType": {
+          "required": false,
+          "type": "string",
+          "enum": ["normal", "logNormal", "triangular", "uniform"]
+        },
+        "description": { "required": false, "type": "string", "maxLen": 2000 },
+        "note": { "required": false, "type": "string", "minLen": 1, "maxLen": 2000 }
+      }
+    },
+    "bulk_create_dependencies": {
+      "tool": "scheduler_bulk_create_dependencies",
+      "array": "dependencies",
+      "cap": { "min": 1, "max": 500 },
+      "item": {
+        "fromActivityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "toActivityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "type": { "required": false, "type": "string", "enum": ["FS", "SS", "FF"] },
+        "lagDays": { "required": false, "type": "number", "int": true, "min": -365, "max": 365 }
+      }
+    },
+    "bulk_create_milestones": {
+      "tool": "scheduler_bulk_create_milestones",
+      "array": "milestones",
+      "cap": { "min": 1, "max": 100 },
+      "item": {
+        "id": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "name": { "required": true, "type": "string", "minLen": 1, "maxLen": 200 },
+        "targetDate": { "required": true, "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      }
+    },
+    "bulk_assign_milestones": {
+      "tool": "scheduler_bulk_assign_milestones",
+      "array": "assignments",
+      "cap": { "min": 1, "max": 500 },
+      "item": {
+        "activityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "milestoneId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 }
+      }
+    }
+  },
+  "schedulerOps": [
+    "create_activity",
+    "update_activity_estimate",
+    "rename_activity",
+    "set_activity_description",
+    "append_activity_note",
+    "add_checklist_items",
+    "add_deliverable_items",
+    "toggle_checklist_item",
+    "toggle_deliverable_item",
+    "create_milestone",
+    "update_milestone",
+    "assign_milestone",
+    "unassign_milestone",
+    "create_dependency",
+    "remove_dependency",
+    "update_dependency",
+    "bulk_create_activities",
+    "bulk_create_dependencies",
+    "bulk_create_milestones",
+    "bulk_assign_milestones"
+  ],
+  "storymapOps": [
+    "create_theme",
+    "create_backbone",
+    "create_rib",
+    "update_theme",
+    "update_backbone",
+    "update_rib",
+    "create_release",
+    "allocate_rib",
+    "unassign_rib",
+    "size_rib",
+    "move_rib",
+    "bulk_import",
+    "bulk_create_releases",
+    "bulk_allocate",
+    "bulk_size",
+    "bulk_unassign",
+    "bulk_update_ribs",
+    "bulk_move_ribs"
+  ]
+}
