@@ -108,6 +108,8 @@ describe("MCP tool registration collision", () => {
       expect(names.has("scheduler_bulk_create_dependencies")).toBe(true);
       expect(names.has("scheduler_bulk_create_milestones")).toBe(true);
       expect(names.has("scheduler_bulk_assign_milestones")).toBe(true);
+      expect(names.has("scheduler_bulk_update_activities")).toBe(true);
+      expect(names.has("scheduler_bulk_import")).toBe(true);
       expect(names.has("resolve_session_code")).toBe(true);
     });
 });
