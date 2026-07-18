@@ -1,7 +1,7 @@
 {
-  "version": 2,
-  "phase": 2,
-  "_comment": "Shared AI bulk-op contract. Duplicated VERBATIM (by data) in spert-landing-page (functions/src/mcp/ai-op-contract.json) and spert-scheduler (src/app/api/ai-op-contract.json). The two repos author schemas independently — server strict (Zod 3), client structural (Zod 4) — but must agree on this shape. The landing test asserts item fields + required/optional + enums + bounds + caps against the exported raw shapes; the client test asserts op names + item fields + required/optional + caps only (its schemas are deliberately structural, so the enum/bounds rows are landing-only). Two op shapes: single-array ops carry `array`/`cap`/`item`; the composite `bulk_import_schedule` carries `sections` (a map of section name to `cap`/`item`), each section OPTIONAL with a `.max` cap and no min. Change this file in lockstep in both repos; `npm run contract:hash` digests MUST match before a phase ships (decision 13 / P0.2). Op names must stay disjoint from storymap's — the mcpToolRegistration test guards it.",
+  "version": 3,
+  "phase": 3,
+  "_comment": "Shared AI bulk-op contract. Duplicated VERBATIM (by data) in spert-landing-page (functions/src/mcp/ai-op-contract.json) and spert-scheduler (src/app/api/ai-op-contract.json). The two repos author schemas independently — server strict (Zod 3), client structural (Zod 4) — but must agree on this shape. The landing test asserts item fields + required/optional + enums + bounds + caps against the exported raw shapes; the client test asserts op names + item fields + required/optional + caps only (its schemas are deliberately structural, so the enum/bounds rows are landing-only). Three op shapes: single-array ops carry `array`/`cap`/`item`; the composite `bulk_import_schedule` carries `sections` (a map of section name to `cap`/`item`), each section OPTIONAL with a `.max` cap and no min; the scalar-array op `reorder_activities` carries `array`/`cap`/`element` (a bare string array with an element `type` + bounds, no per-item object). Change this file in lockstep in both repos; `npm run contract:hash` digests MUST match before a phase ships (decision 13 / P0.2). Op names must stay disjoint from storymap's — the mcpToolRegistration test guards it.",
   "ops": {
     "bulk_create_activities": {
       "tool": "scheduler_bulk_create_activities",
@@ -163,6 +163,12 @@
           }
         }
       }
+    },
+    "reorder_activities": {
+      "tool": "scheduler_reorder_activities",
+      "array": "orderedActivityIds",
+      "cap": { "min": 2, "max": 500 },
+      "element": { "type": "string", "minLen": 1, "maxLen": 64 }
     }
   },
   "schedulerOps": [
@@ -187,7 +193,8 @@
     "bulk_create_milestones",
     "bulk_assign_milestones",
     "bulk_update_activities",
-    "bulk_import_schedule"
+    "bulk_import_schedule",
+    "reorder_activities"
   ],
   "storymapOps": [
     "create_theme",

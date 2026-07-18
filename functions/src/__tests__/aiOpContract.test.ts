@@ -11,6 +11,7 @@ import {
   bulkAssignMilestonesShape,
   bulkUpdateActivitiesShape,
   bulkImportScheduleShape,
+  reorderActivitiesShape,
 } from "../mcp/tools/scheduler";
 
 // Contract test (landing half, P0.2 / F3-7). Drives the EXPORTED raw shapes —
@@ -31,9 +32,11 @@ interface FieldSpec {
   nonnegative?: boolean;
   pattern?: string;
 }
-// Two op shapes: single-array ops carry `array`/`cap`/`item`; the composite
+// Three op shapes: single-array ops carry `array`/`cap`/`item`; the composite
 // `bulk_import_schedule` carries `sections` (each an optional array with its
-// own `cap`/`item`). Partition and drive each shape independently (P2).
+// own `cap`/`item`); the scalar-array op `reorder_activities` carries
+// `array`/`cap`/`element` (a bare string array — no per-item object). Partition
+// and drive each shape independently.
 interface SingleArrayOpSpec {
   tool: string;
   array: string;
@@ -48,7 +51,13 @@ interface MultiSectionOpSpec {
   tool: string;
   sections: {[section: string]: SectionSpec};
 }
-type OpSpec = SingleArrayOpSpec | MultiSectionOpSpec;
+interface ScalarArrayOpSpec {
+  tool: string;
+  array: string;
+  cap: {min: number; max: number};
+  element: {type: "string" | "number"; minLen?: number; maxLen?: number};
+}
+type OpSpec = SingleArrayOpSpec | MultiSectionOpSpec | ScalarArrayOpSpec;
 interface Contract {
   ops: {[op: string]: OpSpec};
   schedulerOps: string[];
@@ -66,14 +75,25 @@ const SHAPES: {[op: string]: z.ZodRawShape} = {
   bulk_assign_milestones: bulkAssignMilestonesShape,
   bulk_update_activities: bulkUpdateActivitiesShape,
   bulk_import_schedule: bulkImportScheduleShape,
+  reorder_activities: reorderActivitiesShape,
 };
 
-const isSingleArray = (s: OpSpec): s is SingleArrayOpSpec => "array" in s;
+// Partition by shape. `array`+`item` → single-array; `array`+`element` →
+// scalar-array; `sections` → composite. (Testing `"array" in s` alone would
+// misclassify the itemless scalar-array op.)
+const isSingleArray = (s: OpSpec): s is SingleArrayOpSpec =>
+  "array" in s && "item" in s;
+const isScalarArray = (s: OpSpec): s is ScalarArrayOpSpec =>
+  "array" in s && "element" in s;
+const isSection = (s: OpSpec): s is MultiSectionOpSpec => "sections" in s;
 const singleArrayOps = Object.entries(contract.ops).filter(([, s]) =>
   isSingleArray(s),
 ) as [string, SingleArrayOpSpec][];
-const sectionOps = Object.entries(contract.ops).filter(
-  ([, s]) => !isSingleArray(s),
+const scalarArrayOps = Object.entries(contract.ops).filter(([, s]) =>
+  isScalarArray(s),
+) as [string, ScalarArrayOpSpec][];
+const sectionOps = Object.entries(contract.ops).filter(([, s]) =>
+  isSection(s),
 ) as [string, MultiSectionOpSpec][];
 
 const SID = "00000000-0000-4000-8000-000000000000";
@@ -102,6 +122,14 @@ const toolArgs = (
 // A minimal valid tool call for ANY op shape — one item in the (first) section.
 const minimalArgs = (spec: OpSpec): {[k: string]: unknown} => {
   if (isSingleArray(spec)) return toolArgs(spec, [minimalItem(spec.item)]);
+  if (isScalarArray(spec)) {
+    const el = spec.element.type === "number" ? 0 : "x";
+    return {
+      sessionId: SID,
+      scenarioId: "s1",
+      [spec.array]: Array(spec.cap.min).fill(el),
+    };
+  }
   const [section, sspec] = Object.entries(spec.sections)[0];
   return {
     sessionId: SID,
@@ -279,6 +307,49 @@ describe.each(sectionOps)(
   },
 );
 
+// The scalar-array op (reorder_activities): a bare id array with element
+// bounds. The landing half is strict, so it asserts caps AND element bounds
+// (entityId min/max), unlike the structural client half.
+describe.each(scalarArrayOps)(
+  "landing contract (scalar array) — %s",
+  (op, spec) => {
+    const schema = z.object(SHAPES[op]);
+    const el = spec.element.type === "number" ? 1 : "x";
+    const build = (items: unknown[]) =>
+      ({sessionId: SID, scenarioId: "s1", [spec.array]: items});
+    const parse = (items: unknown[]) => schema.safeParse(build(items)).success;
+
+    test("has an exported raw shape", () => {
+      expect(SHAPES[op]).toBeDefined();
+    });
+
+    test("accepts a minimal valid tool call (cap.min elements)", () => {
+      expect(parse(Array(spec.cap.min).fill(el))).toBe(true);
+    });
+
+    test("enforces the array-length cap (min and max)", () => {
+      expect(parse(Array(spec.cap.min - 1).fill(el))).toBe(false);
+      expect(parse(Array(spec.cap.max).fill(el))).toBe(true);
+      expect(parse(Array(spec.cap.max + 1).fill(el))).toBe(false);
+    });
+
+    test("rejects wrong-typed elements", () => {
+      const wrong = spec.element.type === "number" ? "nope" : 123;
+      expect(parse([wrong, el])).toBe(false);
+    });
+
+    test("enforces element bounds", () => {
+      if (typeof spec.element.maxLen === "number") {
+        expect(parse(["a".repeat(spec.element.maxLen), el])).toBe(true);
+        expect(parse(["a".repeat(spec.element.maxLen + 1), el])).toBe(false);
+      }
+      if (typeof spec.element.minLen === "number" && spec.element.minLen > 0) {
+        expect(parse(["", el])).toBe(false);
+      }
+    });
+  },
+);
+
 describe("landing contract — envelope", () => {
   test("sessionId is required on every bulk tool", () => {
     for (const [op, spec] of Object.entries(contract.ops)) {
@@ -289,14 +360,16 @@ describe("landing contract — envelope", () => {
     }
   });
 
-  test("scenarioId is required only for bulk_create_dependencies", () => {
+  test("scenarioId is required for bulk_create_dependencies + reorder", () => {
     for (const [op, spec] of Object.entries(contract.ops)) {
       const schema = z.object(SHAPES[op]);
       const args = minimalArgs(spec);
       delete args.scenarioId;
-      // Only the dependency-CREATE tool hard-requires scenarioId in its schema;
-      // bulk_import makes it conditional in the handler (not structurally).
-      const expected = op !== "bulk_create_dependencies";
+      // bulk_create_dependencies and reorder_activities hard-require scenarioId
+      // in their schemas; bulk_import makes it conditional in the handler, and
+      // the rest fall back to the open scenario (optional).
+      const expected =
+        op !== "bulk_create_dependencies" && op !== "reorder_activities";
       expect(schema.safeParse(args).success).toBe(expected);
     }
   });
