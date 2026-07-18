@@ -40,6 +40,16 @@ const BULK_BYTE_LIMIT = 800_000;
 
 type Envelope = ReturnType<typeof ok>;
 type Op = {op: string; payload: object};
+// The composite import payload as the server inspects it — only section lengths
+// and scenarioId are read here; per-item shapes are the client's concern. The
+// whole payload is still written to the op verbatim for the client to drain.
+interface ImportPayload {
+  scenarioId?: string;
+  activities?: unknown[];
+  milestones?: unknown[];
+  assignments?: unknown[];
+  dependencies?: unknown[];
+}
 
 /**
  * Build a connected-aware "queued" message for a write tool.
@@ -382,6 +392,136 @@ async function runBulkDependencyWrite(
   return writeBulkAndRespond(db, sessionId, session, op, count, describe);
 }
 
+/**
+ * Rate-limit, write the single composite import op, and build the success
+ * envelope carrying a per-section `packed` map + `packedTotal`. Assumes the
+ * session is loaded and the inline checks / dependency gate have passed.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {DocumentData} session The already-loaded session doc.
+ * @param {Op} op The single composite op to append.
+ * @param {object} packedCounts Items packed per section.
+ * @param {number} packedTotal Total items packed across all sections.
+ * @param {Function} describe Success-message builder.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function writeBulkImportAndRespond(
+  db: Firestore,
+  sessionId: string,
+  session: DocumentData,
+  op: Op,
+  packedCounts: {
+    activities: number;
+    milestones: number;
+    assignments: number;
+    dependencies: number;
+  },
+  packedTotal: number,
+  describe: (connected: boolean) => string,
+): Promise<Envelope> {
+  if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+  let range: {firstSeq: number; lastSeq: number};
+  try {
+    range = await writeOpBatch(db, sessionId, [op]);
+  } catch (e: unknown) {
+    const msg = (e as Error).message;
+    if (msg === "session_not_found") return sessionNotFound();
+    return ok({
+      status: "error",
+      error: "internal",
+      message: `Op write failed: ${msg}`,
+    });
+  }
+  const connected = isBrowserConnected(session);
+  return ok({
+    status: "success",
+    packed: packedCounts,
+    packedTotal,
+    firstSeq: range.firstSeq,
+    lastSeq: range.lastSeq,
+    browserConnected: connected,
+    message: describe(connected),
+  });
+}
+
+/**
+ * The composite import write path (2B): byte guard, load session, inline checks
+ * (>=1 section non-empty; dependencies => scenarioId), a CONDITIONAL dependency
+ * gate (only when dependencies are present; else the plain path, no Read Mode),
+ * then write. All-or-nothing at queue time: any failing check refuses the whole
+ * call and queues nothing.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {ImportPayload} payload The composite payload (sections + scenarioId).
+ * @param {Function} describe Success-message builder.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function runBulkImportWrite(
+  db: Firestore,
+  sessionId: string,
+  payload: ImportPayload,
+  describe: (connected: boolean) => string,
+): Promise<Envelope> {
+  const op: Op = {op: "bulk_import_schedule", payload};
+  const sizeErr = checkPayloadSize(op.op, op.payload);
+  if (sizeErr) return sizeErr;
+  const loaded = await loadSessionOrError(db, sessionId);
+  if ("error" in loaded) return loaded.error;
+  const {session} = loaded;
+
+  const activities = payload.activities ?? [];
+  const milestones = payload.milestones ?? [];
+  const assignments = payload.assignments ?? [];
+  const dependencies = payload.dependencies ?? [];
+  const packedTotal =
+    activities.length + milestones.length +
+    assignments.length + dependencies.length;
+
+  // Inline check 1: at least one section non-empty.
+  if (packedTotal === 0) {
+    return ok({
+      status: "error",
+      error: "empty_import",
+      message: "Nothing to import — provide at least one of activities, " +
+        "milestones, assignments, or dependencies.",
+    });
+  }
+  // Inline check 2: dependencies require a target scenarioId.
+  if (dependencies.length > 0 && !payload.scenarioId) {
+    return ok({
+      status: "error",
+      error: "scenario_required_for_dependencies",
+      message: "Pass scenarioId (the target dependency-mode scenario) when " +
+        "the import includes dependencies.",
+    });
+  }
+  // Conditional dependency gate — only when dependencies are present.
+  if (dependencies.length > 0) {
+    const gate = await fetchSnapshotScenario(
+      db, session, sessionId, payload.scenarioId as string,
+    );
+    if ("error" in gate) return gate.error;
+    if (!gate.scenario.dependencyMode) {
+      return ok({
+        status: "error",
+        error: "dependency_mode_off",
+        message: `Scenario '${payload.scenarioId}' does not have dependency ` +
+          "mode on. Ask the user to enable it for that scenario, then retry.",
+      });
+    }
+  }
+
+  const packedCounts = {
+    activities: activities.length,
+    milestones: milestones.length,
+    assignments: assignments.length,
+    dependencies: dependencies.length,
+  };
+  return writeBulkImportAndRespond(
+    db, sessionId, session, op, packedCounts, packedTotal, describe,
+  );
+}
+
 // ── Reusable field schemas ───────────────────────────────────────────────────
 const sid = z.string().uuid();
 const scenarioIdOpt = z.string().min(1).max(64).optional();
@@ -390,7 +530,50 @@ const items = z.array(
   z.object({id: entityId, text: z.string().min(1).max(200)}),
 ).min(1).max(50);
 
-// ── Bulk tool raw shapes (Phase 1) ───────────────────────────────────────────
+// ── Bulk item schemas ────────────────────────────────────────────────────────
+// The per-item object schemas, named so both the single-array bulk shapes AND
+// the composite import shape (bulk_import_schedule) reuse the SAME item
+// definitions; the fixture duplicates these rows verbatim per section.
+const bulkActivityItem = z.object({
+  id: entityId,
+  name: z.string().min(1).max(200),
+  min: z.number().nonnegative(),
+  mostLikely: z.number().nonnegative(),
+  max: z.number().nonnegative(),
+  confidenceLevel: z.enum(RSM_LEVELS).optional(),
+  distributionType: z.enum(DISTRIBUTIONS).optional(),
+  description: z.string().max(2000).optional(),
+  note: z.string().min(1).max(2000).optional(),
+});
+const bulkDependencyItem = z.object({
+  fromActivityId: entityId,
+  toActivityId: entityId,
+  type: z.enum(DEP_TYPES).optional(),
+  lagDays: z.number().int().min(-365).max(365).optional(),
+});
+const bulkMilestoneItem = z.object({
+  id: entityId,
+  name: z.string().min(1).max(200),
+  targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+const bulkAssignmentItem = z.object({
+  activityId: entityId,
+  milestoneId: entityId,
+});
+// Phase 2 — every field except id is optional (patch semantics; absent =
+// unchanged). Empty-string description clears (validated client-side).
+const bulkUpdateItem = z.object({
+  id: entityId,
+  name: z.string().min(1).max(200).optional(),
+  min: z.number().nonnegative().optional(),
+  mostLikely: z.number().nonnegative().optional(),
+  max: z.number().nonnegative().optional(),
+  confidenceLevel: z.enum(RSM_LEVELS).optional(),
+  distributionType: z.enum(DISTRIBUTIONS).optional(),
+  description: z.string().max(2000).optional(),
+});
+
+// ── Bulk tool raw shapes ─────────────────────────────────────────────────────
 // server.tool() takes a ZodRawShape (a plain object of Zod fields). These are
 // exported so ai-op-contract.test.ts can drive them — asserting field names,
 // required/optional, enum domains, bounds, and array caps against the fixture
@@ -398,47 +581,44 @@ const items = z.array(
 export const bulkCreateActivitiesShape = {
   sessionId: sid,
   scenarioId: scenarioIdOpt,
-  activities: z.array(z.object({
-    id: entityId,
-    name: z.string().min(1).max(200),
-    min: z.number().nonnegative(),
-    mostLikely: z.number().nonnegative(),
-    max: z.number().nonnegative(),
-    confidenceLevel: z.enum(RSM_LEVELS).optional(),
-    distributionType: z.enum(DISTRIBUTIONS).optional(),
-    description: z.string().max(2000).optional(),
-    note: z.string().min(1).max(2000).optional(),
-  })).min(1).max(100),
+  activities: z.array(bulkActivityItem).min(1).max(100),
 };
 
 export const bulkCreateDependenciesShape = {
   sessionId: sid,
   scenarioId: entityId,
-  dependencies: z.array(z.object({
-    fromActivityId: entityId,
-    toActivityId: entityId,
-    type: z.enum(DEP_TYPES).optional(),
-    lagDays: z.number().int().min(-365).max(365).optional(),
-  })).min(1).max(500),
+  dependencies: z.array(bulkDependencyItem).min(1).max(500),
 };
 
 export const bulkCreateMilestonesShape = {
   sessionId: sid,
   scenarioId: scenarioIdOpt,
-  milestones: z.array(z.object({
-    id: entityId,
-    name: z.string().min(1).max(200),
-    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  })).min(1).max(100),
+  milestones: z.array(bulkMilestoneItem).min(1).max(100),
 };
 
 export const bulkAssignMilestonesShape = {
   sessionId: sid,
   scenarioId: scenarioIdOpt,
-  assignments: z.array(z.object({
-    activityId: entityId,
-    milestoneId: entityId,
-  })).min(1).max(500),
+  assignments: z.array(bulkAssignmentItem).min(1).max(500),
+};
+
+// Phase 2 — 2A: one array of ≤100 patches, plain (ungated) write path.
+export const bulkUpdateActivitiesShape = {
+  sessionId: sid,
+  scenarioId: scenarioIdOpt,
+  updates: z.array(bulkUpdateItem).min(1).max(100),
+};
+
+// Phase 2 — 2B: four OPTIONAL sections, each capped, no `.min` (the "at least
+// one non-empty" rule is an inline handler check, not structural). scenarioId
+// is optional here; the handler requires it only when dependencies are present.
+export const bulkImportScheduleShape = {
+  sessionId: sid,
+  scenarioId: scenarioIdOpt,
+  activities: z.array(bulkActivityItem).max(100).optional(),
+  milestones: z.array(bulkMilestoneItem).max(100).optional(),
+  assignments: z.array(bulkAssignmentItem).max(500).optional(),
+  dependencies: z.array(bulkDependencyItem).max(500).optional(),
 };
 
 /**
@@ -764,5 +944,56 @@ scheduler_get_project.`,
       runBulkWrite(db, sessionId,
         {op: "bulk_assign_milestones", payload},
         payload.assignments.length, packed("Assignments")),
+  );
+
+  // ── Bulk tools (Phase 2) ───────────────────────────────────────────────────
+
+  server.tool(
+    "scheduler_bulk_update_activities",
+    `Update many existing activities in one call. Each entry targets an activity
+by id and patches ONLY the fields you include — name, three-point estimate
+(min/mostLikely/max in WORKING DAYS), confidenceLevel, distributionType, and/or
+description. Absent fields are left unchanged; an EMPTY-STRING description
+CLEARS it. The MERGED estimate (current values plus your changes) must keep
+min <= mostLikely <= max, or that one entry is skipped as invalid while the rest
+apply. Unknown ids skip as not_found; an entry with no updatable field skips as
+invalid; an entry whose values already match skips as no-change. Repeated ids
+apply in array order — a later entry sees the earlier one's result. Recommended
+batch size: up to 100 (25-50 when descriptions are heavy — your output budget,
+not the server, is the ceiling). Invalidates simulation results. Verify with
+scheduler_get_project.`,
+    bulkUpdateActivitiesShape,
+    async ({sessionId, ...payload}) =>
+      runBulkWrite(db, sessionId,
+        {op: "bulk_update_activities", payload},
+        payload.updates.length, packed("Activity updates")),
+  );
+
+  server.tool(
+    "scheduler_bulk_import",
+    `Build a whole schedule in ONE call: activities, milestones, milestone
+assignments, and dependencies together (all sections optional; at least one
+must be non-empty). Sections apply in a fixed order — activities, then
+milestones, then assignments, then dependencies — so an assignment or edge may
+reference an activity or milestone created earlier in the SAME call. Generate
+stable ids yourself. Per-item skips apply individually EXCEPT: an activity or
+milestone skipped for a reason implying it was never created (invalid or
+cap_exceeded) takes its dependent assignments and edges with it as not_found; a
+duplicate does NOT cascade (the entity exists), which is what makes re-import
+idempotent. An edge can skip as "cycle" when the submitted edges TOGETHER WITH
+the scenario's existing dependencies form a cycle, even if the submitted set
+alone is acyclic. If you include dependencies you MUST pass scenarioId (the
+target scenario) and it REQUIRES Read Mode plus that scenario's dependency mode
+enabled; a dependencies-carrying import is all-or-nothing at BOTH queue time and
+apply time — if dependency mode is off (or is turned off before the browser
+applies it) the ENTIRE import, activities and milestones included, is declined
+with a single message. Re-verify with scheduler_get_project and resubmit after
+the user re-enables it. An import with no dependencies needs no Read Mode.
+Recommended batch size: up to 100 activities/milestones and 500
+assignments/edges (fewer when descriptions are heavy). Invalidates simulation
+results. Verify with scheduler_get_project.`,
+    bulkImportScheduleShape,
+    async ({sessionId, ...payload}) =>
+      runBulkImportWrite(db, sessionId, payload, packed("Schedule")),
   );
 }

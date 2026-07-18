@@ -1,7 +1,7 @@
 {
-  "version": 1,
-  "phase": 1,
-  "_comment": "Shared AI bulk-op contract. Duplicated VERBATIM (by data) in spert-landing-page (functions/src/mcp/ai-op-contract.json) and spert-scheduler (src/app/api/ai-op-contract.json). The two repos author schemas independently — server strict (Zod 3), client structural (Zod 4) — but must agree on this shape. The landing test asserts item fields + required/optional + enums + bounds + caps against the exported raw shapes; the client test asserts op names + item fields + required/optional + caps only (its schemas are deliberately structural, so the enum/bounds rows are landing-only). Change this file in lockstep in both repos; `npm run contract:hash` digests MUST match before a phase ships (decision 13 / P0.2). Op names must stay disjoint from storymap's — the mcpToolRegistration test guards it.",
+  "version": 2,
+  "phase": 2,
+  "_comment": "Shared AI bulk-op contract. Duplicated VERBATIM (by data) in spert-landing-page (functions/src/mcp/ai-op-contract.json) and spert-scheduler (src/app/api/ai-op-contract.json). The two repos author schemas independently — server strict (Zod 3), client structural (Zod 4) — but must agree on this shape. The landing test asserts item fields + required/optional + enums + bounds + caps against the exported raw shapes; the client test asserts op names + item fields + required/optional + caps only (its schemas are deliberately structural, so the enum/bounds rows are landing-only). Two op shapes: single-array ops carry `array`/`cap`/`item`; the composite `bulk_import_schedule` carries `sections` (a map of section name to `cap`/`item`), each section OPTIONAL with a `.max` cap and no min. Change this file in lockstep in both repos; `npm run contract:hash` digests MUST match before a phase ships (decision 13 / P0.2). Op names must stay disjoint from storymap's — the mcpToolRegistration test guards it.",
   "ops": {
     "bulk_create_activities": {
       "tool": "scheduler_bulk_create_activities",
@@ -67,6 +67,102 @@
         "activityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
         "milestoneId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 }
       }
+    },
+    "bulk_update_activities": {
+      "tool": "scheduler_bulk_update_activities",
+      "array": "updates",
+      "cap": { "min": 1, "max": 100 },
+      "item": {
+        "id": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "name": { "required": false, "type": "string", "minLen": 1, "maxLen": 200 },
+        "min": { "required": false, "type": "number", "nonnegative": true },
+        "mostLikely": { "required": false, "type": "number", "nonnegative": true },
+        "max": { "required": false, "type": "number", "nonnegative": true },
+        "confidenceLevel": {
+          "required": false,
+          "type": "string",
+          "enum": [
+            "nearCertainty",
+            "veryHighConfidence",
+            "highConfidence",
+            "mediumHighConfidence",
+            "mediumConfidence",
+            "mediumLowConfidence",
+            "lowConfidence",
+            "veryLowConfidence",
+            "extremelyLowConfidence",
+            "guesstimate"
+          ]
+        },
+        "distributionType": {
+          "required": false,
+          "type": "string",
+          "enum": ["normal", "logNormal", "triangular", "uniform"]
+        },
+        "description": { "required": false, "type": "string", "maxLen": 2000 }
+      }
+    },
+    "bulk_import_schedule": {
+      "tool": "scheduler_bulk_import",
+      "sections": {
+        "activities": {
+          "cap": { "max": 100 },
+          "item": {
+            "id": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+            "name": { "required": true, "type": "string", "minLen": 1, "maxLen": 200 },
+            "min": { "required": true, "type": "number", "nonnegative": true },
+            "mostLikely": { "required": true, "type": "number", "nonnegative": true },
+            "max": { "required": true, "type": "number", "nonnegative": true },
+            "confidenceLevel": {
+              "required": false,
+              "type": "string",
+              "enum": [
+                "nearCertainty",
+                "veryHighConfidence",
+                "highConfidence",
+                "mediumHighConfidence",
+                "mediumConfidence",
+                "mediumLowConfidence",
+                "lowConfidence",
+                "veryLowConfidence",
+                "extremelyLowConfidence",
+                "guesstimate"
+              ]
+            },
+            "distributionType": {
+              "required": false,
+              "type": "string",
+              "enum": ["normal", "logNormal", "triangular", "uniform"]
+            },
+            "description": { "required": false, "type": "string", "maxLen": 2000 },
+            "note": { "required": false, "type": "string", "minLen": 1, "maxLen": 2000 }
+          }
+        },
+        "milestones": {
+          "cap": { "max": 100 },
+          "item": {
+            "id": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+            "name": { "required": true, "type": "string", "minLen": 1, "maxLen": 200 },
+            "targetDate": { "required": true, "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+          }
+        },
+        "assignments": {
+          "cap": { "max": 500 },
+          "item": {
+            "activityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+            "milestoneId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 }
+          }
+        },
+        "dependencies": {
+          "cap": { "max": 500 },
+          "item": {
+            "fromActivityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+            "toActivityId": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+            "type": { "required": false, "type": "string", "enum": ["FS", "SS", "FF"] },
+            "lagDays": { "required": false, "type": "number", "int": true, "min": -365, "max": 365 }
+          }
+        }
+      }
     }
   },
   "schedulerOps": [
@@ -89,7 +185,9 @@
     "bulk_create_activities",
     "bulk_create_dependencies",
     "bulk_create_milestones",
-    "bulk_assign_milestones"
+    "bulk_assign_milestones",
+    "bulk_update_activities",
+    "bulk_import_schedule"
   ],
   "storymapOps": [
     "create_theme",
