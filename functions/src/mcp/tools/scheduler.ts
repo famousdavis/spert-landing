@@ -522,6 +522,191 @@ async function runBulkImportWrite(
   );
 }
 
+// ── Reorder (Phase 3) ──────────────────────────────────────────────────────
+// The two-directional staleness hedge appended to both precheck errors: the
+// snapshot can lag the live project in either direction (a correct order can
+// false-reject; a stale snapshot can false-pass and be refused at drain).
+const STALE_HEDGE =
+  "The snapshot may lag the live project. If you re-read " +
+  "scheduler_get_project just now and this error persists, the project " +
+  "likely changed — re-read and rebuild the full list. If the snapshot is " +
+  "stale the precheck can also pass while the browser later refuses — " +
+  "always verify after.";
+
+/**
+ * Collect ids that appear more than once, in first-duplicate order.
+ * @param {string[]} ids The requested id list.
+ * @return {string[]} The duplicated ids (empty when all unique).
+ */
+function findDuplicates(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const id of ids) {
+    if (seen.has(id)) dupes.add(id);
+    seen.add(id);
+  }
+  return [...dupes];
+}
+
+/**
+ * Compare the requested id list against the live activity-id set, returning a
+ * human message naming missing/unexpected ids, or null on an exact match.
+ * Assumes the requested list is duplicate-free (Precheck A ran first), so set
+ * equality here proves an exact permutation.
+ * @param {string[]} current The scenario's live activity ids (from snapshot).
+ * @param {string[]} requested The AI's requested order.
+ * @return {string | null} A mismatch message, or null when the sets are equal.
+ */
+function setMismatch(
+  current: string[],
+  requested: string[],
+): string | null {
+  const cur = new Set(current);
+  const req = new Set(requested);
+  const missing = current.filter((id) => !req.has(id));
+  const unexpected = requested.filter((id) => !cur.has(id));
+  if (missing.length === 0 && unexpected.length === 0) return null;
+  const parts: string[] = [];
+  if (missing.length > 0) parts.push(`missing: ${missing.join(", ")}`);
+  if (unexpected.length > 0) {
+    parts.push(`unexpected: ${unexpected.join(", ")}`);
+  }
+  return "orderedActivityIds is not the scenario's full activity-id set " +
+    `(${parts.join("; ")}).`;
+}
+
+/**
+ * Build the connected-aware reorder message: a queued/applies frame, the
+ * mode-specific dates sentence, and the always-on staleness hedge.
+ * `affectsDates` is `!dependencyMode` — sequential mode is where dates move.
+ * @param {boolean} affectsDates Whether reordering moves schedule dates.
+ * @return {Function} Message builder keyed on browser presence.
+ */
+function reorderMessage(
+  affectsDates: boolean,
+): (connected: boolean) => string {
+  const mode = affectsDates ?
+    "This scenario schedules activities in list order: reordering CHANGES " +
+      "start/finish dates. Simulation results are invalidated when it " +
+      "applies." :
+    "This scenario is dependency-driven: reordering changes DISPLAY ORDER " +
+      "ONLY — no dates move. Simulation results are still cleared and will " +
+      "re-run.";
+  const hedge =
+    "Mode is read from the last snapshot and may be stale — verify after " +
+    "with scheduler_get_project.";
+  return (connected: boolean): string => {
+    const frame = connected ?
+      "Activity order packed into one queued op; applies as the browser " +
+        "drains it." :
+      "Activity order packed into one queued op; applies when the user " +
+        "reopens SPERT Scheduler.";
+    return `${frame} ${mode} ${hedge}`;
+  };
+}
+
+/**
+ * Rate-limit, write the single reorder op, and build the success envelope
+ * carrying `affectsDates` and the mode-specific message. Assumes the session is
+ * loaded and the read gate + prechecks have passed.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {DocumentData} session The already-loaded session doc.
+ * @param {Op} op The single reorder op to append.
+ * @param {number} count Activity ids packed into the op.
+ * @param {boolean} affectsDates Whether reordering moves schedule dates.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function writeReorderAndRespond(
+  db: Firestore,
+  sessionId: string,
+  session: DocumentData,
+  op: Op,
+  count: number,
+  affectsDates: boolean,
+): Promise<Envelope> {
+  if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+  let range: {firstSeq: number; lastSeq: number};
+  try {
+    range = await writeOpBatch(db, sessionId, [op]);
+  } catch (e: unknown) {
+    const msg = (e as Error).message;
+    if (msg === "session_not_found") return sessionNotFound();
+    return ok({
+      status: "error",
+      error: "internal",
+      message: `Op write failed: ${msg}`,
+    });
+  }
+  const connected = isBrowserConnected(session);
+  return ok({
+    status: "success",
+    packed: count,
+    affectsDates,
+    firstSeq: range.firstSeq,
+    lastSeq: range.lastSeq,
+    browserConnected: connected,
+    message: reorderMessage(affectsDates)(connected),
+  });
+}
+
+/**
+ * The reorder write path (Phase 3): byte guard, load session, read gate
+ * (snapshot proving the scenario exists — dependency mode is NOT asserted; both
+ * modes may reorder), then two queue-time prechecks — duplicate ids
+ * (invalid_order) and set-equality vs the snapshot's activity ids (stale_order)
+ * — then write. The client repeats both prechecks at drain time as the
+ * authoritative check.
+ * @param {Firestore} db Admin Firestore instance.
+ * @param {string} sessionId Session id.
+ * @param {string} scenarioId Target scenario id.
+ * @param {string[]} orderedActivityIds The full id list, in the desired order.
+ * @return {Promise<Envelope>} The tool response envelope.
+ */
+async function runReorderWrite(
+  db: Firestore,
+  sessionId: string,
+  scenarioId: string,
+  orderedActivityIds: string[],
+): Promise<Envelope> {
+  const op: Op = {
+    op: "reorder_activities",
+    payload: {scenarioId, orderedActivityIds},
+  };
+  const sizeErr = checkPayloadSize(op.op, op.payload);
+  if (sizeErr) return sizeErr;
+  const loaded = await loadSessionOrError(db, sessionId);
+  if ("error" in loaded) return loaded.error;
+  const {session} = loaded;
+  const gate = await fetchSnapshotScenario(db, session, sessionId, scenarioId);
+  if ("error" in gate) return gate.error;
+
+  // Precheck A — duplicate ids → invalid_order.
+  const dupes = findDuplicates(orderedActivityIds);
+  if (dupes.length > 0) {
+    return ok({
+      status: "error",
+      error: "invalid_order",
+      message: `Duplicate activity id(s): ${dupes.join(", ")}. ${STALE_HEDGE}`,
+    });
+  }
+
+  // Precheck B — set-equality vs the snapshot's activity ids → stale_order.
+  const mismatch = setMismatch(gate.scenario.activityIds, orderedActivityIds);
+  if (mismatch) {
+    return ok({
+      status: "error",
+      error: "stale_order",
+      message: `${mismatch} ${STALE_HEDGE}`,
+    });
+  }
+
+  const affectsDates = !gate.scenario.dependencyMode;
+  return writeReorderAndRespond(
+    db, sessionId, session, op, orderedActivityIds.length, affectsDates,
+  );
+}
+
 // ── Reusable field schemas ───────────────────────────────────────────────────
 const sid = z.string().uuid();
 const scenarioIdOpt = z.string().min(1).max(64).optional();
@@ -621,6 +806,16 @@ export const bulkImportScheduleShape = {
   dependencies: z.array(bulkDependencyItem).max(500).optional(),
 };
 
+// Phase 3 — reorder: scenarioId is REQUIRED (a reorder must target one exact
+// scenario; unlike the bulk create/update tools it never falls back to the
+// open scenario). orderedActivityIds is the FULL current id list in the
+// desired order — ≥2 ids, capped at the 500-activity ceiling.
+export const reorderActivitiesShape = {
+  sessionId: sid,
+  scenarioId: entityId,
+  orderedActivityIds: z.array(entityId).min(2).max(500),
+};
+
 /**
  * Register the SPERT Scheduler MCP tools on the given server instance. Reads
  * go through the browser-pushed snapshot (Read Mode); writes queue ops the
@@ -640,7 +835,10 @@ export function registerSchedulerTools(
 three-point estimates and computed schedule dates), milestones,
 dependencies, and any validation errors. ONLY available when the user has
 enabled Read Mode in the Connect AI panel. Call this to discover activity,
-scenario, and milestone ids before any update/toggle/assign/dependency call.`,
+scenario, and milestone ids before any update/toggle/assign/dependency call.
+If asOfSeq stops advancing after writes you've confirmed applied, the project
+may have exceeded the snapshot size budget — ask the user to check the browser
+console.`,
     {sessionId: sid},
     async ({sessionId}) => {
       const loaded = await loadSessionOrError(db, sessionId);
@@ -995,5 +1193,25 @@ results. Verify with scheduler_get_project.`,
     bulkImportScheduleShape,
     async ({sessionId, ...payload}) =>
       runBulkImportWrite(db, sessionId, payload, packed("Schedule")),
+  );
+
+  // ── Reorder (Phase 3) ──────────────────────────────────────────────────────
+
+  server.tool(
+    "scheduler_reorder_activities",
+    `Reorder a scenario's activities to EXACTLY the given id list. Pass the FULL
+current activity-id list for the target scenario, in the desired order — re-read
+scheduler_get_project immediately before calling to get the live ids, and verify
+after. In a sequential-mode scenario this CHANGES start/finish dates; in a
+dependency-driven scenario it changes DISPLAY ORDER ONLY and no dates move —
+either way simulation results are cleared and re-run. Requires Read Mode and the
+target scenarioId. The list must be a permutation of the current ids: a repeated
+id fails as invalid_order, and any missing or extra id fails as stale_order (the
+project changed since you last read it — re-read and rebuild the full list). You
+cannot see section-header bands; they follow their anchor activity, so warn the
+user that visual groupings may shift. Verify with scheduler_get_project.`,
+    reorderActivitiesShape,
+    async ({sessionId, scenarioId, orderedActivityIds}) =>
+      runReorderWrite(db, sessionId, scenarioId, orderedActivityIds),
   );
 }
