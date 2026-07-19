@@ -12,6 +12,7 @@ import {
   bulkUpdateActivitiesShape,
   bulkImportScheduleShape,
   reorderActivitiesShape,
+  bulkAppendNotesShape,
 } from "../mcp/tools/scheduler";
 
 // Contract test (landing half, P0.2 / F3-7). Drives the EXPORTED raw shapes —
@@ -76,6 +77,7 @@ const SHAPES: {[op: string]: z.ZodRawShape} = {
   bulk_update_activities: bulkUpdateActivitiesShape,
   bulk_import_schedule: bulkImportScheduleShape,
   reorder_activities: reorderActivitiesShape,
+  bulk_append_notes: bulkAppendNotesShape,
 };
 
 // Partition by shape. `array`+`item` → single-array; `array`+`element` →
