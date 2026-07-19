@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "phase": 3,
+  "version": 4,
+  "phase": 4,
   "_comment": "Shared AI bulk-op contract. Duplicated VERBATIM (by data) in spert-landing-page (functions/src/mcp/ai-op-contract.json) and spert-scheduler (src/app/api/ai-op-contract.json). The two repos author schemas independently — server strict (Zod 3), client structural (Zod 4) — but must agree on this shape. The landing test asserts item fields + required/optional + enums + bounds + caps against the exported raw shapes; the client test asserts op names + item fields + required/optional + caps only (its schemas are deliberately structural, so the enum/bounds rows are landing-only). Three op shapes: single-array ops carry `array`/`cap`/`item`; the composite `bulk_import_schedule` carries `sections` (a map of section name to `cap`/`item`), each section OPTIONAL with a `.max` cap and no min; the scalar-array op `reorder_activities` carries `array`/`cap`/`element` (a bare string array with an element `type` + bounds, no per-item object). Change this file in lockstep in both repos; `npm run contract:hash` digests MUST match before a phase ships (decision 13 / P0.2). Op names must stay disjoint from storymap's — the mcpToolRegistration test guards it.",
   "ops": {
     "bulk_create_activities": {
@@ -169,6 +169,15 @@
       "array": "orderedActivityIds",
       "cap": { "min": 2, "max": 500 },
       "element": { "type": "string", "minLen": 1, "maxLen": 64 }
+    },
+    "bulk_append_notes": {
+      "tool": "scheduler_bulk_append_notes",
+      "array": "notes",
+      "cap": { "min": 1, "max": 100 },
+      "item": {
+        "id": { "required": true, "type": "string", "minLen": 1, "maxLen": 64 },
+        "text": { "required": true, "type": "string", "minLen": 1, "maxLen": 2000 }
+      }
     }
   },
   "schedulerOps": [
@@ -194,7 +203,8 @@
     "bulk_assign_milestones",
     "bulk_update_activities",
     "bulk_import_schedule",
-    "reorder_activities"
+    "reorder_activities",
+    "bulk_append_notes"
   ],
   "storymapOps": [
     "create_theme",

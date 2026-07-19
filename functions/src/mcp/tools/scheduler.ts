@@ -816,6 +816,24 @@ export const reorderActivitiesShape = {
   orderedActivityIds: z.array(entityId).min(2).max(500),
 };
 
+// Phase 4 — bulk append notes: one array of ≤100 { id, text } items, plain
+// (ungated) write path like 2A. The client's appendNoteCore does NOT trim, so
+// the whitespace-only guard lives here (D4): `.refine` rejects all-whitespace
+// text WITHOUT mutating real content the way a `.trim()` transform would (a
+// transform would silently strip leading/trailing whitespace from every note).
+const bulkAppendNoteItem = z.object({
+  id: entityId,
+  text: z.string().min(1).max(2000).refine((s) => s.trim().length > 0, {
+    message: "text must contain non-whitespace characters",
+  }),
+});
+
+export const bulkAppendNotesShape = {
+  sessionId: sid,
+  scenarioId: scenarioIdOpt,
+  notes: z.array(bulkAppendNoteItem).min(1).max(100),
+};
+
 /**
  * Register the SPERT Scheduler MCP tools on the given server instance. Reads
  * go through the browser-pushed snapshot (Read Mode); writes queue ops the
@@ -1213,5 +1231,29 @@ user that visual groupings may shift. Verify with scheduler_get_project.`,
     reorderActivitiesShape,
     async ({sessionId, scenarioId, orderedActivityIds}) =>
       runReorderWrite(db, sessionId, scenarioId, orderedActivityIds),
+  );
+
+  // ── Bulk append notes (Phase 4) ────────────────────────────────────────────
+
+  server.tool(
+    "scheduler_bulk_append_notes",
+    `Append a note to many EXISTING activities in one call — one { id, text }
+entry per activity. Each text is ADDED to that activity's existing notes:
+non-destructive (it never overwrites notes) and non-invalidating (it never
+clears simulation results). Unknown ids skip as not_found; an entry whose text
+would push that activity's notes past 2000 characters TOTAL (existing + new)
+skips as "too long" while the rest apply. NOT idempotent — running the same call
+twice appends the note twice, so if a call partially fails resend ONLY the ids
+that skipped, not the whole call. Repeated ids in one call append cumulatively
+in array order. No Read Mode required, but with Read Mode off you cannot see
+how much note text an activity already holds, so keep appended text short.
+Recommended batch size: up to 100 (25-40 when notes carry real content — your
+output budget, not the server, is the ceiling; a truncated mid-call output makes
+the server reject the whole call). Verify with scheduler_get_project.`,
+    bulkAppendNotesShape,
+    async ({sessionId, ...payload}) =>
+      runBulkWrite(db, sessionId,
+        {op: "bulk_append_notes", payload},
+        payload.notes.length, packed("Notes")),
   );
 }
