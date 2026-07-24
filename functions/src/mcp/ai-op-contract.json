@@ -224,6 +224,8 @@
     "bulk_size",
     "bulk_unassign",
     "bulk_update_ribs",
-    "bulk_move_ribs"
+    "bulk_move_ribs",
+    "append_rib_note",
+    "bulk_append_rib_notes"
   ]
 }
