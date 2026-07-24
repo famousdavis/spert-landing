@@ -71,6 +71,8 @@ describe("MCP tool registration collision", () => {
     }).not.toThrow();
     expect(names.has("resolve_session_code")).toBe(true);
     expect(names.has("get_session_info")).toBe(true);
+    expect(names.has("storymap_append_rib_note")).toBe(true);
+    expect(names.has("storymap_bulk_append_rib_notes")).toBe(true);
   });
 
   test("registerStorymapTools does not re-register the shared tools", () => {

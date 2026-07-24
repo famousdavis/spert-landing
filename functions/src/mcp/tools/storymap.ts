@@ -88,21 +88,44 @@ const bulkMoveRibsShape = {
   })).min(1).max(500),
 };
 
+// Phase 8 append shapes. The .refine mirrors Scheduler's bulkAppendNoteItem:
+// reject whitespace-only text WITHOUT a .trim() transform (a transform would
+// silently strip real leading/trailing whitespace from every note).
+const appendNoteText = z.string().min(1).max(2000)
+  .refine((s) => s.trim().length > 0, {
+    message: "text must contain non-whitespace characters",
+  });
+
+const appendRibNoteShape = {
+  sessionId: z.string().uuid(),
+  ribId: entityIdSchema,
+  text: appendNoteText,
+};
+
+const bulkAppendRibNotesShape = {
+  sessionId: z.string().uuid(),
+  notes: z.array(z.object({
+    ribId: entityIdSchema,
+    text: appendNoteText,
+  })).min(1).max(100), // D9: 100 not 500 -- Firestore 1 MB doc limit
+};
+
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
  *
  * Discovery (1): storymap_get_project. (The shared resolve_session_code and
  * get_session_info now live in registerSharedSessionTools.)
  *
- * Fine-grained operations (11): storymap_create_theme,
+ * Fine-grained operations (12): storymap_create_theme,
  * storymap_create_backbone, storymap_create_rib, storymap_update_theme,
  * storymap_update_backbone, storymap_update_rib, storymap_create_release,
  * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib,
- * storymap_move_rib.
+ * storymap_move_rib, storymap_append_rib_note.
  *
- * Bulk operations (7): storymap_bulk_import, storymap_bulk_create_releases,
+ * Bulk operations (8): storymap_bulk_import, storymap_bulk_create_releases,
  * storymap_bulk_allocate, storymap_bulk_size, storymap_bulk_unassign,
- * storymap_bulk_update_ribs, storymap_bulk_move_ribs.
+ * storymap_bulk_update_ribs, storymap_bulk_move_ribs,
+ * storymap_bulk_append_rib_notes.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -571,6 +594,7 @@ project's actual sizeMapping and skips already-sized ribs. For many
 ribs at once, use storymap_bulk_size. Use the size parameter here
 only to explicitly override or clear an existing size.
 cardColor is user-controlled and not exposed here.
+To ADD to notes rather than overwrite, use storymap_append_rib_note.
 No-op on the browser if the ribId does not exist — or if the rib was
 moved (storymap_move_rib) and your cached themeId/backboneId is
 stale; re-read IDs with storymap_get_project after any move. Calling
@@ -1124,9 +1148,11 @@ For sizing ribs, use storymap_bulk_size instead.
 For renaming ribs, use storymap_update_rib instead.
 Chain calls back-to-back within one response; do not yield between calls.
 Max 500 entries per call; split larger batches.
-NOTE: storymap_get_project does not return existing notes values — you cannot
-read notes before writing. Verify description and category writes with a
-follow-up storymap_get_project call.`,
+To ADD to a rib's notes without losing existing text, use
+storymap_bulk_append_rib_notes. This tool REPLACES notes wholesale — use it
+only to rewrite or clear. storymap_get_project now returns notes (when
+notesIncluded is true), so verify description, category, and notes with a
+follow-up call.`,
     {
       sessionId: z.string().uuid(),
       updates: z.array(z.object({
@@ -1312,6 +1338,125 @@ Max 500 moves per call; split larger sets across multiple calls.`,
           `Queued ${moves.length} move(s). Ineligible legs (locked, ` +
             "split/partial, missing targets) are skipped per entry." :
           `Queued ${moves.length} move(s) — no browser tab open; ` +
+            "applies on reconnect.",
+      });
+    },
+  );
+
+  // --- Phase 8: append rib note (non-destructive) --------------------
+  server.tool(
+    "storymap_append_rib_note",
+    `Appends text to a rib item's notes — the existing notes are kept and
+your text is added after a blank line. Never overwrites. To REPLACE a
+rib's notes wholesale, use storymap_update_rib instead.
+The 2000-char cap counts existing notes + your addition + a blank-line
+separator: a long append to a rib that already has notes is skipped
+(nothing written). NOT idempotent — calling twice appends twice, so a
+retry duplicates the text.
+Read Mode is not required to apply, but you need it to obtain the ribId
+and to verify or recover a skip: storymap_get_project returns each
+rib's notes when notesIncluded is true.
+Chain calls back-to-back within one response; do not yield between calls.`,
+    appendRibNoteShape,
+    async ({sessionId, ribId, text}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "append_rib_note", payload: {ribId, text}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        ribId,
+        browserConnected: connected,
+        message: connected ?
+          "Note append queued. Existing notes are preserved; an append " +
+            "over the 2000-char cap is skipped." :
+          "Note append queued — no browser tab open; applies on reconnect.",
+      });
+    },
+  );
+
+  // --- Phase 8: bulk append rib notes --------------------------------
+  server.tool(
+    "storymap_bulk_append_rib_notes",
+    `Appends text to many rib items' notes in one call — each entry keeps
+the rib's existing notes and adds your text after a blank line. Never
+overwrites. Provide a notes array of {ribId, text} objects.
+Read Mode obtains the ribIds and lets you verify results
+(storymap_get_project returns notes when notesIncluded is true).
+NOT idempotent — running the same call twice appends twice. If a call
+partially fails, resend ONLY the ribIds that skipped (diff via
+storymap_get_project), not the whole call. Repeated ribIds in one call
+append cumulatively in array order.
+Eligible-but-skipped vs malformed: a rib whose result would exceed
+2000 chars is skipped per entry and the rest of the call still applies;
+but whitespace-only text fails validation and rejects the ENTIRE call.
+Max 100 per call (not 500); 25-40 is safer when each note carries real
+content — a truncated mid-call output makes the whole call fail.
+If notesIncluded is false or absent in storymap_get_project, notes are
+not in the snapshot: appends cannot be length-checked or verified, so
+keep them short and tell the user.
+Its array-of-objects payload is a shape Microsoft Copilot Chat cannot
+reliably construct — if you are Copilot, use sequential
+storymap_append_rib_note calls instead.
+Chain calls back-to-back within one response; do not yield between calls.`,
+    bulkAppendRibNotesShape,
+    async ({sessionId, notes}) => {
+      let session: DocumentData | null = null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_append_rib_notes", payload: {notes}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Op write failed; retry.",
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: notes.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${notes.length} note append(s). Existing notes are ` +
+            "preserved; over-cap appends are skipped per entry." :
+          `Queued ${notes.length} note append(s) — no browser tab open; ` +
             "applies on reconnect.",
       });
     },
