@@ -13,6 +13,7 @@ import type {DocumentData} from "firebase-admin/firestore";
 import {registerSharedSessionTools} from "../mcp/tools/shared";
 import {registerStorymapTools} from "../mcp/tools/storymap";
 import {registerSchedulerTools} from "../mcp/tools/scheduler";
+import {registerForecasterTools} from "../mcp/tools/forecaster";
 
 // Shared AI op-name registry (duplicated verbatim across repos; see
 // ai-op-contract.json). Both op-name lists live in the fixture so a future
@@ -29,6 +30,7 @@ const contract: {
 type SharedParams = Parameters<typeof registerSharedSessionTools>;
 type StorymapParams = Parameters<typeof registerStorymapTools>;
 type SchedulerParams = Parameters<typeof registerSchedulerTools>;
+type ForecasterParams = Parameters<typeof registerForecasterTools>;
 
 interface CollidingServer {
   names: Set<string>;
@@ -279,6 +281,51 @@ describe("MCP tool registration collision", () => {
       expect(names.has("scheduler_bulk_append_notes")).toBe(true);
       expect(names.has("resolve_session_code")).toBe(true);
     });
+});
+
+describe("manifest census", () => {
+  test("the server advertises exactly 51 tools", () => {
+    // 21 Story Map + 25 Scheduler + 3 Forecaster + 2 shared. A cached MCP
+    // client keys off this count and serverInfo.version, so a silent change
+    // here is a change to what every paired AI believes is available.
+    const {tools, server} = capturingServer();
+    registerSharedSessionTools(
+      server as unknown as SharedParams[0],
+      db as SharedParams[1],
+    );
+    registerStorymapTools(
+      server as unknown as StorymapParams[0],
+      db as StorymapParams[1],
+    );
+    registerSchedulerTools(
+      server as unknown as SchedulerParams[0],
+      db as SchedulerParams[1],
+    );
+    registerForecasterTools(
+      server as unknown as ForecasterParams[0],
+      db as ForecasterParams[1],
+    );
+
+    const names = [...tools.keys()];
+    expect(names).toHaveLength(51);
+    expect(names.filter((n) => n.startsWith("storymap_"))).toHaveLength(21);
+    expect(names.filter((n) => n.startsWith("scheduler_"))).toHaveLength(25);
+    expect(names.filter((n) => n.startsWith("forecaster_"))).toHaveLength(3);
+
+    // Forecaster is read-only by construction: no write tool, and no entry in
+    // the shared op-name registry.
+    const forecaster = names.filter((n) => n.startsWith("forecaster_"));
+    expect(forecaster.sort()).toEqual([
+      "forecaster_explain_method",
+      "forecaster_get_glossary",
+      "forecaster_get_project",
+    ]);
+  });
+
+  test("Forecaster contributes no ops to the shared registry", () => {
+    const allOps = [...contract.schedulerOps, ...contract.storymapOps];
+    expect(allOps.filter((o) => o.includes("forecast"))).toEqual([]);
+  });
 });
 
 describe("appId guard (§3.4) — behaviour, not just presence", () => {
