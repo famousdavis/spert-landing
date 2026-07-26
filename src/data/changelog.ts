@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.4.0',
+    date: 'July 26, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'Updated the SPERT® AI Privacy Notice to Version 2.0, published at /ai-privacy.',
+          'Updated the SPERT® AI Connectivity Consent Notice to Version 2.0, published at /ai-consent-notice.',
+          'Both notices now cover every application offering Connect AI — SPERT® Story Map and SPERT® Scheduler (write and read) and SPERT® Forecaster (read-only) — including a table of the modes each application offers.',
+          'Clarified that enabling Read Mode uploads a copy of the open project even when an application is configured for local storage only, and added guidance for users connecting AI on behalf of an employer or organization.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.1.2',
     date: 'June 28, 2026',
     sections: [
