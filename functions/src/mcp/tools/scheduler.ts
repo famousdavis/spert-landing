@@ -11,7 +11,15 @@ import {
   isBrowserConnected,
 } from "../session";
 import {checkSessionWriteLimit} from "../rateLimit";
-import {ok, sessionNotFound, readNotPermitted, rateLimited} from "./shared";
+import {
+  ok,
+  sessionNotFound,
+  readNotPermitted,
+  rateLimited,
+  writeNotPermitted,
+  checkSessionAppId,
+} from "./shared";
+import type {Envelope} from "./shared";
 
 const SESSIONS = "anonymous_sessions";
 const DISTRIBUTIONS = ["normal", "logNormal", "triangular", "uniform"] as const;
@@ -38,7 +46,6 @@ const RSM_LEVELS = [
 // fields writeOpBatch adds and JSON-vs-Firestore accounting (Spike V1 checks).
 const BULK_BYTE_LIMIT = 800_000;
 
-type Envelope = ReturnType<typeof ok>;
 type Op = {op: string; payload: object};
 // The composite import payload as the server inspects it — only section lengths
 // and scenarioId are read here; per-item shapes are the client's concern. The
@@ -85,6 +92,10 @@ async function loadSessionOrError(
     })};
   }
   if (!session) return {error: sessionNotFound()};
+  // strict: false — sessions created before the appId rollout carry none,
+  // and refusing those would break every already-paired Scheduler browser.
+  const appErr = checkSessionAppId(session, "scheduler", false);
+  if (appErr) return {error: appErr};
   return {session};
 }
 
@@ -112,6 +123,7 @@ async function writeAndRespond(
   } catch (e: unknown) {
     const msg = (e as Error).message;
     if (msg === "session_not_found") return sessionNotFound();
+    if (msg === "write_not_permitted") return writeNotPermitted();
     return ok({
       status: "error",
       error: "internal",
@@ -313,6 +325,7 @@ async function writeBulkAndRespond(
   } catch (e: unknown) {
     const msg = (e as Error).message;
     if (msg === "session_not_found") return sessionNotFound();
+    if (msg === "write_not_permitted") return writeNotPermitted();
     return ok({
       status: "error",
       error: "internal",
@@ -426,6 +439,7 @@ async function writeBulkImportAndRespond(
   } catch (e: unknown) {
     const msg = (e as Error).message;
     if (msg === "session_not_found") return sessionNotFound();
+    if (msg === "write_not_permitted") return writeNotPermitted();
     return ok({
       status: "error",
       error: "internal",
@@ -632,6 +646,7 @@ async function writeReorderAndRespond(
   } catch (e: unknown) {
     const msg = (e as Error).message;
     if (msg === "session_not_found") return sessionNotFound();
+    if (msg === "write_not_permitted") return writeNotPermitted();
     return ok({
       status: "error",
       error: "internal",

@@ -11,7 +11,14 @@ import {
   isBrowserConnected,
 } from "../session";
 import {checkSessionWriteLimit} from "../rateLimit";
-import {ok, sessionNotFound, readNotPermitted, rateLimited} from "./shared";
+import {
+  ok,
+  sessionNotFound,
+  readNotPermitted,
+  rateLimited,
+  writeNotPermitted,
+  checkSessionAppId,
+} from "./shared";
 
 // S1: ids relaxed from .uuid() to bounded strings (idempotency only needs
 // stable strings, not UUID format). String caps mirror the app's
@@ -184,6 +191,8 @@ words); descriptions and notes may be a sentence or two.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -192,6 +201,7 @@ words); descriptions and notes may be a sentence or two.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
@@ -235,6 +245,8 @@ has enabled Read Mode in the Connect AI panel.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!session.consentRead) return readNotPermitted();
       try {
         await touchSession(db, sessionId);
@@ -297,6 +309,8 @@ duplicate created), but each call consumes a rate-limit token.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -305,10 +319,11 @@ duplicate created), but each call consumes a rate-limit token.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -353,6 +368,8 @@ IDEMPOTENCY: calling twice with the same backboneId is a no-op.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [{
@@ -367,10 +384,11 @@ IDEMPOTENCY: calling twice with the same backboneId is a no-op.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -433,6 +451,8 @@ IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [{
@@ -450,10 +470,11 @@ IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -492,6 +513,8 @@ No-op on the browser if the themeId does not exist.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -500,10 +523,11 @@ No-op on the browser if the themeId does not exist.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -540,6 +564,8 @@ with no updateable fields returns success without writing an op.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (name === undefined && description === undefined) {
         return ok({
           status: "success",
@@ -562,10 +588,11 @@ with no updateable fields returns success without writing an op.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -622,6 +649,8 @@ with no updateable fields returns success without writing an op.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (
         name === undefined &&
         description === undefined &&
@@ -655,10 +684,11 @@ with no updateable fields returns success without writing an op.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -704,6 +734,8 @@ rate-limit token.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -712,10 +744,11 @@ rate-limit token.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -760,6 +793,8 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -768,10 +803,11 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -813,6 +849,8 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -821,10 +859,11 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -877,6 +916,8 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -885,10 +926,11 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -933,6 +975,8 @@ Max 50 releases per call; split larger sets across multiple calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -941,10 +985,11 @@ Max 50 releases per call; split larger sets across multiple calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -990,6 +1035,8 @@ Max 500 allocations per call; split larger sets across multiple calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -998,10 +1045,11 @@ Max 500 allocations per call; split larger sets across multiple calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1049,6 +1097,8 @@ Max 500 sizings per call; split larger sets across multiple calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -1057,10 +1107,11 @@ Max 500 sizings per call; split larger sets across multiple calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1105,6 +1156,8 @@ Max 500 ribIds per call; split larger batches.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -1113,10 +1166,11 @@ Max 500 ribIds per call; split larger batches.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1174,6 +1228,8 @@ follow-up call.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -1182,10 +1238,11 @@ follow-up call.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1241,6 +1298,8 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (targetBackboneId === undefined && targetReleaseId === undefined) {
         return ok({
           status: "success",
@@ -1262,10 +1321,11 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1315,6 +1375,8 @@ Max 500 moves per call; split larger sets across multiple calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -1323,10 +1385,11 @@ Max 500 moves per call; split larger sets across multiple calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1370,6 +1433,8 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -1378,10 +1443,11 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
@@ -1434,6 +1500,8 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         });
       }
       if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
         await writeOpBatch(db, sessionId, [
@@ -1442,10 +1510,11 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
         return ok({
           status: "error",
           error: "internal",
-          message: "Op write failed; retry.",
+          message: `Op write failed: ${msg}`,
         });
       }
       const connected = isBrowserConnected(session);
