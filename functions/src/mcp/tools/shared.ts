@@ -39,6 +39,63 @@ export const rateLimited = () =>
     message: "Too many operations this minute. Wait 60 seconds.",
   });
 
+export type Envelope = ReturnType<typeof ok>;
+
+/**
+ * Envelope for a write attempted against a read-only session.
+ *
+ * Distinct from the generic internal error because the condition is
+ * permanent: retrying cannot make a read-only session writable, and an AI
+ * told to "retry" will loop until the user gives up.
+ *
+ * @return {Envelope} The refusal envelope.
+ */
+export const writeNotPermitted = () =>
+  ok({
+    status: "write_not_permitted",
+    message:
+      "This session was created by a read-only SPERT app and cannot be " +
+      "written to. Do not retry. Ask the user which app they have open.",
+  });
+
+/**
+ * Envelope for a tool called against another app's session.
+ *
+ * @param {string} expected The calling app's id.
+ * @param {string | null} actual The session's app id, or null if absent.
+ * @return {Envelope} The refusal envelope.
+ */
+export const wrongApp = (expected: string, actual: string | null) =>
+  ok({
+    status: "wrong_app",
+    message:
+      `This session belongs to ${actual ?? "an unknown app"}, not ` +
+      `${expected}. Use that app's tools, or ask the user to pair from ` +
+      `${expected}.`,
+  });
+
+/**
+ * Refuse a session belonging to a different app.
+ *
+ * strict: false tolerates a missing appId, which sessions created by
+ * browser builds predating the appId rollout do not carry. strict: true is
+ * for apps whose sessions have always written one.
+ *
+ * @param {DocumentData} session The loaded session document.
+ * @param {string} expectedAppId The calling app's id.
+ * @param {boolean} strict True to refuse a missing appId.
+ * @return {Envelope | null} A refusal envelope, or null to proceed.
+ */
+export function checkSessionAppId(
+  session: DocumentData,
+  expectedAppId: string,
+  strict: boolean,
+): Envelope | null {
+  const actual = (session.appId as string | undefined) ?? null;
+  if (actual === null) return strict ? wrongApp(expectedAppId, null) : null;
+  return actual === expectedAppId ? null : wrongApp(expectedAppId, actual);
+}
+
 // ── Shared session tools ─────────────────────────────────────────────────────
 // resolve_session_code and get_session_info are app-agnostic and MUST be
 // registered exactly once per server (the MCP SDK throws on a duplicate tool

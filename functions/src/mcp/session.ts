@@ -71,6 +71,20 @@ export function isBrowserConnected(session: DocumentData): boolean {
 }
 
 /**
+ * Throw unless the session granted write consent.
+ *
+ * The Firestore create rule no longer pins consentWrite to true — read-only
+ * apps create sessions with consentWrite: false — so this is the enforcement
+ * point for every AI-originated write in the suite.
+ *
+ * @param {DocumentData | undefined} data Session document data.
+ * @return {void}
+ */
+export function assertWriteAllowed(data: DocumentData | undefined): void {
+  if (data?.consentWrite !== true) throw new Error("write_not_permitted");
+}
+
+/**
  * Append AI ops to a session's op-log inside a transaction, assigning a
  * gap-free monotonic seq to each. The browser's onSnapshot listener
  * replays ops in seq order; the transaction also refreshes the session's
@@ -98,6 +112,7 @@ export async function writeOpBatch(
     const sessionDoc = await tx.get(sessionRef);
     if (!sessionDoc.exists) throw new Error("session_not_found");
     const data = sessionDoc.data();
+    assertWriteAllowed(data);
     const currentSeq: number = (data?.lastSeq as number) ?? 0;
     tx.update(sessionRef, {
       lastSeq: currentSeq + ops.length,

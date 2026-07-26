@@ -839,7 +839,12 @@ service cloud.firestore {
           'openProductId', 'consentWrite', 'consentRead', 'lastSeq',
           'appVersion', 'appId'
         ])
-        && request.resource.data.consentWrite == true
+        // consentWrite is a bool, not pinned true: read-only apps (Forecaster)
+        // create sessions with consentWrite: false. This rule is NO LONGER an
+        // enforcement point for writes — assertWriteAllowed() inside
+        // writeOpBatch (functions/src/mcp/session.ts) is, and it must be
+        // deployed BEFORE this relaxation reaches production.
+        && request.resource.data.consentWrite is bool
         && request.resource.data.consentRead is bool
         && request.resource.data.lastSeq == 0;
       allow get: if true;
