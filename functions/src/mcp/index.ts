@@ -10,6 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {registerStorymapTools} from "./tools/storymap";
 import {registerSchedulerTools} from "./tools/scheduler";
+import {registerForecasterTools} from "./tools/forecaster";
 import {registerSharedSessionTools} from "./tools/shared";
 import {checkIpRateLimit} from "./rateLimit";
 
@@ -34,12 +35,13 @@ export const mcpSpertSuite = onRequest(
       return;
     }
     const db = getFirestore();
-    const server = new McpServer({name: "spert-suite", version: "1.11.1"});
+    const server = new McpServer({name: "spert-suite", version: "1.12.0"});
     // Shared session tools (resolve_session_code, get_session_info) register
     // exactly once; each app's register*Tools adds only its own tools.
     registerSharedSessionTools(server, db);
     registerStorymapTools(server, db);
     registerSchedulerTools(server, db);
+    registerForecasterTools(server, db);
     // Stateless: one fresh McpServer + transport per POST. Validated via
     // emulator POC (tools/call works with no prior initialize; cross-POST
     // session continuity is not required).
