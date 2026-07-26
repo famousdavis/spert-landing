@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
       // ToS, and the Connect AI consent modal in the SPERT apps. Do not remove.
       { source: "/ai-privacy", destination: "/AI-PRIVACY.pdf" },
       { source: "/ai-consent-notice", destination: "/AI-CONSENT.pdf" },
+      // Compatibility alias. Privacy Policy editions before v1.1 cited the
+      // unhyphenated /aiprivacy, which never resolved. v1.1 corrected the text,
+      // but copies of the older PDF are already in circulation and cannot be
+      // recalled, so this keeps their link working. Do not remove.
+      { source: "/aiprivacy", destination: "/AI-PRIVACY.pdf" },
     ];
   },
   async headers() {

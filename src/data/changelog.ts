@@ -9,6 +9,29 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.0',
+    date: 'July 26, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'Updated the Terms of Service and the Privacy Policy to Version 1.1.',
+          'Account deletion is now described accurately: deletion is requested through the contact form or by email and is carried out by the Operator, and both documents now state plainly that the apps do not yet offer a self-service account-deletion control.',
+          'The Privacy Policy now commits to completing a deletion request within 30 days under normal circumstances.',
+          'The Privacy Policy now calls out up front that turning on Read Mode uploads a copy of your open project even if you otherwise keep your data in local browser storage only.',
+          'The Terms of Service now reflect that some apps offer AI Connectivity in read-only form, where no permission grants an AI assistant the ability to change your content.',
+          'Reissued the SPERT® AI Privacy Notice and AI Connectivity Consent Notice with page numbering. The wording is unchanged — both remain Version 2.0.',
+        ],
+      },
+      {
+        heading: 'Fixed',
+        items: [
+          'Corrected a broken link in the Privacy Policy, which pointed at an address for the AI Privacy Notice that did not resolve. Copies of the older document already downloaded will now reach the notice as well.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.4.0',
     date: 'July 26, 2026',
     sections: [
