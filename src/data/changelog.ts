@@ -9,6 +9,26 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.1',
+    date: 'July 27, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Patched a denial-of-service advisory in a pattern-matching library used throughout the server-side build and test tooling.',
+        ],
+      },
+      {
+        heading: 'Dependencies',
+        items: [
+          'Updated the server-side test toolchain to Jest 30.',
+          'Updated firebase-admin to 13.10, React to 19.2.6, TypeScript ESLint to 8.60, and ts-jest to 29.4.11.',
+          'Routine maintenance only — nothing changes in the site or the apps.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.0',
     date: 'July 26, 2026',
     sections: [
