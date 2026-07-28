@@ -81,7 +81,7 @@ async function loadSessionOrError(
   db: Firestore,
   sessionId: string,
 ): Promise<{session: DocumentData} | {error: Envelope}> {
-  let session: DocumentData | null = null;
+  let session: DocumentData | null;
   try {
     session = await getSession(db, sessionId);
   } catch {

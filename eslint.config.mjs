@@ -13,7 +13,7 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // functions/ has its own legacy ESLint config; lint it via `cd functions && npm run lint`.
+    // functions/ has its own flat ESLint config; lint it via `cd functions && npm run lint`.
     "functions/**",
   ]),
 ]);

@@ -1,4 +1,3 @@
-/* eslint-disable require-jsdoc, valid-jsdoc */
 import {
   Body,
   Button,

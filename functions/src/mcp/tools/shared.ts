@@ -233,7 +233,7 @@ user to turn it on in the Connect AI panel). Then use the app's fine-grained
 tools.`,
     {sessionId: z.string().uuid()},
     async ({sessionId}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {

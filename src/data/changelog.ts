@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.2',
+    date: 'July 27, 2026',
+    sections: [
+      {
+        heading: 'Dependencies',
+        items: [
+          'Moved the server-side linter to ESLint 10, bringing it in line with the rest of the SPERT® Suite. It was the last piece still on ESLint 8.',
+          'Retired an unmaintained style configuration that had been holding the linter back, along with two dependencies it required.',
+          'Routine maintenance only — nothing changes in the site or the apps.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.1',
     date: 'July 27, 2026',
     sections: [
