@@ -60,7 +60,6 @@ function collectText(node: unknown): string {
 
 describe("InvitationEmail urlBase", () => {
   it("substitutes the prod urlBase into the claim link", () => {
-    // eslint-disable-next-line new-cap
     const tree = InvitationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -76,7 +75,6 @@ describe("InvitationEmail urlBase", () => {
   });
 
   it("substitutes a localhost urlBase into the claim link", () => {
-    // eslint-disable-next-line new-cap
     const tree = InvitationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -93,7 +91,6 @@ describe("InvitationEmail urlBase", () => {
   });
 
   it("renders the URL in both Button and anchor positions", () => {
-    // eslint-disable-next-line new-cap
     const tree = InvitationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -118,7 +115,6 @@ describe("InvitationEmail appName branding", () => {
   // body even though the From line and subject were correctly branded.
   it("renders the appName in heading and button for SPERT Story Map",
     () => {
-      // eslint-disable-next-line new-cap
       const tree = InvitationEmail({
         ownerName: "William W Davis",
         ownerEmail: "wdavis@example.com",
@@ -140,7 +136,6 @@ describe("InvitationEmail appName branding", () => {
 
   it("renders the appName in heading and button for SPERT Scheduler",
     () => {
-      // eslint-disable-next-line new-cap
       const tree = InvitationEmail({
         ownerName: "William W Davis",
         ownerEmail: "wdavis@example.com",
@@ -164,7 +159,6 @@ describe("InvitationEmail appName branding", () => {
   it("renders the appName in the heading and button for SPERT CFD", () => {
     // Second case — confirms the rebrand isn't accidentally hardcoded to
     // any single app's name.
-    // eslint-disable-next-line new-cap
     const tree = InvitationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -184,7 +178,6 @@ describe("InvitationEmail appName branding", () => {
 
 describe("AddedNotificationEmail urlBase", () => {
   it("substitutes the prod urlBase into the CTA without a token", () => {
-    // eslint-disable-next-line new-cap
     const tree = AddedNotificationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -199,7 +192,6 @@ describe("AddedNotificationEmail urlBase", () => {
   });
 
   it("substitutes a localhost urlBase into the CTA", () => {
-    // eslint-disable-next-line new-cap
     const tree = AddedNotificationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -217,7 +209,6 @@ describe("AddedNotificationEmail urlBase", () => {
 
 describe("AddedNotificationEmail appName branding", () => {
   it("renders the appName in heading, body, and button for Story Map", () => {
-    // eslint-disable-next-line new-cap
     const tree = AddedNotificationEmail({
       ownerName: "William W Davis",
       ownerEmail: "wdavis@example.com",
@@ -238,7 +229,6 @@ describe("AddedNotificationEmail appName branding", () => {
   });
 
   it("renders the appName in heading, body, and button for Scheduler", () => {
-    // eslint-disable-next-line new-cap
     const tree = AddedNotificationEmail({
       ownerName: "William W Davis",
       ownerEmail: "wdavis@example.com",
@@ -262,7 +252,6 @@ describe("AddedNotificationEmail appName branding", () => {
   });
 
   it("renders the appName in heading, body, and button for SPERT CFD", () => {
-    // eslint-disable-next-line new-cap
     const tree = AddedNotificationEmail({
       ownerName: "Alice",
       ownerEmail: "alice@example.com",
@@ -297,7 +286,6 @@ describe("model name quoting (regression: v0.29 double-quote bug)", () => {
   for (const name of adversarialNames) {
     it(`InvitationEmail wraps modelName="${name}" in exactly one pair of ` +
       "quotes", () => {
-      // eslint-disable-next-line new-cap
       const tree = InvitationEmail({
         ownerName: "William W Davis",
         ownerEmail: "wdavis@example.com",
@@ -314,7 +302,6 @@ describe("model name quoting (regression: v0.29 double-quote bug)", () => {
 
     it(`AddedNotificationEmail wraps modelName="${name}" in exactly one ` +
       "pair of quotes", () => {
-      // eslint-disable-next-line new-cap
       const tree = AddedNotificationEmail({
         ownerName: "William W Davis",
         ownerEmail: "wdavis@example.com",

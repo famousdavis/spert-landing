@@ -189,7 +189,7 @@ PERT; there is no (O + 4M + P) / 6 in this app. Call forecaster_explain_method
 before explaining the maths.`,
     {sessionId: z.string().uuid()},
     async ({sessionId}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {

@@ -180,7 +180,7 @@ words); descriptions and notes may be a sentence or two.`,
       }),
     },
     async ({sessionId, structure}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -234,7 +234,7 @@ words); descriptions and notes may be a sentence or two.`,
 has enabled Read Mode in the Connect AI panel.`,
     {sessionId: z.string().uuid()},
     async ({sessionId}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -298,7 +298,7 @@ duplicate created), but each call consumes a rate-limit token.`,
       name: z.string().min(1).max(1000),
     },
     async ({sessionId, themeId, name}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -357,7 +357,7 @@ IDEMPOTENCY: calling twice with the same backboneId is a no-op.`,
       description: z.string().max(2000).optional(),
     },
     async ({sessionId, themeId, backboneId, name, description}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -440,7 +440,7 @@ IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
       category,
       notes,
     }) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -502,7 +502,7 @@ No-op on the browser if the themeId does not exist.`,
       name: z.string().min(1).max(1000),
     },
     async ({sessionId, themeId, name}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -553,7 +553,7 @@ No-op on the browser if the backboneId does not exist. Calling
 with no updateable fields returns success without writing an op.`,
     updateBackboneShape,
     async ({sessionId, themeId, backboneId, name, description}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -638,7 +638,7 @@ with no updateable fields returns success without writing an op.`,
       notes,
       size,
     }) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -723,7 +723,7 @@ rate-limit token.`,
       name: z.string().min(1).max(1000),
     },
     async ({sessionId, releaseId, name}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -782,7 +782,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       releaseId: entityIdSchema,
     },
     async ({sessionId, ribId, releaseId}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -838,7 +838,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       ribId: entityIdSchema,
     },
     async ({sessionId, ribId}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -905,7 +905,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
       size: z.string().min(1).max(100),
     },
     async ({sessionId, ribId, size}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -964,7 +964,7 @@ Max 50 releases per call; split larger sets across multiple calls.`,
       })).min(1).max(50),
     },
     async ({sessionId, releases}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1024,7 +1024,7 @@ Max 500 allocations per call; split larger sets across multiple calls.`,
       })).min(1).max(500),
     },
     async ({sessionId, allocations}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1086,7 +1086,7 @@ Max 500 sizings per call; split larger sets across multiple calls.`,
       })).min(1).max(500),
     },
     async ({sessionId, sizes}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1145,7 +1145,7 @@ Max 500 ribIds per call; split larger batches.`,
       ribIds: z.array(entityIdSchema).min(1).max(500),
     },
     async ({sessionId, ribIds}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1217,7 +1217,7 @@ follow-up call.`,
       })).min(1).max(500),
     },
     async ({sessionId, updates}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1287,7 +1287,7 @@ If Read Mode is enabled, verify the result with storymap_get_project.
 Chain calls back-to-back within one response; do not yield between calls.`,
     moveRibShape,
     async ({sessionId, ribId, targetBackboneId, targetReleaseId}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1364,7 +1364,7 @@ of array size. Verify results with storymap_get_project after.
 Max 500 moves per call; split larger sets across multiple calls.`,
     bulkMoveRibsShape,
     async ({sessionId, moves}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1422,7 +1422,7 @@ rib's notes when notesIncluded is true.
 Chain calls back-to-back within one response; do not yield between calls.`,
     appendRibNoteShape,
     async ({sessionId, ribId, text}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {
@@ -1489,7 +1489,7 @@ storymap_append_rib_note calls instead.
 Chain calls back-to-back within one response; do not yield between calls.`,
     bulkAppendRibNotesShape,
     async ({sessionId, notes}) => {
-      let session: DocumentData | null = null;
+      let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
       } catch {

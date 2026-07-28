@@ -10,7 +10,6 @@
     "types": ["jest", "node"]
   },
   "include": [
-    ".eslintrc.js",
     "src/__tests__/**/*"
   ]
 }
