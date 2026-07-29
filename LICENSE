@@ -685,10 +685,10 @@ Public License instead of this License.  But first, please read
 
 -----------------------------------------------------------------------
 
-ADDITIONAL TERMS (per GNU GPL v3, Section 7(b) — Non-Permissive Additional Terms)
+ADDITIONAL TERMS (per GNU GPL v3, Section 7 — Non-Permissive Additional Terms)
 -----------------------------------------------------------------------------------
 
-As permitted under Section 7(b) of the GNU General Public License v3.0,
+As permitted under Section 7 of the GNU General Public License v3.0,
 the following terms are NON-PERMISSIVE ADDITIONAL RESTRICTIONS and may
 NOT be removed by downstream recipients when conveying this software or
 modified versions thereof:
@@ -704,3 +704,23 @@ b) UI Notice Preservation: Any modified version of this software that
    location (such as an About screen or application footer), a notice
    that the original work was authored by William W. Davis, MSPM, PMP,
    along with a link to the original repository if feasible.
+
+c) Trademark Reservation: "SPERT", "Statistical PERT", and "Estimation
+   Made Easy" are registered trademarks of William W. Davis, MSPM, PMP,
+   registered with the United States Patent and Trademark Office.
+   "GanttApp" and "MyScrumBudget" are unregistered common-law trademarks
+   claimed by William W. Davis, MSPM, PMP. As permitted under Section
+   7(e) of the GNU General Public License v3.0, this License grants NO
+   RIGHTS to use any of the foregoing marks — whether alone, in
+   combination with other words (for example, "SPERT Suite"), or in any
+   associated logo or stylized form. The copyright permissions granted
+   above do not include permission to use these marks in the name,
+   branding, documentation, promotional material, or user interface of
+   any modified version or derivative work.
+
+d) Marking of Modified Versions: As permitted under Section 7(c) of the
+   GNU General Public License v3.0, any modified version of this
+   software must be identified by a name that is not, and cannot
+   reasonably be confused with, any mark listed in paragraph (c), and
+   must be marked in a reasonable way as different from the original
+   version.
