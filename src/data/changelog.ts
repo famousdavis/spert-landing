@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.3',
+    date: 'July 28, 2026',
+    sections: [
+      {
+        heading: 'Dependencies',
+        items: [
+          'Updated the server-side linter to ESLint 10.4.1.',
+          'Routine maintenance only — nothing changes in the site or the apps.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.2',
     date: 'July 27, 2026',
     sections: [
