@@ -1,6 +1,6 @@
 {
   "name": "spert-landing-page",
-  "version": "2.5.5",
+  "version": "2.5.6",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -12,21 +12,21 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "next": "16.2.9",
+    "next": "16.2.11",
     "react": "19.2.5",
     "react-dom": "19.2.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.2.4",
     "@types/node": "24.12.2",
-    "@types/react": "^19",
+    "@types/react": "19.2.14",
     "@types/react-dom": "^19.2.3",
-    "eslint": "^9",
+    "eslint": "9.39.4",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "4.2.4",
     "typescript": "6.0.3"
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "8.5.18"
   }
 }

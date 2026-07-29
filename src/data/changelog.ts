@@ -9,6 +9,27 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.6',
+    date: 'July 29, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Updated the site framework to pick up nine published security advisories.',
+          'Patched a file-disclosure advisory in the stylesheet build tool.',
+          'Patched a denial-of-service advisory in a pattern-matching library used by the linter.',
+        ],
+      },
+      {
+        heading: 'Dependencies',
+        items: [
+          'Tightened two dependency ranges so routine installs can no longer pull in versions that have not completed review.',
+          'Routine maintenance only — nothing changes in the site or the apps.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.5',
     date: 'July 28, 2026',
     sections: [
