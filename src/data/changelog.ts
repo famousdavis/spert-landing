@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.4',
+    date: 'July 28, 2026',
+    sections: [
+      {
+        heading: 'Dependencies',
+        items: [
+          'Updated the email delivery library and the email template renderer used to send SPERT® Suite invitations.',
+          'Invitation emails were confirmed to render identically before and after the change, down to the byte.',
+          'Routine maintenance only — nothing changes in the site or the apps.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.3',
     date: 'July 28, 2026',
     sections: [
