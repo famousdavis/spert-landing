@@ -268,6 +268,36 @@ describe("AddedNotificationEmail appName branding", () => {
   });
 });
 
+describe("AddedNotificationEmail role article (regression: \"a editor\")", () => {
+  // Prior bug: the body hardcoded the indefinite article — "added you as a
+  // {role}" — so every editor notification read "added you as a editor".
+  // Found in a live production email, July 28 2026. The article is now
+  // derived from the role, which is exhaustively "editor" | "viewer".
+  const base = {
+    ownerName: "William W Davis",
+    ownerEmail: "wdavis@example.com",
+    modelName: "Virtual Art Museum",
+    urlBase: "https://storymap.spertsuite.com",
+    appName: "SPERT Story Map",
+  };
+
+  it("uses \"an\" for the editor role", () => {
+    const text = collectText(
+      AddedNotificationEmail({...base, role: "editor"}),
+    );
+    expect(text).toContain("added you as an editor on");
+    expect(text).not.toContain("as a editor");
+  });
+
+  it("uses \"a\" for the viewer role", () => {
+    const text = collectText(
+      AddedNotificationEmail({...base, role: "viewer"}),
+    );
+    expect(text).toContain("added you as a viewer on");
+    expect(text).not.toContain("as an viewer");
+  });
+});
+
 describe("model name quoting (regression: v0.29 double-quote bug)", () => {
   // Prior bug: sanitizeDisplayName was applied to modelName upstream
   // (which RFC 5322-quotes commas), then the body templates wrapped the

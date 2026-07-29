@@ -94,6 +94,9 @@ export function AddedNotificationEmail({
   appName,
 }: AddedNotificationEmailProps) {
   const url = urlBase;
+  // "editor" takes "an", "viewer" takes "a". Exhaustive over the role
+  // union — sendInvitationEmail rejects anything that is not one of these.
+  const article = role === "editor" ? "an" : "a";
   return (
     <Html>
       <Head />
@@ -101,7 +104,7 @@ export function AddedNotificationEmail({
         <Container style={containerStyle}>
           <Heading>You&apos;ve been added to a {appName} project</Heading>
           <Text>
-            {ownerName} ({ownerEmail}) added you as a {role} on
+            {ownerName} ({ownerEmail}) added you as {article} {role} on
             &quot;{modelName}&quot;. Open {appName} to participate.
           </Text>
           <Button style={buttonStyle} href={url}>Open {appName}</Button>
