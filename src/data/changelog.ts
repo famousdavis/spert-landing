@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.5',
+    date: 'July 28, 2026',
+    sections: [
+      {
+        heading: 'Fixed',
+        items: [
+          'Corrected the grammar in the "you’ve been added to a project" email, which read "added you as a editor" instead of "an editor".',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.4',
     date: 'July 28, 2026',
     sections: [
