@@ -9,6 +9,29 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.7',
+    date: 'July 29, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'The license now reserves the SPERT® brand explicitly. A new Trademark Reservation clause names "SPERT", "Statistical PERT" and "Estimation Made Easy" as trademarks registered with the USPTO, and "GanttApp" and "MyScrumBudget" as unregistered common-law marks, and grants no right to use any of them — whether alone, combined with other words such as "SPERT Suite", or as a logo.',
+          'Previously the license said nothing at all about the brand, which left room to argue that the freedom to redistribute and modify the code carried the name along with it. That was never the intent.',
+          'A companion clause now requires any modified version to be renamed so that it cannot be confused with those marks. Between them the two new clauses draw the line the license always meant to draw: the code is free to take, change and redistribute, the author attribution has to travel with it, and the brand stays behind.',
+          'The existing Attribution Preservation and UI Notice Preservation clauses are unchanged, and the GNU GPL v3 text itself is untouched — verified byte-for-byte against the previous release. Both additions sit in the ADDITIONAL TERMS section and fall inside the categories GPL v3 Section 7 permits, which is what stops a downstream recipient from simply deleting them.',
+          'The ADDITIONAL TERMS heading now cites Section 7 rather than Section 7(b), because the terms draw on 7(b) for attribution, 7(c) for renaming modified versions, and 7(e) for the trademark reservation.',
+        ],
+      },
+      {
+        heading: 'Infrastructure',
+        items: [
+          'This repository is now the canonical source for the suite-wide license, and the same file is being copied into all eight sibling app repositories. The only difference permitted between copies is the project repository URL on line 4.',
+          'An audit of all nine repositories found just one exact copy of the license before this release. Two apps shipped a summary and a link in place of the full GNU GPL v3 text, one was missing a section of it, five still carried the retired "Statistical PERT® Software Suite" name, and six carried an older and weaker wording of the additional terms. Each is being corrected in its own patch release.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.6',
     date: 'July 29, 2026',
     sections: [
