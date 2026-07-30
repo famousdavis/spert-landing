@@ -20,9 +20,14 @@
     { "name": "test (root guards)", "run": "npm test" },
     { "name": "build (next build)", "run": "npm run build" },
     {
+      "name": "functions — install",
+      "run": "npm --prefix functions ci",
+      "_note": "REQUIRED, and easy to miss. functions/ is a separate package with its own manifest and node_modules. The CI workflow runs `npm ci` at the ROOT only, so without this step the functions build fails in CI with `Cannot find type definition file for 'jest'` while passing locally, where functions/node_modules already exists. Putting it here rather than in the workflow keeps .github/workflows/shipgate.yml byte-identical across all nine repos — repo-specific detail belongs in this file."
+    },
+    {
       "name": "functions — lint",
       "run": "npm --prefix functions run lint",
-      "_note": "functions/ is a separate package with its own manifest, dependencies and build. It predates the suite's move to Vitest and stays on Jest — two runners in one repository is deliberate, and they never interact."
+      "_note": "functions/ predates the suite's move to Vitest and stays on Jest — two runners in one repository is deliberate, and they never interact."
     },
     { "name": "functions — build (tsc)", "run": "npm --prefix functions run build" },
     {
