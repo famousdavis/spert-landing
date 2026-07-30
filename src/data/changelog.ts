@@ -9,6 +9,33 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.8',
+    date: 'July 30, 2026',
+    sections: [
+      {
+        heading: 'Release process',
+        items: [
+          'Every proposed change to this site is now checked automatically before it can be merged: the linter, a type check, a production build, the Cloud Functions test suite, and a check that the version number agrees everywhere it appears. This is the first automated checking this repository has ever had — previously a green checkmark meant only that a preview had been built.',
+          'This site is the last of the nine SPERT® Suite repositories to receive the same release gate. All nine now run an identical script, with only their own configuration file differing.',
+          'The versioning rule written down here since v2.4.0 — that package.json, the lockfile, the version the footer displays, and the changelog must all be bumped together — is now enforced rather than remembered. All four surfaces are checked, and a release cannot ship with any of them out of step.',
+        ],
+      },
+      {
+        heading: 'Shared documents',
+        items: [
+          'Added automatic checks for the documents this site publishes on behalf of the whole suite. The Terms of Service and Privacy Policy PDFs are linked directly by all eight other SPERT apps, and the AI Privacy and AI Consent notices are reached through permanent short links. Renaming or removing any of them would have broken those links in every app at once, with nothing anywhere reporting an error. Their presence is now verified on every test run, along with every short link that points at them.',
+          'The license file kept here is the master copy that all nine repositories share. Its exact content is now verified against the same fingerprint the other eight check against, so the master and its copies can no longer drift apart unnoticed.',
+        ],
+      },
+      {
+        heading: 'Connect AI',
+        items: [
+          'The shared definition that this site’s AI service and SPERT Scheduler are both built against is now verified automatically in both places. Keeping the two copies identical had always been a written rule with a helper command, but that command only displayed a fingerprint for a person to compare by eye — nothing failed if the two ever drifted apart. Both halves now check the same fingerprint on every test run, so a one-sided change fails immediately instead of surfacing later as a rejected request.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.7',
     date: 'July 29, 2026',
     sections: [

@@ -1,0 +1,34 @@
+{
+  "repo": "spert-landing-page",
+
+  "versionConstant": {
+    "file": "src/config.ts",
+    "export": "APP_VERSION"
+  },
+
+  "_changelogNote": "There is no CHANGELOG.md in this repository — the changelog lives only in src/data/changelog.ts, rendered by src/app/changelog/page.tsx. So there is no markdown surface to check package.json against, and the `changelog` key is deliberately absent. Instead src/guards/changelog-renders.test.ts asserts that the newest entry matches APP_VERSION, which the version-surface check above ties back to package.json. Note this file's section key is `heading`, where every other app in the suite uses `title` — do not copy a sibling guard without adjusting.",
+
+  "claudeMdVersionPatterns": [
+    "^\\*\\*Version:\\*\\* (\\d+\\.\\d+\\.\\d+)"
+  ],
+
+  "_claudeMdNote": "Swept on 2026-07-30. The `**Version:** X.Y.Z` line is the only version declaration; the other X.Y.Z mentions are historical prose ('v2.5.6 cleared nine GHSAs') and are correct as written — never flag those. Skipped in CI, where this gitignored file is not checked out.",
+
+  "commands": [
+    { "name": "lint (root)", "run": "npm run lint" },
+    { "name": "typecheck (root)", "run": "npm run typecheck" },
+    { "name": "test (root guards)", "run": "npm test" },
+    { "name": "build (next build)", "run": "npm run build" },
+    {
+      "name": "functions — lint",
+      "run": "npm --prefix functions run lint",
+      "_note": "functions/ is a separate package with its own manifest, dependencies and build. It predates the suite's move to Vitest and stays on Jest — two runners in one repository is deliberate, and they never interact."
+    },
+    { "name": "functions — build (tsc)", "run": "npm --prefix functions run build" },
+    {
+      "name": "functions — test (jest)",
+      "run": "npm --prefix functions test",
+      "_note": "Includes aiOpContractHash.test.ts, which pins the cross-repo digest of ai-op-contract.json. SPERT Scheduler pins the same constant in src/integration/ai-op-contract-hash.test.ts, so a one-sided edit to the contract now fails in the repo where it was made."
+    }
+  ]
+}
