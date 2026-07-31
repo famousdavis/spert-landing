@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.9',
+    date: 'July 31, 2026',
+    sections: [
+      {
+        heading: 'Release process',
+        items: [
+          'The automated checks introduced in the previous release now run on the exact version of Node.js each repository pins, rather than on whichever recent version the build service happens to offer. Every repository already recorded its required version in a small file alongside the code; that file is now what the checks read. Two repositories that were missing the file have been given one.',
+          'This closes a gap rather than repairing a visible fault. The checks had been passing on a newer version than the one declared, so a problem specific to the declared version could have gone unreported. One companion repository deliberately holds back from the newest release of Node.js to avoid a known fault in it, and the checks as written would have quietly ignored that instruction.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.8',
     date: 'July 30, 2026',
     sections: [
