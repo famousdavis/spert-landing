@@ -9,6 +9,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.10',
+    date: 'July 31, 2026',
+    sections: [
+      {
+        heading: 'Release process',
+        items: [
+          'The release checks can now be told about every copy of a changelog a project keeps, rather than just one. Six of the nine SPERT® Suite repositories keep the same history in two or three places at once — a file alongside the source, a served copy the app actually reads, and in some cases a third copy built into the app itself. Until now the checks looked at one of them, so a release could pass while the others were left behind.',
+          'This mattered most where the served copy is the one on screen. In SPERT® Story Map the app fetches that copy at the moment a reader opens the version history, which means the file the checks were watching was the one nobody ever saw. Had the two drifted apart, the app would have shown the stale one and every check would still have reported success.',
+          'Each new check was deliberately broken before being trusted: a copy was altered, an entry was removed, and a file was deleted, and the checks were confirmed to fail in each case before the change was accepted.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.9',
     date: 'July 31, 2026',
     sections: [
