@@ -1,5 +1,6 @@
 // Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
 // Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
 
 // Two-stage collision test (Unit 0 §2.2). The MCP SDK throws on a duplicate
 // tool name and the server is built fresh per request, so the shared session

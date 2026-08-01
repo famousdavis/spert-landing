@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 export interface ChangelogEntry {
   version: string;
   date: string;
@@ -8,6 +12,20 @@ export interface ChangelogEntry {
 }
 
 export const changelog: ChangelogEntry[] = [
+  {
+    version: '2.5.11',
+    date: 'July 31, 2026',
+    sections: [
+      {
+        heading: 'Licensing',
+        items: [
+          'Every file of source code in this project now carries the copyright and licence notice, and 71 of them were either missing it or carrying an incomplete version. Most of the gap was in the server-side code that handles collaboration invitations and the AI connection — 43 files that were written after the notices were added everywhere else, and so never received them.',
+          'Twenty-two files carried a shortened notice that named the licence but left out the line saying where to read it. That line is the part the licence actually requires: this software is released under terms that add four conditions to the standard licence, and a source file carrying those conditions has to either state them or say where they are found. A file that stops at the licence name points a recipient nowhere.',
+          'A new automated check now refuses a release if any source file is missing the notice, including files that have not yet been committed, and including the security rules file that has no other check on it at all. Every way the check could fail was deliberately triggered and confirmed to be caught before it was trusted.',
+        ],
+      },
+    ],
+  },
   {
     version: '2.5.10',
     date: 'July 31, 2026',
