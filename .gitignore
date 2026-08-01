@@ -11,7 +11,9 @@
 !.yarn/versions
 
 # testing
-/coverage
+# Unanchored on purpose: the leading slash matched only the root copy, so Jest's
+# functions/coverage/ was left untracked and un-ignored.
+coverage/
 
 # next.js
 /.next/
