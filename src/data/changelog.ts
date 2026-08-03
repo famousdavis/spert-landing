@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.12',
+    date: 'August 2, 2026',
+    sections: [
+      {
+        heading: 'Licensing',
+        items: [
+          'The additional conditions attached to this project’s licence have been revised, and two new ones added. What the licence permits is unchanged — anyone may still use, study, modify and share this software freely. What changed is the set of conditions that travel alongside it, and each of the six now follows the wording of the standard licence itself rather than paraphrasing it. That matters more than it sounds: the standard licence lets a recipient delete any added condition that strays outside the short list it allows, so a condition worded too ambitiously protects nothing at all.',
+          'The first new condition says the author’s name may not be used to endorse or promote a product built from this software without permission. Nothing else in the licence covered this. The project’s trademarks are protected whether the licence mentions them or not, but a personal name has no such protection — and because another condition requires that name to stay in the source code, anyone forking the project already has it in hand.',
+          'The second new condition applies to anyone who resells this software with a warranty or a support contract of their own. If those promises create a liability that lands on the original author, the reseller has to cover it. The standard licence already permits a reseller to make such promises; this simply makes clear that the promises are theirs to stand behind.',
+          'The condition covering on-screen credit was rewritten. It previously required any modified version with a user interface to display a notice. It now requires that where such a version already displays legal notices, the original author’s name is preserved among them. The standard licence allows a project to require that existing notices be kept, not that new ones be created, and the earlier wording asked for more than that — which would have let a recipient strike the condition out entirely.',
+          'Two smaller changes. A modified version may no longer misrepresent where this software came from. And the trademark condition now states plainly that referring to this project by name, in order to say honestly what a fork was derived from, is not itself prohibited — provided it does not suggest this project endorses the result. No change to how the application works.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.11',
     date: 'July 31, 2026',
     sections: [
