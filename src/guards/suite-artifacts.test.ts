@@ -50,13 +50,15 @@ import { describe, it, expect } from 'vitest';
  * *compel* retention of the author name, c)/d) *withhold* the brand (GPL §7(e)
  * and §7(c)). Never add a project or brand name to clause a) — it reads
  * naturally as "keep branding consistent" but would obligate every fork to
- * carry the brand, the exact opposite of reserving it.
+ * carry the brand, the exact opposite of reserving it. e) limits promotional
+ * use of the author's name (§7(d)); f) requires indemnification from anyone
+ * who resells with contractual warranties (§7(f)).
  *
  * Changing this constant means changing the licence for the whole suite, and
  * all nine repos must be updated in the same pass.
  */
 const SUITE_LICENSE_BODY_SHA256 =
-  'e9983ebfb14c08d7abeaef6d685f37348bcddbaffe92b6b4391914cd0454f64f';
+  '06d6dbc5fee76aa6b82198254e4a7489ef20718f7bd4445b87432878d2160630';
 
 const REPO_URL = 'https://github.com/famousdavis/spert-landing';
 

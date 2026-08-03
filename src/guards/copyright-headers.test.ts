@@ -10,10 +10,11 @@ import { describe, it, expect } from 'vitest';
 
 /**
  * Every human-authored source file in this repository must carry the SPERT®
- * Suite copyright header. Not decoration: `LICENSE` adds four terms under GPL
- * v3 Section 7 — attribution preservation, UI notice preservation, trademark
- * reservation, marking of modified versions — and Section 7 requires a source
- * file carrying such terms to either state them or say where they are found.
+ * Suite copyright header. Not decoration: `LICENSE` adds six terms under GPL
+ * v3 Section 7 — attribution preservation, legal notice preservation,
+ * trademark reservation, origin and marking of modified versions, endorsement
+ * and promotion, indemnification — and Section 7 requires a source file
+ * carrying such terms to either state them or say where they are found.
  * The header's third line is that notice.
  *
  * This runs from the repository root and therefore covers BOTH trees. The
