@@ -1,0 +1,121 @@
+name: External health checks
+
+# Covers the two gaps in UptimeRobot's free tier:
+#
+#   1. The MCP endpoint returns 405 to a GET, and UptimeRobot instantly marks any
+#      non-2xx status as down without its usual confirmation sequence — so it
+#      alerted on the first check and could not be used. A POST returns 200.
+#   2. SSL/TLS expiry reminders are gated to paid plans. The suite uses per-host
+#      certificates (no wildcard), so there are nine independent renewal paths.
+#
+# A failing run emails the repository owner through GitHub's normal notifications.
+# See SPERT-Uptime-Monitoring-Setup.md for the full monitoring design.
+
+on:
+  schedule:
+    # Every 6 hours. GitHub's cron is best-effort and can run late under load,
+    # which is fine here — this is not a minute-granularity uptime check.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+  pull_request:
+    # Self-test: any PR touching this file proves the workflow still runs green.
+    paths:
+      - ".github/workflows/external-health.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mcp-endpoint:
+    name: MCP endpoint responds
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST a JSON-RPC ping and require HTTP 200
+        run: |
+          set -uo pipefail
+          URL="https://us-central1-spert-suite.cloudfunctions.net/mcpSpertSuite"
+
+          # --retry covers Cloud Functions cold starts and transient 5xx, giving
+          # this check the same de-noising UptimeRobot applies to 2xx monitors.
+          code=$(curl -sS -o /tmp/mcp-body.txt -w '%{http_code}' \
+            --max-time 30 --retry 2 --retry-delay 5 --retry-connrefused \
+            -X POST "$URL" \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"ping"}')
+
+          echo "HTTP $code"
+          echo "--- first 400 bytes of response ---"
+          head -c 400 /tmp/mcp-body.txt 2>/dev/null || true
+          echo
+
+          if [ "$code" != "200" ]; then
+            echo "::error::MCP endpoint returned HTTP $code (expected 200) — $URL"
+            exit 1
+          fi
+
+          # Assert the protocol, not just liveness. A 200 carrying anything other
+          # than a JSON-RPC envelope means the endpoint is answering but broken —
+          # the same reason the front-end monitors assert on a keyword, not a status.
+          if ! grep -q '"jsonrpc":"2.0"' /tmp/mcp-body.txt; then
+            echo "::error::MCP endpoint returned HTTP 200 but no JSON-RPC envelope — $URL"
+            exit 1
+          fi
+
+          echo "MCP endpoint healthy (HTTP 200, valid JSON-RPC response)."
+
+  tls-expiry:
+    name: TLS certificates have >= 21 days remaining
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check certificate expiry on every SPERT Suite host
+        run: |
+          set -uo pipefail
+
+          # 21 days, in seconds. Vercel auto-renews Let's Encrypt certificates at
+          # roughly 30 days remaining, so crossing 21 means a renewal has not run.
+          THRESHOLD_SECONDS=1814400
+          THRESHOLD_DAYS=21
+
+          HOSTS="
+          spertsuite.com
+          storymap.spertsuite.com
+          forecaster.spertsuite.com
+          ganttapp.spertsuite.com
+          scheduler.spertsuite.com
+          cfd.spertsuite.com
+          myscrumbudget.spertsuite.com
+          ahp.spertsuite.com
+          ssv.spertsuite.com
+          "
+
+          failed=0
+          echo "| Host | Expires | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|---|" >> "$GITHUB_STEP_SUMMARY"
+
+          for host in $HOSTS; do
+            pem=$(timeout 20 openssl s_client -connect "$host:443" \
+                  -servername "$host" </dev/null 2>/dev/null)
+
+            enddate=$(printf '%s' "$pem" | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)
+
+            if [ -z "$enddate" ]; then
+              echo "::error::$host — could not read a certificate"
+              echo "| \`$host\` | — | could not read certificate |" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+              continue
+            fi
+
+            # -checkend is the purpose-built flag: exit 0 if the cert will NOT
+            # expire within the window. No date arithmetic, no locale issues.
+            if printf '%s' "$pem" | openssl x509 -noout -checkend "$THRESHOLD_SECONDS" >/dev/null 2>&1; then
+              echo "ok    $host — expires $enddate"
+              echo "| \`$host\` | $enddate | ok |" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error::$host — certificate expires within ${THRESHOLD_DAYS} days ($enddate)"
+              echo "| \`$host\` | $enddate | **EXPIRING** |" >> "$GITHUB_STEP_SUMMARY"
+              failed=1
+            fi
+          done
+
+          exit $failed
