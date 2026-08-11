@@ -49,3 +49,56 @@ MEMORY_*.md
 
 .audit-baseline.json
 .audit-functions-baseline.json
+
+# Working notes at the repository root — analyses, plans, critiques, briefings,
+# orchestration prompts.
+#
+# ⚠️ THIS IS A SAFETY PATTERN, NOT TIDINESS. The source in this repository is
+# public; the planning documents that accumulate in its root are not. One that is
+# untracked but NOT ignored is a single `git add -A` away from a public commit.
+# That has already happened twice in spert-forecaster, caught both times only
+# because someone read the file list before pushing. A near-miss caught twice by
+# attention is a hazard, not a track record.
+#
+# Measured 2026-08-11, before this block existed: 38 such files sat in this
+# repository's root and `git check-ignore` matched exactly 0 of them.
+#
+# ⚠️ DENY-BY-DEFAULT WITH AN ALLOWLIST — deliberately NOT a vocabulary of
+# filename patterns such as `/*-CRITIQUE-*.md` or `/*-PLAN-V*.md`. Measured
+# across the suite: a vocabulary tuned to one repo's naming caught 4 of another
+# repo's 108 documents, because the repos name things differently
+# (`NAME-CRITIQUE-v2.md` versus `CRITIQUE_name.md`). An allowlist is complete by
+# construction; a vocabulary is incomplete by construction.
+#
+# ⚠️ A vocabulary is also SELF-FLATTERING ON A MAC, which is the part that would
+# not have been noticed. APFS is case-insensitive, so `/*-PLAN-V*.md` matches
+# `...-plan-v3_1.md` here and matches nothing in CI. The same block measured 16
+# on macOS and 4 under `git config core.ignorecase false`. The inflation happens
+# where the pattern is authored; the deflation happens where it runs.
+#
+# The two failure directions are not symmetrical in a public repository:
+#
+#   - A doc wrongly ignored is visible on GitHub and fixed by one commit. It is
+#     also not silent: `git add CONTRIBUTING.md` on an ignored path exits 1 and
+#     prints a hint. Only `git add -A` passes over it quietly.
+#   - A planning doc wrongly committed to a public repo is not recoverable. It is
+#     in the history, cloneable and indexable.
+#
+# ⚠️ `.gitignore` has no effect on already-tracked files, so `/*.md` does not
+# untrack anything listed below and never could. The allowlist is here so that
+# creating a NEW SECURITY.md or CONTRIBUTING.md is still a plain `git add`, and
+# so a reader can see at a glance what this repository means to publish.
+#
+# Derive the allowlist, never recall it:   git ls-files ':(glob)*.md'
+/*.md
+!/ARCHITECTURE.md
+!/README.md
+# Conventional root docs, not present today; listed so adding one needs no edit here.
+!/CHANGELOG.md
+!/SECURITY.md
+!/CONTRIBUTING.md
+!/CODE_OF_CONDUCT.md
+# Root PDFs are renderings of the planning documents above (each has a sibling
+# .md of the same name) — not site assets. Everything this site actually serves
+# lives in public/, which this root-scoped rule does not touch.
+/*.pdf
