@@ -102,3 +102,28 @@ MEMORY_*.md
 # .md of the same name) — not site assets. Everything this site actually serves
 # lives in public/, which this root-scoped rule does not touch.
 /*.pdf
+
+# Working scripts in scripts/ — the same safety pattern as the block above, one
+# directory deeper.
+#
+# ⚠️ THE BLOCK ABOVE DOES NOT REACH HERE. `/*.md` and `/*.pdf` are root-scoped by
+# design, so scripts/ was never covered. Measured 2026-08-11, before this block
+# existed: four untracked working scripts sat in scripts/ and `git check-ignore`
+# matched exactly 0 of them. Their content was not this repository's to publish,
+# and in a public repository that is one `git add -A` from being unrecoverable.
+# The hazard is not hypothetical here — it is the same one the root block was
+# written for, found again in the next directory down.
+#
+# ⚠️ DENY-BY-DEFAULT WITH AN ALLOWLIST, for the reason argued at length above and
+# not repeated here. A vocabulary rule — `scripts/*.py`, say — is tuned to the
+# extension that happened to turn up, and catches nothing the next time the file
+# is a .sh, an .rb or an .mjs. This shape is complete by construction.
+#
+# scripts/shipgate.mjs is tracked, and .gitignore has no effect on tracked files,
+# so the negation below changes nothing today. It is here so that `git add` on it
+# keeps working if it is ever untracked, and so a reader can see at a glance what
+# this directory means to publish.
+#
+# Derive the allowlist, never recall it:   git ls-files scripts/
+/scripts/*
+!/scripts/shipgate.mjs
