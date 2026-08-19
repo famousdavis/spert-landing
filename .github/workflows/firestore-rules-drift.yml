@@ -1,0 +1,87 @@
+# Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+# Licensed under the GNU General Public License v3.0.
+# See LICENSE file in the project root for full license text.
+
+# Does production still enforce the ruleset in this repo?
+#
+# WHY THIS EXISTS, SEPARATELY FROM THE DEPLOY WORKFLOW
+# ----------------------------------------------------
+# deploy-firestore-rules.yml makes this repo authoritative whenever
+# firestore.rules changes. It cannot see an edit made directly in the Firebase
+# Console — that would persist, unnoticed, until the next commit happened to
+# touch the rules. This job asks production what it is actually enforcing and
+# compares it byte-for-byte with the file.
+#
+# It is the last part of the LIST-1 lesson (2026-08-19). Every other guard in
+# the suite — the emulator suite here, the seven per-app query tests — proves
+# something about a FILE. This is the only one that interrogates the running
+# system. The original exposure lasted as long as it did precisely because
+# nothing did that.
+#
+# It is deliberately NOT a job inside external-health.yml. That workflow is
+# about availability, and its failures mean "something is down"; this one's
+# mean "someone changed configuration out of band". Different signal, different
+# response, so a separate red X is worth more than a shared one.
+#
+# NOTE ON CREDENTIALS. This reuses FIREBASE_SERVICE_ACCOUNT rather than a
+# read-only account. That key can already deploy rules and already lives in
+# this repo's secrets, so a second account would add setup without removing
+# capability from anyone who can edit these workflows. Worth splitting only if
+# the deploy secret ever moves to an environment this job should not reach.
+
+name: Firestore rules drift
+
+on:
+  schedule:
+    # Every 6 hours, matching external-health.yml. A Console edit is a
+    # deliberate human act rather than a flapping signal, but the window
+    # between the edit and noticing it is exposure, so this is not daily.
+    - cron: "30 */6 * * *"
+  workflow_dispatch:
+  pull_request:
+    # Self-test: any PR touching this workflow or its script proves the check
+    # still runs green. Same convention as external-health.yml.
+    paths:
+      - ".github/workflows/firestore-rules-drift.yml"
+      - "scripts/check-deployed-rules.mjs"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firestore-rules-drift
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: Deployed ruleset matches firestore.rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+
+      # No `npm ci`. The script uses only Node built-ins (crypto, fs, fetch),
+      # so installing the dependency tree would be pure latency.
+
+      - name: Compare the deployed ruleset with the repo
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: npm run rules:drift
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Firestore rules drift"
+            echo
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "Deployed ruleset is byte-identical to \`firestore.rules\`."
+            else
+              echo "**Drift detected, or the check could not run.** See the job log."
+              echo
+              echo "A Console edit is no longer a deploy — this repo is the source of truth."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
