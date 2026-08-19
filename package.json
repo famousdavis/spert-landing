@@ -1,6 +1,6 @@
 {
   "name": "spert-landing-page",
-  "version": "2.5.13",
+  "version": "2.5.14",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:rules": "PATH=\"/opt/homebrew/opt/openjdk/bin:$PATH\" firebase emulators:exec --only firestore --project spert-suite \"vitest run --config vitest.rules.config.ts\"",
+    "test:rules": "node scripts/run-rules-tests.mjs",
     "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
@@ -30,6 +30,7 @@
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.9",
     "firebase": "12.13.0",
+    "firebase-tools": "15.22.0",
     "tailwindcss": "4.2.4",
     "typescript": "6.0.3",
     "vitest": "4.1.6"
