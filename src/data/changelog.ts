@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.13',
+    date: 'August 19, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'A signed-in user of any SPERT® Suite app could retrieve every project stored in cloud storage, including projects never shared with them. The rules governing the shared database allowed opening an individual project only to its members, and that check was correct and always worked. But the separate rule governing how a whole collection is listed asked only whether the request came from someone signed in. Anyone querying the database directly, rather than through one of the apps, would have received every project it held. All seven apps that share the database were affected. Projects kept in a browser’s local storage are never sent to the database and were never exposed.',
+          'The listing rules now apply the same membership test that opening always applied, so the database enforces it regardless of which program asks. Each rule is shaped to the request its own app actually makes, so no app needed changing — two of the seven deliberately record ownership differently from the other five, and a single uniform rule would have quietly stopped those two from loading anything.',
+          'A new automated test suite runs the real rules against a local copy of the database and checks both directions: that a request for another person’s projects is refused, and that each app’s own request still returns its own projects, down to the individual documents. Checking only the first half would have let a rule that blocks everyone pass as a success. The suite was confirmed to fail against the previous rules before it was trusted.',
+          'The reasoning that produced the original rule was written into the rules file itself, and it was mistaken — it claimed the database could not check membership during a listing, which it can. That comment has been replaced with the correction and the evidence, so the same conclusion is not reached again.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.12',
     date: 'August 2, 2026',
     sections: [

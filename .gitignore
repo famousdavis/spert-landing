@@ -127,3 +127,8 @@ MEMORY_*.md
 # Derive the allowlist, never recall it:   git ls-files scripts/
 /scripts/*
 !/scripts/shipgate.mjs
+
+# Firestore emulator output (npm run test:rules)
+firestore-debug.log
+firebase-debug.log
+.firebase/

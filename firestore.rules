@@ -204,11 +204,17 @@ service cloud.firestore {
       return hasRoleGet(projectId, 'owner') || hasRoleGet(projectId, 'editor');
     }
     // ── GanttApp ─────────────────────────────────────────────
-    // v0.21.0: list rule relaxed to `if isAuth()`. App-side constrained
-    // query (where(`members.${uid}`, 'in', [...])) does the per-user
-    // filtering server-side. Rules cannot validate dynamic field paths
-    // in where() clauses, so list permission has to be authenticated-only.
-    // Matches the suite-wide canonical pattern.
+    // ⚠️ v0.21.0 relaxed this list rule to `if isAuth()` on the stated
+    // reasoning that "rules cannot validate dynamic field paths in where()
+    // clauses, so list permission has to be authenticated-only." THAT IS
+    // FALSE, and believing it is why all seven project collections were
+    // readable across tenants until LIST-1 (2026-08-19).
+    // `resource.data.members[request.auth.uid]` is a perfectly valid rules
+    // expression, and the query analyzer does prove that the app's
+    // where(`members.${uid}`, 'in', [...]) satisfies it — including the
+    // disjunctive forms Forecaster and MyScrumBudget need. Demonstrated by
+    // rules-tests/project-collections-list.test.ts (22/22). Do not restore
+    // the old rule on the strength of the old comment.
     //
     // v0.22.2 (S4 — field allowlists). Field lists must match the
     // converters in src/shared/utils/firestore-converters.ts:
@@ -239,8 +245,37 @@ service cloud.firestore {
         'projectFinishDate', 'chartColors', 'legendLabels', 'preparedBy'
       ];
     }
+    // ── LIST RULE DOCTRINE (LIST-1, 2026-08-19) ────────────────────────
+    // Every *_projects collection below constrains `list`, not just `get`.
+    //
+    // All seven previously shipped `allow list: if isAuth();`, and the CFD
+    // block said why in as many words: "Intentionally more permissive than
+    // other apps — list returns all docs, client-side where() clause filters
+    // to member-of projects." That makes the CLIENT QUERY the security
+    // boundary. It cannot be. An attacker uses their own Firestore client and
+    // omits the filter. Verified against production on 2026-08-19: an
+    // unfiltered REST list of spertscheduler_projects returned HTTP 200 and
+    // included a document the caller was not a member of.
+    //
+    // `get` being membership-gated does not help. Rules are GRANTS, and a
+    // narrower grant on one operation never narrows a broader grant on a
+    // different one.
+    //
+    // Each rule below is shaped to the query its app actually issues, so no
+    // client changed. Two are not the common form, deliberately:
+    //   - Forecaster keeps `owner` OUT of the members map, and lists by
+    //     `owner` and by member role separately.
+    //   - MyScrumBudget's clear() lists by `owner` alone to delete every
+    //     owned project.
+    // Tightening either to the common form silently breaks that path.
+    //
+    // Pinned by rules-tests/project-collections-list.test.ts (npm run
+    // test:rules). It asserts BOTH halves: the unfiltered list is denied AND
+    // each app's real query still returns its documents. Before this change
+    // it failed 14/22; a rule tightened past an app's own query fails it too.
     match /ganttapp_projects/{projectId} {
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer'];
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
       // v0.22.2 (S2): bind top-level `owner` field to caller's UID.
@@ -344,7 +379,8 @@ service cloud.firestore {
       ];
     }
     match /spertstorymap_projects/{projectId} {
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer'];
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
@@ -406,7 +442,8 @@ service cloud.firestore {
       ];
     }
     match /spertscheduler_projects/{projectId} {
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer'];
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       // v0.42.6 (H1): bind top-level `owner` field to caller's UID.
       // v0.42.6 (H2): keys().hasOnly() allowlist on create.
@@ -479,7 +516,9 @@ service cloud.firestore {
     // Note: Forecaster uses a separate `owner` field (not in members map)
     // `members` map contains only editors/viewers
     match /spertforecaster_projects/{projectId} {
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && (resource.data.owner == request.auth.uid
+                                 || resource.data.members[request.auth.uid] in ['editor', 'viewer']);
       allow get: if isAuth() &&
         (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
       allow create: if isAuth() &&
@@ -541,7 +580,9 @@ service cloud.firestore {
       ];
     }
     match /myscrumbudget_projects/{projectId} {
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && (resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer']
+                                 || resource.data.owner == request.auth.uid);
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
       // v0.28.2 (M4): bind top-level `owner` field to caller's UID.
@@ -617,9 +658,8 @@ service cloud.firestore {
     }
     // ── SPERT-CFD Projects (monolithic docs, no subcollections) ──
     match /spertcfd_projects/{projectId} {
-      // Intentionally more permissive than other apps — list returns all
-      // docs, client-side where() clause filters to member-of projects.
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer'];
       allow get: if isAuth() && isCfdMember(resource.data);
 
       // v0.12.2 (M-2): keys().hasOnly() allowlist on create. Any unknown
@@ -689,7 +729,8 @@ service cloud.firestore {
     // only protected owner/members — allowing an editor to bypass via direct
     // adapter calls.
     match /spertahp_projects/{modelId} {
-      allow list: if isAuth();
+      // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
+      allow list: if isAuth() && resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer'];
       allow get: if isAuth() &&
         request.auth.uid in resource.data.members;
       allow create: if isAuth()
