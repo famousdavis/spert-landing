@@ -1,0 +1,122 @@
+# Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+# Licensed under the GNU General Public License v3.0.
+# See LICENSE file in the project root for full license text.
+
+# Deploy the canonical Firestore ruleset when it changes on main.
+#
+# WHY THIS EXISTS
+# ---------------
+# Everything guarding this ruleset — rules-tests/project-collections-list.test.ts
+# and the seven per-app query tests across the suite — proves a property of a
+# FILE IN THIS REPOSITORY. Production enforces whatever was last pasted into the
+# Firebase Console. Those were two different systems with nothing connecting
+# them, so the guarantee stopped at the repo boundary.
+#
+# That is the same class of gap as LIST-1 itself (2026-08-19): a real exposure
+# that no amount of repo-side testing could see. The documented process had the
+# Console as source of truth and this file as a mirror OF it — the inverse of
+# where the tests are. This workflow inverts that: the repo is authoritative,
+# and a merge to main is what reaches production.
+#
+# It also retires a documented footgun. Paste-replacing in the Console without
+# the copyright header on lines 1-3 stripped it on the next mirror-back and
+# failed the header guard on some later, unrelated release. Deploying the repo
+# file carries the header every time, by construction.
+#
+# SELF-GATING, ON PURPOSE
+# -----------------------
+# This re-runs the emulator suite immediately before deploying rather than
+# depending on the Ship gate having passed. A `workflow_run` dependency would
+# couple two workflows and evaluate the trigger against the default branch's
+# definition; running the suite here means THIS job verifies the exact payload
+# it is about to ship. The duplicate run costs about twenty seconds.
+#
+# Note it does NOT gate on lint/build. Rules are independent of the app bundle,
+# and correct rules should reach production even while the site build is broken.
+#
+# ⚠️ SCOPE. This deploys rules only, not firestore.indexes.json, and only fires
+# when firestore.rules itself changes. An out-of-band edit made directly in the
+# Console still persists until the next change here — closing THAT needs the
+# periodic deployed-vs-repo drift check, which is a separate piece of work.
+
+name: Deploy Firestore rules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "firestore.rules"
+      - ".github/workflows/deploy-firestore-rules.yml"
+  workflow_dispatch:
+
+# Read-only repo access. The deploy credential comes from a secret, not from
+# the workflow token.
+permissions:
+  contents: read
+
+# Never let two deploys race to release a ruleset.
+concurrency:
+  group: deploy-firestore-rules
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Verify against the emulator, then release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+          cache: npm
+
+      - run: npm ci
+
+      # ⚠️ FAIL, never skip. A missing secret must stop the run loudly: a
+      # deploy that silently does not happen looks exactly like one that
+      # succeeded, and would quietly recreate the divergence this workflow
+      # exists to remove.
+      - name: Require the deploy credential
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "${SA:-}" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT is not set. Rules were NOT deployed."
+            exit 1
+          fi
+          echo "Deploy credential present."
+
+      # The payload is verified here, not inherited from another workflow.
+      - name: Verify the ruleset against the Firestore emulator
+        run: npm run test:rules
+
+      - name: Authenticate and deploy
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          KEY="${RUNNER_TEMP}/firebase-sa.json"
+          printf '%s' "$SA" > "$KEY"
+          chmod 600 "$KEY"
+          export GOOGLE_APPLICATION_CREDENTIALS="$KEY"
+
+          npx firebase deploy \
+            --only firestore:rules \
+            --project spert-suite \
+            --non-interactive
+
+          rm -f "$KEY"
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Firestore rules deploy"
+            echo
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Project | \`spert-suite\` |"
+            echo "| Source | \`firestore.rules\` @ \`${GITHUB_SHA:0:7}\` |"
+            echo "| Emulator suite | ran before deploy |"
+          } >> "$GITHUB_STEP_SUMMARY"
