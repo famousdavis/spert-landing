@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.14',
+    date: 'August 19, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'The check that protects cloud project data now runs automatically. It was added in the previous release but had to be started by hand, so nothing actually forced it to run — a safeguard that depends on someone remembering is not a safeguard. It is now part of the release gate, running both on a developer’s machine and on every proposed change, and a release cannot complete while it fails.',
+          'The check refuses to be skipped. It needs a Java runtime in order to start a local copy of the database, and where none is found it stops the release and explains why, rather than passing quietly. A check that does nothing when its dependencies are missing looks exactly like a check that passed, and that is the failure being designed out.',
+          'Confirmed to work by deliberately reintroducing the original fault in one collection and watching the gate fail on precisely that collection and nothing else, before restoring it. The gate was never trusted on the strength of a green run alone.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.13',
     date: 'August 19, 2026',
     sections: [
