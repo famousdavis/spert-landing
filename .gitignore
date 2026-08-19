@@ -131,6 +131,9 @@ MEMORY_*.md
 # so it has to be published. Note the failure mode if it is not: the gate
 # passes locally, where the file exists, and dies in CI with MODULE_NOT_FOUND.
 !/scripts/run-rules-tests.mjs
+# check-deployed-rules.mjs is run by the drift workflow and must be published
+# for the same reason — see the note above.
+!/scripts/check-deployed-rules.mjs
 
 # Firestore emulator output (npm run test:rules)
 firestore-debug.log
