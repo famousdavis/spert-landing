@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.16',
+    date: 'August 20, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'The rules governing the shared database keep twelve separate lists of which pieces of information each app is allowed to save. Until now only one of those lists was tested. A mistake in any of the other eleven — a list that no longer matches what its app actually writes — would have stopped that app saving, silently and every time, with nothing anywhere reporting a problem. That is not a hypothetical: it is exactly what happened to the twelfth list in the previous release, and it went unnoticed for seven days.',
+          'All eleven are now covered. For each one, the tests confirm that a save carrying every permitted piece of information is accepted, that the smaller save an app makes when optional details are absent is also accepted, and that a save carrying anything unrecognised is still refused — on each operation the rule governs, since saving a new item and changing an existing one are separate rules that can fail independently. The tests also confirm that permission to save was not widened along the way: someone who is not a member of a project still cannot write to it, and a collaborator still cannot promote themselves to owner.',
+          'The list of what each app writes was read from the apps themselves and recorded here alongside the exact function it came from, the version, and the commit — so a later review can tell how old that reading is rather than merely that it is a copy. At the time of reading, every one of the twelve matched.',
+          'What this does and does not do is worth being plain about. It catches a rule tightened past what an app already saves. It cannot catch the reverse — an app adding something new that the rules were never told about, which is what caused the previous release’s fault. Closing that half requires checks inside the apps and is not something this release claims to have done.',
+          'Confirmed by removing a single permitted item from one of the twelve lists and checking that exactly the three affected tests failed, on precisely that one list, while the other eleven and every other test carried on passing — then restoring the file and verifying it was byte-for-byte unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.15',
     date: 'August 20, 2026',
     sections: [
