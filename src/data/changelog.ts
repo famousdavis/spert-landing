@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.15',
+    date: 'August 20, 2026',
+    sections: [
+      {
+        heading: 'Fixed',
+        items: [
+          'Saving a chart snapshot in GanttApp™ failed for anyone using cloud storage who had set a status date, and failed without saying so. The rules governing the shared database list which pieces of information a snapshot is allowed to carry. The status date, added to GanttApp in August, was never added to that list, so the database refused the snapshot outright. Nothing told the user — the snapshot simply never appeared, every time, for as long as a status date was set. Snapshots taken without a status date were unaffected, as was anyone working in local storage rather than the cloud.',
+          'The status date is now on the list, so those snapshots save. A new automated test saves a snapshot carrying every piece of information the app actually writes, including the status date, and separately confirms that a snapshot carrying anything unrecognised is still refused. Testing only the second half is what allowed this to happen: the rules were checked for what they should block and never for what they must allow.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.14',
     date: 'August 19, 2026',
     sections: [
