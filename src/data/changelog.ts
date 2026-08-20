@@ -13,6 +13,28 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.17',
+    date: 'August 20, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Two of the seven apps — SPERT® Forecaster and SPERT® AHP — let anyone with access to a project save any piece of information they liked into it. Access itself was never in question: you still had to be a member of the project, and only an owner could change who could see it or who owned it. But once you were in, nothing limited what could be stored alongside the real data. The other five apps have had that limit since May; these two were missed at the time.',
+          'Each of the two now has a list of exactly the information it uses, and the database refuses anything outside it. Nothing about who may open, change, share or delete a project has changed — only what may be kept inside one. Nothing was exploited; this closes a gap rather than repairing damage.',
+          'Getting this wrong in the other direction is the real hazard, and it is worth saying how it was avoided. A list that is too short produces no error message: it makes every save fail silently, for every user, immediately. So each list was built by reading every place its app writes to the database — five places in Forecaster and thirteen in AHP, five of them written in a form that an ordinary search for the usual save commands does not find at all. The tests confirming that a normal save still works were written and run BEFORE the new limits went in, so the release rests on a recorded before-and-after rather than on an assurance.',
+          'One piece of information in AHP came close to being left out. The setting controlling what participants see on the Results tab never appears by name in the code that saves it — it travels through a general-purpose routine that forwards whatever it is handed, so searching for it finds only a type definition and a default value. Had it been omitted, every change to that setting would have failed silently. It is on the list, and the reason it looks absent is now recorded beside it.',
+          'Confirmed by removing a single permitted item from one of the two new lists and checking that exactly the two affected tests failed, on that one app, while the other twelve lists and every other test carried on passing — then restoring the file and verifying it was byte-for-byte unchanged.',
+        ],
+      },
+      {
+        heading: 'Changed',
+        items: [
+          'The database rules file described its own release process incorrectly. It said it was a copy of what had been pasted into the Firebase console by hand, which stopped being true in August: the repository is now the original, and the live database follows it automatically whenever a change is merged. That description has been corrected, and so has a second note claiming one app was the only one missing the limits described above — it was not, which is what this release is about.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.16',
     date: 'August 20, 2026',
     sections: [
