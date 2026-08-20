@@ -242,7 +242,8 @@ service cloud.firestore {
     function ganttAppSnapshotFields() {
       return [
         'name', 'timestamp', 'releases',
-        'projectFinishDate', 'chartColors', 'legendLabels', 'preparedBy'
+        'projectFinishDate', 'chartColors', 'legendLabels', 'preparedBy',
+        'todayDateOverride'
       ];
     }
     // ── LIST RULE DOCTRINE (LIST-1, 2026-08-19) ────────────────────────
