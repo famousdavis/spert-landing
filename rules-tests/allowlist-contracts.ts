@@ -7,12 +7,15 @@
  *
  * WHAT THIS FILE IS
  * -----------------
- * `firestore.rules` contains TWELVE `hasOnly()` allowlist sites. Before 2.5.16
- * exactly one was tested - `ganttAppSnapshotFields()`, added in 2.5.15 after
- * that allowlist silently rejected every GanttApp snapshot save for seven
- * days. The other eleven were unexercised: a rule tightened past what an app
- * writes produces `PERMISSION_DENIED` on a routine save, and nothing in the
- * suite would fail.
+ * `firestore.rules` contains FOURTEEN `hasOnly()` allowlist sites - twelve
+ * before 2.5.17, which added `spertForecasterProjectFields()` and
+ * `spertAhpProjectFields()`. Before 2.5.16 exactly one was tested -
+ * `ganttAppSnapshotFields()`, added in 2.5.15 after that allowlist silently
+ * rejected every GanttApp snapshot save for seven days. The other eleven were
+ * unexercised: a rule tightened past what an app writes produces
+ * `PERMISSION_DENIED` on a routine save, and nothing in the suite would fail.
+ * The thirteen entries below cover every site but the snapshot one, which keeps
+ * its own suite.
  *
  * WHAT IT CATCHES, AND WHAT IT DOES NOT
  * -------------------------------------
@@ -90,6 +93,28 @@ export interface AllowlistContract {
   appMin: string[];
   /** True when `appMax` and `allowlist` are the same set. */
   coincides: boolean;
+  /**
+   * Allowlisted keys the app does NOT write here - `allowlist` minus `appMax`.
+   * Derived, but recorded so a reader sees the gap named instead of computing
+   * it, and pinned by a self-check so the two statements cannot drift apart.
+   * Empty wherever `coincides` is true.
+   */
+  unionOnly: string[];
+  /**
+   * Fields the app clears with `deleteField()`. A plain name is a top-level
+   * removal; the token `members.<editor>` is a nested removal from the members
+   * map, which the harness expands to the editor uid. Empty means the app has
+   * no clearing path at this site - not that removals are forbidden.
+   */
+  clearable: string[];
+  /**
+   * True when the collection keeps `owner` OUT of the members map, so the two
+   * are orthogonal (Forecaster alone). The seeded pre-image must then name the
+   * ACTING uid in the top-level `owner` field: its update rule reads
+   * `resource.data.owner`, and a pre-image owned by someone else is denied
+   * before the allowlist is ever reached.
+   */
+  ownerOrthogonal?: boolean;
   /** Exact function the field sets were read from. */
   source: string;
   sourceVersion: string;
@@ -131,6 +156,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'schemaVersion', '_originRef', '_changeLog', 'createdAt', 'updatedAt',
     ],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:projectToFirestoreMeta',
     sourceVersion: 'GanttApp v0.28.10',
     sourceCommit: '73931d1',
@@ -156,6 +183,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // This is the shape that makes an over-REQUIRING rule detectable.
     appMin: ['name', 'startDate', 'earlyFinishDate', 'lateFinishDate', 'order'],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:releaseToFirestore',
     sourceVersion: 'GanttApp v0.28.10',
     sourceCommit: '73931d1',
@@ -195,11 +224,15 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'sizeMapping', 'releases', 'sprints', 'themes',
     ],
     coincides: false,
+    // The five keys the allowlist permits but `doSaveProduct` never touches,
+    // named rather than left to be inferred from the two lists above.
+    unionOnly: ['createdAt', '_originRef', '_changeLog', 'owner', 'members'],
+    clearable: [],
     source: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
     notes:
-      'UPDATE-only by design (firestore.rules:362-371): createProduct strips only ' +
+      'UPDATE-only by design (firestore.rules:363-372): createProduct strips only ' +
       '`id`, so a keys().hasOnly() on create could reject a legitimate create still ' +
       'carrying an _owner/_members alias. The create surface is self-owned instead. ' +
       'Tested as documented behaviour, not as a gap.',
@@ -235,6 +268,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'name', 'owner', 'members', 'schemaVersion', 'createdAt', 'updatedAt', 'scenarios',
     ],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source:
       'spert-scheduler/src/infrastructure/firebase/firestore-driver.ts:create ' +
       '(field set governed by src/domain/models/types.ts:Project)',
@@ -247,7 +282,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [594, 605],
+    lines: [623, 634],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -274,6 +309,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'owner', 'members',
     ],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:createProject / saveProject',
     sourceVersion: 'MyScrumBudget v0.37.0',
     sourceCommit: 'df11dca',
@@ -284,7 +321,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [671, 686],
+    lines: [700, 715],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -306,9 +343,127 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'owner', 'members',
     ],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'spert-cfd/src/lib/firestore-driver.ts:createProject / saveProject',
     sourceVersion: 'spert-cfd v0.15.1',
     sourceCommit: 'a29dbd0',
+  },
+  {
+    key: 'spertforecaster_projects',
+    path: 'spertforecaster_projects/{projectId}',
+    collection: 'spertforecaster_projects',
+    sub: null,
+    ops: ['create', 'update'],
+    lines: [554, 561],
+    shape: 'project',
+    // Exactly `keyof FirestoreProjectDoc` (types.ts:17). Every full write routes
+    // through projectToFirestoreDoc, which emits these sixteen and nothing else;
+    // sanitizeForFirestore then drops the undefined ones.
+    allowlist: [
+      'name', 'unitOfMeasure', 'sprints',
+      'sprintCadenceWeeks', 'projectStartDate', 'projectFinishDate',
+      'firstSprintStartDate', 'productivityAdjustments', 'milestones',
+      'createdAt', 'updatedAt', 'owner', 'members',
+      '_originRef', '_changeLog', 'schemaVersion',
+    ],
+    appMax: [
+      'name', 'unitOfMeasure', 'sprints',
+      'sprintCadenceWeeks', 'projectStartDate', 'projectFinishDate',
+      'firstSprintStartDate', 'productivityAdjustments', 'milestones',
+      'createdAt', 'updatedAt', 'owner', 'members',
+      '_originRef', '_changeLog', 'schemaVersion',
+    ],
+    // The always-present set. The four CLEARABLE_PROJECT_FIELDS are optional on
+    // `Project` itself; _originRef and _changeLog are optional PARAMETERS of
+    // projectToFirestoreDoc, so a caller that passes neither emits neither.
+    // productivityAdjustments and milestones survive because the converter
+    // defaults them to [] rather than leaving them undefined.
+    appMin: [
+      'name', 'unitOfMeasure', 'sprints',
+      'productivityAdjustments', 'milestones',
+      'createdAt', 'updatedAt', 'owner', 'members', 'schemaVersion',
+    ],
+    coincides: true,
+    unionOnly: [],
+    // saveProject writes deleteField() sentinels for the four clearable scalars
+    // (firestore-driver.ts:76); firestore-sharing.ts:149 removes a member.
+    clearable: [
+      'sprintCadenceWeeks', 'projectStartDate', 'projectFinishDate',
+      'firstSprintStartDate', 'members.<editor>',
+    ],
+    ownerOrthogonal: true,
+    source:
+      'spert-forecaster/src/shared/firebase/firestore-driver.ts:' +
+      '_PROJECT_WRITE_KEYS_GUARD (+ owner/members, which that guard Omits by ' +
+      'construction and firestore-sharing.ts writes)',
+    sourceVersion: 'spert-forecaster v0.40.2',
+    sourceCommit: '4223e1d',
+    notes:
+      'Five write sites: firestore-driver.ts:273 (masked merge, PROJECT_MERGE_FIELDS) ' +
+      'and :281 (UNMASKED full document - the reason the allowlist must cover every ' +
+      'key the type can carry, not just what a routine save touches); ' +
+      'firestore-sharing.ts:92, :149 and :255, all touching members.<uid> only. ' +
+      'ownerOrthogonal because Forecaster alone keeps `owner` out of the members map.',
+  },
+  {
+    key: 'spertahp_projects',
+    path: 'spertahp_projects/{modelId}',
+    collection: 'spertahp_projects',
+    sub: null,
+    ops: ['create', 'update'],
+    lines: [807, 821],
+    shape: 'project',
+    // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts:54).
+    allowlist: [
+      'owner', 'members', 'title', 'goal', 'createdBy',
+      'createdAt', 'updatedAt', 'status', 'completionTier',
+      'synthesisStatus', 'disagreementConfig', 'publishedSynthesisId',
+      'criteria', 'alternatives', 'structureVersion',
+      'collaborators', 'responses', 'synthesis',
+      'resultsVisibility', 'order',
+      '_originRef', '_changeLog', 'schemaVersion',
+    ],
+    // Every one of the 23 is written by at least one of the thirteen sites, so
+    // this equals `allowlist` and `unionOnly` is empty. `resultsVisibility` is
+    // the one that looks absent and is not: it never appears in a write-payload
+    // LITERAL because it arrives through updateModel's Object.entries spread
+    // (FirestoreAdapter.ts:346), driven from ManagePanel.tsx:46 via
+    // useAHP.ts:160. `order` is written outright by createModel (:173),
+    // createModelFromBundle (:241) and reorderModels (:426).
+    appMax: [
+      'owner', 'members', 'title', 'goal', 'createdBy',
+      'createdAt', 'updatedAt', 'status', 'completionTier',
+      'synthesisStatus', 'disagreementConfig', 'publishedSynthesisId',
+      'criteria', 'alternatives', 'structureVersion',
+      'collaborators', 'responses', 'synthesis',
+      'resultsVisibility', 'order',
+      '_originRef', '_changeLog', 'schemaVersion',
+    ],
+    // updateStructure (FirestoreAdapter.ts:439) is the smallest multi-field real
+    // write; owner and members are added because the create rule binds them.
+    appMin: [
+      'criteria', 'alternatives', 'structureVersion',
+      'updatedAt', 'schemaVersion', 'owner', 'members',
+    ],
+    coincides: true,
+    unionOnly: [],
+    // removeCollaborator (FirestoreAdapter.ts:559) clears members.<uid>.
+    clearable: ['members.<editor>'],
+    source: 'spert-ahp/src/storage/FirestoreAdapter.ts:FirestoreModelDoc',
+    sourceVersion: 'spert-ahp v0.18.23',
+    sourceCommit: 'a3a6254',
+    notes:
+      'Thirteen write sites, THREE of them full-document: setDoc 177 (createModel) ' +
+      'and 246 (createModelFromBundle), tx.set 335 (replaceModelFromBundle). ' +
+      'Partial: updateDoc 355/440/577/590/630/667, batch.update 426, tx.update ' +
+      '491/530/559. All four transaction and batch sites are invisible to a ' +
+      'setDoc/updateDoc search. Create IS guarded: all three full writes build ' +
+      'explicit FirestoreModelDoc literals, the only conditional being ' +
+      'replaceModelFromBundle spreading `order` when the existing doc has one. ' +
+      'The allowlist rests on keyof ModelDoc being a subset of ' +
+      'keyof FirestoreModelDoc, which nothing in spert-ahp enforces - see the ' +
+      'warning above spertAhpProjectFields() in firestore.rules.',
   },
   {
     key: 'spertscheduler_settings',
@@ -348,6 +503,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'autoRunSimulation',
     ],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'spert-scheduler/src/domain/schemas/preferences.schema.ts:UserPreferencesSchema',
     sourceVersion: 'spert-scheduler v0.64.4',
     sourceCommit: 'ee43bec',
@@ -366,12 +523,14 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [716],
+    lines: [745],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
     appMin: ['projectOrder'],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source:
       'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject / reorderProjects',
     sourceVersion: 'spert-cfd v0.15.1',
@@ -387,7 +546,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [844],
+    lines: [913],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -395,6 +554,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // the app that recorded the FIRST acceptance.
     appMin: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider'],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'spert-story-map/src/lib/tosHelpers.ts:writeTosAcceptance',
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
@@ -411,7 +572,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [883],
+    lines: [952],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -432,6 +593,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'openProductId', 'consentWrite', 'consentRead', 'lastSeq', 'appVersion',
     ],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source: 'spert-story-map/src/hooks/useAiConnectivity.ts:474 (setDoc on session create)',
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
@@ -448,7 +611,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [901],
+    lines: [970],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',
@@ -465,6 +628,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // The product-change effect at line 371, the smallest real update.
     appMin: ['openProductId', 'lastActiveAt'],
     coincides: true,
+    unionOnly: [],
+    clearable: [],
     source:
       'spert-story-map/src/hooks/useAiConnectivity.ts:337,360,371,515 (updateDoc call sites)',
     sourceVersion: 'spert-story-map v0.52.3',

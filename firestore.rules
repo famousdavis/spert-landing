@@ -2,13 +2,13 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-// Firestore Security Rules for SPERT Suite
-// Deploy via Firebase CLI: npx firebase deploy --only firestore:rules --project spert-suite
-//
-// This file mirrors the rules pasted into the Firebase Console for the
-// shared `spert-suite` project. All SPERT apps share one Firestore project,
-// one Auth tenant, and therefore one rules file. Changes here are copied
-// verbatim into the console on deploy.
+// Firestore Security Rules for SPERT Suite — CANONICAL SOURCE OF TRUTH.
+// All SPERT apps share one Firestore project, one Auth tenant, one rules file.
+// Production follows THIS FILE: merging to `main` runs deploy-firestore-rules.yml,
+// which re-runs the emulator suite and releases it to `spert-suite`. DO NOT PASTE
+// INTO THE FIREBASE CONSOLE — a Console edit is out-of-band drift, reported as an
+// incident by firestore-rules-drift.yml. Manual fallback when CI is unavailable
+// (still deploys this file): firebase deploy --only firestore:rules --project spert-suite
 //
 // AHP-relevant sections (v0.7.2):
 //   - spertahp_projects: tightened update rule so editors cannot write
@@ -349,16 +349,16 @@ service cloud.firestore {
     //     single-add query now includes limit(1).
     //
     // v0.46.2 security audit (field allowlist on UPDATE). spertstorymap_projects
-    // was the only project collection without a hasOnly() field allowlist, so an
+    // was the last of the MAY-9 AUDIT WAVE to gain a hasOnly() field allowlist
+    // (Forecaster and AHP had none either; both addressed in 2.5.17), so an
     // editor could add arbitrary fields to a project doc via a crafted update
     // (the owner/members escalation guard below was the only constraint). This
     // closes that gap on the UPDATE path. The list below MUST stay in sync with
     // src/lib/validateProduct.ts KNOWN_PRODUCT_FIELDS (minus the export-only
-    // fields _storageRef/_exportedBy/_exportedById, which firestoreDriver strips
-    // before write) plus the driver-written owner/members/updatedAt. If
-    // validateProduct gains a persisted field OR firestoreDriver.doSaveProduct
-    // starts writing a new one, add it here in the SAME deploy or saves will
-    // fail silently with PERMISSION_DENIED.
+    // _storageRef/_exportedBy/_exportedById, which firestoreDriver strips before
+    // write) plus the driver-written owner/members/updatedAt. If validateProduct
+    // gains a persisted field OR doSaveProduct starts writing a new one, add it
+    // here in the SAME deploy or saves will fail silently with PERMISSION_DENIED.
     //
     // UPDATE-only (not create): firestoreDriver.createProduct strips only `id`
     // (unlike doSaveProduct, which also strips the _owner/_members aliases and
@@ -516,20 +516,49 @@ service cloud.firestore {
     // ── SPERT Forecaster ─────────────────────────────────────
     // Note: Forecaster uses a separate `owner` field (not in members map)
     // `members` map contains only editors/viewers
+    //
+    // v2.5.17: keys()/affectedKeys().hasOnly() field allowlist. MUST STAY IN SYNC
+    // WITH spert-forecaster/src/shared/firebase/firestore-driver.ts, specifically
+    // _PROJECT_WRITE_KEYS_GUARD — a Record<Exclude<keyof FirestoreProjectDoc,
+    // 'owner'|'members'>, true> whose own comment reads "TypeScript errors if
+    // FirestoreProjectDoc gains a new writable field". THAT GUARD, not
+    // projectToFirestoreDoc, is the artifact that fails when the set drifts; the
+    // converter merely copies it. Add any new key here in the SAME deploy or every
+    // project save fails with PERMISSION_DENIED. Derived from all five write sites
+    // — firestore-driver.ts:273 (masked merge) and :281 (unmasked full document),
+    // firestore-sharing.ts:92, :149 (transaction) and :255 (members.<uid> only) —
+    // at spert-forecaster v0.40.2 (4223e1d).
+    //
+    // TYPE NOTE, inert today: claimPendingInvitations (Cloud Function, Admin SDK,
+    // bypasses these rules) writes `updatedAt` as a server Timestamp, while
+    // FirestoreProjectDoc types it `string`. hasOnly() does not type-check, so
+    // nothing breaks — but any future `is string` assertion added here must
+    // account for it. The same divergence exists on spertahp_projects.
+    function spertForecasterProjectFields() {
+      return [
+        'name', 'unitOfMeasure', 'sprints',
+        'sprintCadenceWeeks', 'projectStartDate', 'projectFinishDate',
+        'firstSprintStartDate', 'productivityAdjustments', 'milestones',
+        'createdAt', 'updatedAt', 'owner', 'members',
+        '_originRef', '_changeLog', 'schemaVersion'
+      ];
+    }
     match /spertforecaster_projects/{projectId} {
       // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
       allow list: if isAuth() && (resource.data.owner == request.auth.uid
                                  || resource.data.members[request.auth.uid] in ['editor', 'viewer']);
       allow get: if isAuth() &&
         (resource.data.owner == request.auth.uid || request.auth.uid in resource.data.members);
-      allow create: if isAuth() &&
-        request.resource.data.owner == request.auth.uid;
+      allow create: if isAuth()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.keys().hasOnly(spertForecasterProjectFields());
       allow update: if isAuth()
                     && (resource.data.owner == request.auth.uid || resource.data.members[request.auth.uid] == 'editor')
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.owner == request.auth.uid
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertForecasterProjectFields());
       allow delete: if isAuth() &&
         resource.data.owner == request.auth.uid;
     }
@@ -729,6 +758,44 @@ service cloud.firestore {
     // collaborators). Previously the UI gated these to owners but the rule
     // only protected owner/members — allowing an editor to bypass via direct
     // adapter calls.
+    // v2.5.17: keys()/affectedKeys().hasOnly() field allowlist. MUST STAY IN SYNC
+    // WITH spert-ahp/src/storage/FirestoreAdapter.ts:FirestoreModelDoc — the closed
+    // 23-key interface; FirestoreAdapter.ts is the SOLE writer of this collection.
+    // Derived from all thirteen write sites: setDoc 177/246, tx.set 335, updateDoc
+    // 355/440/577/590/630/667, batch.update 426, tx.update 491/530/559 — at
+    // spert-ahp v0.18.23 (a3a6254).
+    //
+    // WHY `resultsVisibility` IS HERE, AND WHY GREP SAYS OTHERWISE. It reaches
+    // Firestore only through updateModel (FirestoreAdapter.ts:346), which spreads
+    // Object.entries(partialMeta) into the payload, so the field name appears in NO
+    // write-payload literal — searching FirestoreAdapter.ts for it finds only the
+    // type declaration (:88) and a read-side default (:124). It is written all the
+    // same, from ManagePanel.tsx:46 via useAHP.ts:160. Remove it here and every
+    // Results-visibility toggle in AHP fails with PERMISSION_DENIED.
+    //
+    // THAT SPREAD IS UNBOUNDED AT RUNTIME, and this allowlist now depends on it.
+    // It is safe only because keyof ModelDoc (12 keys, src/types/ahp.ts:55) is a
+    // strict subset of keyof FirestoreModelDoc — A RELATION NOTHING IN spert-ahp
+    // ENFORCES. Add a field to ModelDoc without adding it to FirestoreModelDoc and
+    // this allowlist goes silently stale, failing every write that carries the new
+    // field. Before 2.5.17 that drift was harmless; it is not any more. A
+    // compile-time guard in spert-ahp is the committed follow-up.
+    //
+    // TYPE NOTE, inert today: claimPendingInvitations (Cloud Function, Admin SDK,
+    // bypasses these rules) writes `updatedAt` as a server Timestamp, while
+    // FirestoreModelDoc types it `number`. hasOnly() does not type-check. Any
+    // future `is number` assertion added here must account for it.
+    function spertAhpProjectFields() {
+      return [
+        'owner', 'members', 'title', 'goal', 'createdBy',
+        'createdAt', 'updatedAt', 'status', 'completionTier',
+        'synthesisStatus', 'disagreementConfig', 'publishedSynthesisId',
+        'criteria', 'alternatives', 'structureVersion',
+        'collaborators', 'responses', 'synthesis',
+        'resultsVisibility', 'order',
+        '_originRef', '_changeLog', 'schemaVersion'
+      ];
+    }
     match /spertahp_projects/{modelId} {
       // LIST-1 (2026-08-19): membership-constrained. See LIST RULE DOCTRINE above.
       allow list: if isAuth() && resource.data.members[request.auth.uid] in ['owner', 'editor', 'viewer'];
@@ -736,7 +803,8 @@ service cloud.firestore {
         request.auth.uid in resource.data.members;
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
-                    && request.resource.data.members[request.auth.uid] == 'owner';
+                    && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.keys().hasOnly(spertAhpProjectFields());
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
                     && (
@@ -749,7 +817,8 @@ service cloud.firestore {
                            'publishedSynthesisId',
                            'collaborators'
                          ])
-                    );
+                    )
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertAhpProjectFields());
       allow delete: if isAuth() &&
         resource.data.members[request.auth.uid] == 'owner';
     }

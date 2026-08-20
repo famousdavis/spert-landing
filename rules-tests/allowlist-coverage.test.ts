@@ -7,19 +7,21 @@
  *
  * WHY THIS EXISTS
  * ---------------
- * The ruleset has twelve allowlist sites. Until 2.5.16, one was tested. The
- * untested eleven each guard a routine save: tighten one past what its app
- * writes and that app starts failing with `PERMISSION_DENIED`, silently, with
- * nothing in this suite going red. `ganttapp-snapshot-fields.test.ts` exists
- * because exactly that happened to the twelfth for seven days.
+ * The ruleset has fourteen allowlist sites - twelve until 2.5.17 added one to
+ * `spertforecaster_projects` and one to `spertahp_projects`. Until 2.5.16, one
+ * was tested. The untested eleven each guard a routine save: tighten one past
+ * what its app writes and that app starts failing with `PERMISSION_DENIED`,
+ * silently, with nothing in this suite going red.
+ * `ganttapp-snapshot-fields.test.ts` exists because exactly that happened to
+ * the twelfth for seven days.
  *
  * The field sets live in `./allowlist-contracts` as data, so a later brief can
  * compare them against the apps' real converters without importing this file
  * or standing up an emulator. Every case below derives from that structure;
  * nothing here restates a field list.
  *
- * THE FOUR SHAPES
- * ---------------
+ * THE SHAPES
+ * ----------
  *   1. ALLOWED - maximal allowlisted document. Every field the `hasOnly()`
  *      permits. Catches an allowlist entry contradicted by another clause in
  *      the same rule.
@@ -35,6 +37,13 @@
  *      a future app field lands in and deserves its own case. Where the two
  *      sets are equal this case would be shape 1 re-run against an identical
  *      document, so it is skipped by name rather than silently.
+ *   5. ALLOWED - `deleteField()` removal, wherever a site declares `clearable`.
+ *      Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
+ *      REMOVAL, and both apps make them: Forecaster writes deleteField()
+ *      sentinels for its four clearable scalars on every debounced save, and
+ *      both it and AHP drop a member with a nested `members.<uid>` delete. The
+ *      case reads the document back and asserts the key is gone, so a rule that
+ *      permitted a no-op cannot pass it.
  *
  * Plus, per site: a non-member (or wrong-user) is refused. Widening a field
  * list must never widen access.
@@ -49,6 +58,13 @@
  * nothing, or a green after someone "fixes" it by trimming the document.
  * Shape 1's update runs as owner, and the editor's refusal is pinned as its
  * own assertion so the guard itself is covered rather than merely dodged.
+ *
+ * Forecaster is the one collection where "owner" does not mean a role in the
+ * members map: it keeps a separate top-level `owner` field, and its update rule
+ * reads THAT to decide whether the caller may write at all. A pre-image owned by
+ * someone else is refused there, before the allowlist is consulted - so that
+ * contract sets `ownerOrthogonal` and the seed names the acting uid as owner.
+ * `members` still differs between seed and target, so the guard stays exercised.
  *
  * ASSERTING ALLOWED AS HARD AS DENIED
  * -----------------------------------
@@ -67,6 +83,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  deleteField,
   doc,
   getDoc,
   setDoc,
@@ -135,8 +152,14 @@ function targetValue(field: string, uid: string): unknown {
  * the acting uid its role, because the update rule reads `resource.data`
  * (the pre-image) to decide whether the caller may write at all.
  */
-function seedValue(field: string, uid: string): unknown {
-  if (field === 'owner') return 'uid_previous_owner';
+function seedValue(field: string, uid: string, c?: AllowlistContract): unknown {
+  // Forecaster keeps `owner` OUT of the members map, and its update rule reads
+  // `resource.data.owner` to decide whether the caller may write at all. A
+  // pre-image owned by someone else is denied there, before the allowlist is
+  // ever consulted - the case would go green for the wrong reason on a DENY
+  // and red for the wrong reason on an ALLOW. `members` still changes between
+  // seed and target, so the escalation guard is still genuinely exercised.
+  if (field === 'owner') return c?.ownerOrthogonal ? uid : 'uid_previous_owner';
   if (field === 'members') return { [uid]: 'owner', [BOB]: 'editor' };
   return TYPED_VALUES[field]?.seed ?? `seed-${field}`;
 }
@@ -145,8 +168,8 @@ function buildDoc(fields: string[], uid: string): Doc {
   return Object.fromEntries(fields.map((f) => [f, targetValue(f, uid)]));
 }
 
-function buildSeed(fields: string[], uid: string): Doc {
-  return Object.fromEntries(fields.map((f) => [f, seedValue(f, uid)]));
+function buildSeed(fields: string[], uid: string, c?: AllowlistContract): Doc {
+  return Object.fromEntries(fields.map((f) => [f, seedValue(f, uid, c)]));
 }
 
 let testEnv: RulesTestEnvironment;
@@ -213,7 +236,7 @@ async function seedFor(c: AllowlistContract): Promise<void> {
 
     // The pre-image for update cases: every allowlisted field present, each
     // holding a value the cases will change.
-    await setDoc(refFor(admin, c, docIdFor(c, EXISTING)), buildSeed(c.allowlist, ALICE));
+    await setDoc(refFor(admin, c, docIdFor(c, EXISTING)), buildSeed(c.allowlist, ALICE, c));
   });
 }
 
@@ -270,8 +293,8 @@ function isFullDocOp(op: string): op is 'create' | 'write' {
 }
 
 describe('allowlist contracts - self-check', () => {
-  it('covers eleven sites, leaving the snapshot site to its own suite', () => {
-    expect(ALLOWLIST_CONTRACTS).toHaveLength(11);
+  it('covers thirteen sites, leaving the snapshot site to its own suite', () => {
+    expect(ALLOWLIST_CONTRACTS).toHaveLength(13);
     expect(ALLOWLIST_CONTRACTS.map((c) => c.key)).not.toContain('ganttapp_snapshots');
   });
 
@@ -290,6 +313,30 @@ describe('allowlist contracts - self-check', () => {
       expect(c.appMin.filter((f) => !permitted.has(f)), `${c.key}.appMin`).toEqual([]);
       expect(c.appMin.filter((f) => !c.appMax.includes(f)), `${c.key}.appMin in appMax`)
         .toEqual([]);
+    }
+  });
+
+  it('pins unionOnly to the difference the two field sets already imply', () => {
+    for (const c of ALLOWLIST_CONTRACTS) {
+      // unionOnly is derivable from allowlist and appMax. It is recorded anyway
+      // so a reader sees the gap named, and pinned here so the two statements
+      // cannot drift apart - the same defect class this file exists to catch.
+      const permitted = new Set(c.appMax);
+      const derived = c.allowlist.filter((f) => !permitted.has(f));
+      expect([...c.unionOnly].sort(), `${c.key}.unionOnly`).toEqual(derived.sort());
+      expect(c.unionOnly.length === 0, `${c.key}.unionOnly vs coincides`)
+        .toBe(c.coincides);
+    }
+  });
+
+  it('keeps every clearable path inside the allowlist', () => {
+    for (const c of ALLOWLIST_CONTRACTS) {
+      for (const path of c.clearable) {
+        // A nested removal affects only its TOP-LEVEL key, which is what
+        // affectedKeys() reports and therefore what must be allowlisted.
+        const top = path.split('.')[0];
+        expect(c.allowlist, `${c.key}.clearable ${path}`).toContain(top);
+      }
     }
   });
 
@@ -385,6 +432,42 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
     }
   }
 
+  if (c.clearable.length > 0 && c.ops.includes('update')) {
+    const at = `update (firestore.rules:${c.lines[c.ops.indexOf('update')]})`;
+
+    it(`ALLOWED shape 5 - deleteField() removal of every clearable path, ${at}`, async () => {
+      // Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
+      // REMOVAL. Both apps perform them: Forecaster writes deleteField()
+      // sentinels for its four clearable scalars on every debounced save, and
+      // both apps drop a member with a nested members.<uid> delete. A removal
+      // lands in affectedKeys() exactly like any other change, so the allowlist
+      // governs it - this is what proves that rather than assuming it.
+      const removed: string[] = [];
+      for (const path of c.clearable) {
+        const field = path.replace('<editor>', BOB);
+        await assertSucceeds(
+          updateDoc(refFor(db(uid), c, EXISTING), { [field]: deleteField() }),
+        );
+        removed.push(field);
+      }
+
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const admin = ctx.firestore() as unknown as Firestore;
+        const after = await getDoc(refFor(admin, c, docIdFor(c, EXISTING)));
+        const data = after.data() ?? {};
+        for (const field of removed) {
+          const [top, nested] = field.split('.');
+          const actual = nested === undefined
+            ? data[top]
+            : (data[top] as Record<string, unknown> | undefined)?.[nested];
+          // A rule that permitted the write but a payload that removed nothing
+          // would leave this case asserting only that Firestore accepted a no-op.
+          expect(actual, `${c.key} ${field} removed`).toBeUndefined();
+        }
+      });
+    });
+  }
+
   if (c.shape === 'project' || c.shape === 'subcollection') {
     it('DENIED: a non-member cannot update the document', async () => {
       await assertFails(
@@ -431,7 +514,7 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
 
 /**
  * Site 4's create surface carries no allowlist ON PURPOSE
- * (firestore.rules:362-371): `firestoreDriver.createProduct` strips only `id`,
+ * (firestore.rules:363-372): `firestoreDriver.createProduct` strips only `id`,
  * so a `keys().hasOnly()` there could reject a legitimate create still
  * carrying an `_owner`/`_members` alias field. The create rule binds
  * `owner == caller` instead, making the surface self-owned.
