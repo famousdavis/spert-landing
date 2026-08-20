@@ -134,6 +134,8 @@ MEMORY_*.md
 # check-deployed-rules.mjs is run by the drift workflow and must be published
 # for the same reason — see the note above.
 !/scripts/check-deployed-rules.mjs
+# release-notes.mjs is run by the release workflow — same reason.
+!/scripts/release-notes.mjs
 
 # Firestore emulator output (npm run test:rules)
 firestore-debug.log
