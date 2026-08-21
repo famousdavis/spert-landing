@@ -200,10 +200,13 @@ const realOracleDeps: OracleDeps = {
  *     (c) that state resolves to `undefined` and fails with a confusing message
  *     instead of saying what happened.
  */
-function expectedDate(version: string, deps: OracleDeps = realOracleDeps): { date?: string; skip?: string } {
+function expectedDate(
+  version: string,
+  deps: OracleDeps = realOracleDeps,
+): { date?: string; source?: string; skip?: string } {
   const introduced = deps.introducedOn(version);
-  if (introduced !== undefined) return { date: introduced };
-  if (deps.changelogIsModified()) return { date: deps.today() };
+  if (introduced !== undefined) return { date: introduced, source: 'the commit that introduced it landed' };
+  if (deps.changelogIsModified()) return { date: deps.today(), source: 'the entry is uncommitted, so today is' };
   return {
     skip:
       `no commit introduces \`version: '${version}',\` in ${CHANGELOG_PATH} and the file is ` +
@@ -277,7 +280,7 @@ describe('changelog dates', () => {
 
     expect(
       stated,
-      `v${entry.version} is dated "${entry.date}" but its commit landed ${oracle.date} local`,
+      `v${entry.version} is dated "${entry.date}" but ${oracle.source} ${oracle.date} local`,
     ).toBe(oracle.date);
   });
 
@@ -340,11 +343,13 @@ describe('changelog dates', () => {
       ...over,
     });
 
-    expect(expectedDate('9.9.9', deps({ introducedOn: () => '2026-08-20' }))).toEqual({
+    expect(expectedDate('9.9.9', deps({ introducedOn: () => '2026-08-20' }))).toMatchObject({
       date: '2026-08-20',
+      source: expect.stringContaining('commit'),
     });
-    expect(expectedDate('9.9.9', deps({ changelogIsModified: () => true }))).toEqual({
+    expect(expectedDate('9.9.9', deps({ changelogIsModified: () => true }))).toMatchObject({
       date: '2026-08-21',
+      source: expect.stringContaining('uncommitted'),
     });
     expect(expectedDate('9.9.9', deps({})).skip).toMatch(/no commit introduces/);
   });

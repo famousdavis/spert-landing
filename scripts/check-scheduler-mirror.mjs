@@ -156,7 +156,7 @@ async function readMirror() {
   const text = Buffer.from(body.content, 'base64').toString('utf8');
   if (!text.trim()) die('The fetched mirror was empty. Drift was NOT checked.');
 
-  return { text, origin: `${OWNER}/${REPO}@${ref}`, blob: body.sha ?? '(absent)' };
+  return { text, origin: `${OWNER}/${REPO}@${ref}:${RULES_FILE}`, blob: body.sha ?? '(absent)' };
 }
 
 // ------------------------------------------------------- normalise the input
@@ -246,7 +246,7 @@ const canonical = significantLines(canonicalText, `canonical ${RULES_FILE}`);
 const mirrored = significantLines(mirror.text, `the mirror (${mirror.origin})`);
 
 console.log(`canonical    ${RULES_FILE} in this repo`);
-console.log(`mirror       ${mirror.origin}:${RULES_FILE}`);
+console.log(`mirror       ${mirror.origin}`);
 console.log(`blob         ${mirror.blob}`);
 console.log(`             (in a Scheduler checkout: git hash-object ${RULES_FILE})`);
 console.log(`compared     ${canonical.length} vs ${mirrored.length} lines`);

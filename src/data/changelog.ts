@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.20',
+    date: 'August 21, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing in this release changes what the apps do. It corrects a date on this page, and adds the check that would have caught it.',
+          'The previous release was dated August 20. It was written at three minutes past one in the morning on August 21, so the date was a day early — carried forward from the release before it rather than mistyped. Nothing on this site computes from these dates, so the cost was cosmetic. The way it happened is not, because the usual remedy is a line on a release checklist, and a checklist line is exactly the kind of control that quietly stops being followed.',
+          'A check now compares the newest entry on this page against the moment its own change was recorded, and refuses a date that is not the same calendar day. It refuses a date one day early and one day late alike — a check catching only one direction would miss half the mistake. It also refuses a misspelled month, because the tool used to read the date accepts "Augustt" and "Auggust" as August without complaint; the date must now be written back exactly as it was given.',
+          'The check runs only on the machine where the release is written, and that is a limitation rather than an oversight. Merging a change to this site discards the record of which timezone its author was in, so afterwards the correct local date genuinely cannot be recovered — no setting brings it back. Running the check on the build servers instead would compare a date written in one timezone against a clock keeping another. That reasoning is recorded beside the check itself, so anyone tempted to switch it on later reads why it cannot work rather than assuming nobody tried.',
+          'Separately, a maintenance script comparing the database rules against their one surviving copy printed a nonsense location when pointed at a local file: it appended a filename to a path that already ended in one. Both of its reporting modes now describe their source correctly.',
+          'Five things were confirmed against a recorded prediction before this shipped: that the check fails on the very date it was built for and stops failing only once that date is corrected; that it fails one day early and one day late; that the misspelling test catches what the date test cannot, with the date test confirmed to pass the same misspelling; that the check steps aside and names its reason on a build server, outside a repository, and with the version-control tool missing entirely — each of those three produced for real rather than simulated; and that the script fix changed only the reporting mode that was wrong, leaving the other byte-for-byte identical.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.19',
     date: 'August 21, 2026',
     sections: [
