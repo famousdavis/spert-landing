@@ -68,7 +68,7 @@
 //     `request.resource.data.owner == request.auth.uid` to the create
 //     rule to prevent split-state attacks where members[self] == 'owner'
 //     but the top-level `owner` points elsewhere (would break
-//     firestore-driver.ts:411 removeCollaborator Guard 2).
+//     firestore-driver.ts removeCollaborator Guard 2).
 //   - H2 (M4 pattern): spertscheduler_projects create + update did not
 //     enforce a field allowlist. Added spertSchedulerProjectFields()
 //     helper and keys()/affectedKeys().hasOnly() guards. Allowlist must
@@ -130,7 +130,7 @@
 //     `request.resource.data.owner == request.auth.uid` to prevent
 //     split-state attacks where members[self] == 'owner' but the top-
 //     level `owner` points to another UID (would break removeCollaborator
-//     Guard 2 in src/lib/firebase/invitations.ts:79).
+//     Guard 2 in src/lib/firebase/invitations.ts).
 //   - M5 (M4 pattern): myscrumbudget_projects create + update did not
 //     enforce a field allowlist. Added myScrumBudgetProjectFields()
 //     helper and keys()/affectedKeys().hasOnly() guards. Allowlist must
@@ -418,14 +418,14 @@ service cloud.firestore {
     //     globalCalendarOverride, convertedWorkDays, forcedWorkDays,
     //     targetFinishDate, showTargetOnGantt, showActivityIds,
     //     ganttAppearance, scenarios, archived, tileColor
-    //   - driver-only: members (set in create() at line 213), updatedAt
-    //     (serverTimestamp on every save at line 264)
+    //   - driver-only: members (set in create()), updatedAt
+    //     (serverTimestamp on every save, in doSave())
     //   - intentionally omitted: id (the doc id, destructured out before
-    //     setDoc at firestore-driver.ts:207 and 260)
+    //     the setDoc in create() and in doSave())
     // If ProjectSchema gains a field OR the driver starts writing a new
     // field, add it here in the SAME PR or saves will fail silently with
     // PERMISSION_DENIED on the client (caught and logged in
-    // firestore-driver.ts:280).
+    // firestore-driver.ts doSave).
     //
     // forcedWorkDays (July 2026 hotfix): shipped in ProjectSchema at
     // Scheduler v0.50.0 (schema v22) but was omitted from this allowlist
@@ -525,9 +525,10 @@ service cloud.firestore {
     // projectToFirestoreDoc, is the artifact that fails when the set drifts; the
     // converter merely copies it. Add any new key here in the SAME deploy or every
     // project save fails with PERMISSION_DENIED. Derived from all five write sites
-    // — firestore-driver.ts:273 (masked merge) and :281 (unmasked full document),
-    // firestore-sharing.ts:92, :149 (transaction) and :255 (members.<uid> only) —
-    // at spert-forecaster v0.40.2 (4223e1d).
+    // — firestore-driver.ts saveProject (masked merge) and saveProjectImmediate
+    // (unmasked full document), firestore-sharing.ts shareProject,
+    // removeProjectMember (transaction) and updateMemberRole (members.<uid> only)
+    // — at spert-forecaster v0.40.2 (4223e1d).
     //
     // TYPE NOTE, inert today: claimPendingInvitations (Cloud Function, Admin SDK,
     // bypasses these rules) writes `updatedAt` as a server Timestamp, while
@@ -761,25 +762,44 @@ service cloud.firestore {
     // v2.5.17: keys()/affectedKeys().hasOnly() field allowlist. MUST STAY IN SYNC
     // WITH spert-ahp/src/storage/FirestoreAdapter.ts:FirestoreModelDoc — the closed
     // 23-key interface; FirestoreAdapter.ts is the SOLE writer of this collection.
-    // Derived from all thirteen write sites: setDoc 177/246, tx.set 335, updateDoc
-    // 355/440/577/590/630/667, batch.update 426, tx.update 491/530/559 — at
+    // Derived from all thirteen write sites, named by method: setDoc in
+    // createModel and createModelFromBundle; tx.set in replaceModelFromBundle;
+    // updateDoc in updateModel, updateStructure, createResponse, updateResponse,
+    // saveComparisons and saveSynthesis; batch.update in reorderModels; tx.update
+    // in addCollaborator, updateCollaborator and removeCollaborator — at
     // spert-ahp v0.18.23 (a3a6254).
     //
     // WHY `resultsVisibility` IS HERE, AND WHY GREP SAYS OTHERWISE. It reaches
-    // Firestore only through updateModel (FirestoreAdapter.ts:346), which spreads
+    // Firestore only through updateModel (FirestoreAdapter.ts), which spreads
     // Object.entries(partialMeta) into the payload, so the field name appears in NO
-    // write-payload literal — searching FirestoreAdapter.ts for it finds only the
-    // type declaration (:88) and a read-side default (:124). It is written all the
-    // same, from ManagePanel.tsx:46 via useAHP.ts:160. Remove it here and every
+    // write-payload literal — searching FirestoreAdapter.ts for it finds only its
+    // FirestoreModelDoc field declaration and a read-side default in the document
+    // reader. It is written all the same, from ManagePanel.tsx updateVisibility
+    // via useAHP.ts updateModel. Remove it here and every
     // Results-visibility toggle in AHP fails with PERMISSION_DENIED.
     //
     // THAT SPREAD IS UNBOUNDED AT RUNTIME, and this allowlist now depends on it.
-    // It is safe only because keyof ModelDoc (12 keys, src/types/ahp.ts:55) is a
-    // strict subset of keyof FirestoreModelDoc — A RELATION NOTHING IN spert-ahp
-    // ENFORCES. Add a field to ModelDoc without adding it to FirestoreModelDoc and
-    // this allowlist goes silently stale, failing every write that carries the new
-    // field. Before 2.5.17 that drift was harmless; it is not any more. A
-    // compile-time guard in spert-ahp is the committed follow-up.
+    // It is safe because keyof ModelDoc (12 keys, src/types/ahp.ts ModelDoc) is a
+    // strict subset of keyof FirestoreModelDoc, AND SINCE spert-ahp v0.18.24
+    // (bf6fe97) THAT RELATION IS ENFORCED AT COMPILE TIME — by the
+    // _MissingFromFirestoreModelDoc / _relationHolds subset assertion sitting
+    // directly below FirestoreModelDoc in src/storage/FirestoreAdapter.ts. Adding
+    // a field to ModelDoc alone now fails `tsc -b`, which spert-ahp's ship gate
+    // runs, and the compiler names the offending key — instead of compiling clean
+    // and failing here at runtime with PERMISSION_DENIED for every user. The
+    // compile-time guard recorded at 2.5.17 as the committed follow-up has landed.
+    //
+    // TWO RESIDUALS IT DOES NOT CLOSE, so do not read it as total coverage:
+    //   1. FirestoreModelDoc gaining a key THIS allowlist lacks. That is the
+    //      cross-repo direction and it stays open for all seven apps — nothing in
+    //      spert-ahp can see this file. Add a field to an app's document type and
+    //      you must still add it here in the SAME deploy.
+    //   2. An excess key reaching updateModel through a variable or a spread.
+    //      TypeScript's excess-property check fires on FRESH OBJECT LITERALS only:
+    //      updateModel(id, { title, bogus }) is an error, but
+    //      const v = { title, bogus }; updateModel(id, v) compiles clean and
+    //      carries bogus through the spread. Closing that needs a runtime key set,
+    //      the shape of spert-forecaster's _PROJECT_WRITE_KEYS_GUARD.
     //
     // TYPE NOTE, inert today: claimPendingInvitations (Cloud Function, Admin SDK,
     // bypasses these rules) writes `updatedAt` as a server Timestamp, while

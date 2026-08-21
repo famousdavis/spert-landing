@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.18',
+    date: 'August 20, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing in this release changes what the apps do. It repairs the notes that explain the database rules, and adds a check so the same decay cannot set in again unnoticed.',
+          'The database rules for all seven apps live in one place, and their comments explain themselves by pointing at the app code that writes each collection. That app code lives in separate projects. Until now those notes pointed at specific line numbers — and a line number in someone else\'s project stops being true the moment that project is edited for any unrelated reason. One recent change to a single file moved every note aimed below it by forty-eight lines, all at once and with no warning. The worst case found was a note off by a hundred and thirty-five lines: it named a line that no longer had anything to do with what the note described.',
+          'Every one of those notes now names the function it means instead of a line number. A function keeps its name across edits, and if someone does rename it the reference breaks loudly and gets fixed, rather than quietly pointing at the wrong code and misleading whoever reads it next.',
+          'A new check refuses to let a line number aimed at a file this project does not contain be added again. It works by asking whether the file named actually exists here, so notes pointing within this project — which are checked separately and are genuinely useful — keep working untouched. Both halves were confirmed: adding a note of the bad kind makes the check fail and names it; adding one of the good kind does not.',
+          'Two notes also claimed a safeguard in the AHP app did not exist. It was built the day before this release, so the claim had gone stale; a third copy of the same claim was found during the sweep. All three now describe the safeguard, and record the two gaps it does not cover so no one reads more assurance into it than is there.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.17',
     date: 'August 20, 2026',
     sections: [
