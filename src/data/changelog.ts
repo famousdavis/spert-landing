@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.19',
+    date: 'August 20, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing in this release changes what the apps do. It puts a scheduled check on a second copy of the database rules that had been quietly falling out of date.',
+          'The rules deciding who may read and write each project live in one place. A second copy is kept inside the Scheduler project, because a test there reads it to confirm that every setting the app saves is actually one the rules permit — a real guard, and the whole reason that copy exists. But nothing was watching the copy itself. It has fallen behind three times now, and every time the only reason anyone found out was a person comparing the two files by hand.',
+          'A check now makes that comparison automatically, every six hours and again whenever the rules themselves are edited — so the person creating the gap hears about it rather than someone else discovering it later. It ignores the explanatory comments in both files deliberately. The two are meant to carry different notes, and that difference already accounts for roughly three hundred lines; counting it would bury the thirty-four that actually matter.',
+          'This release reports the gap rather than closing it. The copy is currently behind by the two limits added in the previous release, so the check is expected to read red until a separate change to the Scheduler project brings it back in line. That is said plainly here, because a check that is red the day it arrives is exactly the kind that gets ignored instead of fixed.',
+          'Five things were confirmed before this shipped, each against a recorded prediction: that it reports the real gap and gets the same answer as the standard comparison tool; that it stays silent on two files whose notes differ but whose rules agree; that editing a comment alone does not set it off; that the step which makes it ignore only the right comments is doing work, even though removing it appears to change nothing today; and that it fails loudly rather than quietly passing when it cannot read the other file at all.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.18',
     date: 'August 20, 2026',
     sections: [

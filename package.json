@@ -1,6 +1,6 @@
 {
   "name": "spert-landing-page",
-  "version": "2.5.18",
+  "version": "2.5.19",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -15,6 +15,7 @@
     "test:watch": "vitest",
     "test:rules": "node scripts/run-rules-tests.mjs",
     "rules:drift": "node scripts/check-deployed-rules.mjs",
+    "rules:mirror": "node scripts/check-scheduler-mirror.mjs",
     "shipgate": "node scripts/shipgate.mjs"
   },
   "dependencies": {
