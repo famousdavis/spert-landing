@@ -1,0 +1,111 @@
+# Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+# Licensed under the GNU General Public License v3.0.
+# See LICENSE file in the project root for full license text.
+
+# Has the spert-scheduler copy of firestore.rules fallen behind canonical?
+#
+# WHY THIS IS ITS OWN WORKFLOW, AND NOT A JOB IN firestore-rules-drift.yml
+# ------------------------------------------------------------------------
+# Two reasons, one of them mechanical.
+#
+# 1. `on.pull_request.paths` is a WORKFLOW-level filter. There is no per-job
+#    `paths`. This workflow needs firestore.rules in its trigger, so that
+#    propagation debt is flagged the moment it is created. Adding that path to
+#    the existing workflow would also run the PRODUCTION drift job on every
+#    rules-changing PR — where the checked-out file is ahead of production by
+#    construction, because deploy happens on merge. That job would go red on
+#    correct work, and its red is supposed to mean a live incident.
+#
+#    It would also have landed LATENT: a PR introducing the job does not
+#    itself touch firestore.rules, so its own self-test passes and the false
+#    red first fires on whoever opens the next rules PR.
+#
+# 2. firestore-rules-drift.yml already argues the general case in its own
+#    header — it is deliberately not a job inside external-health.yml, because
+#    "different signal, different response, so a separate red X is worth more
+#    than a shared one". The same reasoning applies here with more force. A red
+#    there means production is enforcing something this repo did not author. A
+#    red HERE means a test fixture in another repository is stale: real, worth
+#    fixing, and not an incident.
+#
+# The job name carries the distinction by SUBJECT NOUN — "spert-scheduler test
+# fixture" against "Deployed ruleset" — so a glance at a red X is enough.
+#
+# BORN RED. At the time this was added the mirror was genuinely 34 non-comment
+# lines behind (v2.5.17's two allowlists, unpropagated). That is not a
+# misconfiguration; it is the guard reporting the condition it was built to
+# find. It goes green when the mirror is propagated in its own Scheduler
+# release. A scheduled job that is red on arrival is how checks get muted, so
+# this is stated rather than left to be discovered.
+#
+# NO SECRET. spert-scheduler is public; the script reads it over the GitHub
+# Contents API. The automatic GITHUB_TOKEN is passed only to get the
+# authenticated rate limit and is not an access requirement — no PAT, no
+# cross-repo checkout token, nothing to rotate.
+
+name: Scheduler rules mirror drift
+
+on:
+  schedule:
+    # Every 6 hours, offset from firestore-rules-drift.yml's :30 so the two
+    # reports do not land in the same minute and get read as one signal.
+    - cron: "45 */6 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      # Self-test: a PR touching this workflow or its script proves the check
+      # still runs. Same convention as the sibling workflows.
+      - ".github/workflows/scheduler-mirror-drift.yml"
+      - "scripts/check-scheduler-mirror.mjs"
+      # And the point of the whole thing: a PR that changes canonical rules
+      # gets the propagation notice in front of the person creating the debt,
+      # rather than up to six hours later in front of someone else.
+      - "firestore.rules"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scheduler-mirror-drift
+  cancel-in-progress: true
+
+jobs:
+  mirror:
+    name: spert-scheduler test fixture matches firestore.rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+
+      # No `npm ci`. The script uses only Node built-ins (fs, path, fetch), so
+      # installing the dependency tree would be pure latency.
+
+      - name: Compare the Scheduler mirror with firestore.rules
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run rules:mirror
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Scheduler rules mirror drift"
+            echo
+            echo "Scope: the **test fixture** copy of \`firestore.rules\` in"
+            echo "\`famousdavis/spert-scheduler\`. This is *not* the production"
+            echo "ruleset check — that is \`firestore-rules-drift.yml\`."
+            echo
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "In sync — the mirror carries canonical's rule content."
+            else
+              echo "**Drift detected, or the check could not run.** See the job log"
+              echo "for the split between canonical-only and mirror-only lines."
+              echo
+              echo "Nothing users touch is affected. Resolve by propagating"
+              echo "canonical into \`spert-scheduler\` as its own patch release —"
+              echo "body only, leaving its REFERENCE-ONLY preamble intact."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

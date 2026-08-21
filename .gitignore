@@ -136,6 +136,8 @@ MEMORY_*.md
 !/scripts/check-deployed-rules.mjs
 # release-notes.mjs is run by the release workflow — same reason.
 !/scripts/release-notes.mjs
+# check-scheduler-mirror.mjs is run by scheduler-mirror-drift.yml — same reason.
+!/scripts/check-scheduler-mirror.mjs
 
 # Firestore emulator output (npm run test:rules)
 firestore-debug.log
