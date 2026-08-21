@@ -321,7 +321,7 @@ describe("sendInvitationEmail validation", () => {
     });
     // MyScrumBudget project docs follow Shape A — `members` map doubles as
     // the security index (owner UID duplicated into `members` with role
-    // 'owner'; matches firestoreRepo.ts:151 in the MSB app). No
+    // 'owner'; matches firestoreRepo.ts createProject in the MSB app). No
     // `collaborators` array, no `responses` map (those are AHP-specific
     // and must NOT appear in MSB fixtures).
     const msbProjectFixture = {
