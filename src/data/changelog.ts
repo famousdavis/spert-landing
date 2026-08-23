@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.21',
+    date: 'August 22, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing in this release changes what the apps do. It removes a false statement from the top of the shared release-checking script, and adds two explanations that were missing beside it.',
+          'The script that checks a release before it ships is deliberately the same file in all nine projects. The note at the top of it said there was no automated checking anywhere in the suite — that a green tick on a proposed change meant only that a preview copy of the site had been built, and that nothing ran the tests. That has not been true since the script existed. Automated checking runs on every one of the nine projects, on every proposed change and on every merge, and what it runs is this very script.',
+          'The statement did not go out of date. It was untrue on the day it was written: the same set of edits that added the script also switched the automated checking on, so the file contradicted a change sitting beside it. That distinction decides the remedy, which is why it is recorded here. A statement that decays can be helped by writing down when it was made; a statement that was never true cannot. What went wrong was that a claim about the projects was written into an explanation without being checked against them — and an explanation is read as background rather than as an assertion somebody has to verify.',
+          'The cost of leaving it was small each time and unbounded in total. Anyone reading the note would discount a real signal, or repeat work that had already been checked: a sensible-looking pause resting on a false premise, which produces no error and simply spends a round trip.',
+          'Two explanations were added while the file was open. The first records that automated checking and a check run by hand are complementary rather than ranked. The automated one works from a clean copy, so it catches anything that quietly depends on a file existing only on the author’s own machine; but it also has less of the project to look at, so certain checks step aside there and only a hand-run finds what those cover.',
+          'The second explains how the code-style step is judged. That step compares the number of reported issues against an agreed figure instead of reading pass or fail, and it does so for opposite reasons in different projects: in most of them the step reports failure at the agreed figure, so reading pass-or-fail would be too strict; in one it reports success at the agreed figure, so reading pass-or-fail would be too lenient and would let new issues through unnoticed. One mechanism, two reasons. The note also warns that the figure counts every kind of issue rather than the one kind a project set it for, and that when it reaches zero the setting must be removed rather than set to zero — at zero the tool prints no count at all, and the step then fails asking for a number that was never printed.',
+          'Four notes in other projects pointed at this file by line number, and adding lines to the top moved all of them. They now name the part of the script they mean instead of a position in it. A stale line number is worse than a missing one: it lands on real code, so a reader who follows it finds something plausible and concludes the reference was sound. One of the four was written the day before this release and had already gone stale by the time it shipped, which is the argument in miniature.',
+          'Predictions were recorded before anything was measured, and reported against afterwards. That the change would add twenty-four lines and touch nothing but comments held exactly, although the predicted split between lines added and lines removed was two out, because two unchanged lines had been counted as replaced. That no project’s checks would fail because of the change held. And that the false statement was not repeated in wording of its own anywhere else held — but only on the second attempt, because the first search returned nothing at all, including the nine copies it was certain to find, which showed the search was broken rather than the projects clean.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.20',
     date: 'August 21, 2026',
     sections: [
