@@ -56,6 +56,7 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  arrayUnion,
   doc,
   getDoc,
   setDoc,
@@ -243,6 +244,48 @@ describe('ganttapp_projects/{id}/snapshots — field allowlist', () => {
       updateDoc(snapshotRef(db, ALICE_PROJECT, EXISTING), {
         todayDateOverride: '2026-08-21',
         bogusField: 'not on the allowlist',
+      }),
+    );
+  });
+});
+
+/**
+ * The same two denials, carried as FIELD TRANSFORMS rather than plain values.
+ *
+ * WHAT THESE ARE FOR, SO NOBODY DELETES THEM LOOKING FOR A REASON
+ * ---------------------------------------------------------------
+ * They add no engine information. `allowlist-coverage.test.ts` already pins
+ * transform visibility across both predicate families and all three transform
+ * classes, and this site gates `keys()` on create (firestore.rules:317) and
+ * `diff().affectedKeys()` on update (:319) — both families, both already
+ * covered there.
+ *
+ * Their value is COMPLETENESS, not coverage. `ALLOWLIST_CONTRACTS` holds
+ * thirteen entries and the ruleset has fourteen `hasOnly()` allowlist sites;
+ * this one keeps its own suite, so without these two cases it would be the
+ * only allowlist site in the ruleset with no transform case anywhere. That is
+ * a good reason to have them. It is just not the same reason as the other six.
+ *
+ * It is also the site that silently rejected every snapshot save for seven
+ * days, which is why its coverage is kept whole rather than nearly whole.
+ */
+describe('ganttapp_projects/{id}/snapshots — unrecognised field as a transform', () => {
+  it('DENIED: create carrying an unrecognised field as an arrayUnion', async () => {
+    const db = aliceDb();
+    await assertFails(
+      setDoc(snapshotRef(db, ALICE_PROJECT, 'bogus-transform-snapshot'), {
+        ...fullSnapshot(),
+        bogusField: arrayUnion('not on the allowlist'),
+      }),
+    );
+  });
+
+  it('DENIED: update carrying an unrecognised field as an arrayUnion', async () => {
+    const db = aliceDb();
+    await assertFails(
+      updateDoc(snapshotRef(db, ALICE_PROJECT, EXISTING), {
+        todayDateOverride: '2026-08-21',
+        bogusField: arrayUnion('not on the allowlist'),
       }),
     );
   });
