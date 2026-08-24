@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.24',
+    date: 'August 24, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'A note, and nothing else. Alongside the record of which fields each app deletes, this repository keeps a record of which fields each app writes. The second one has not been re-checked against the apps yet, and doing it in the same release as the first would have been a mistake — both records feed the same tests, so if anything had gone wrong there would have been no way to tell which of the two changes caused it.',
+          'That decision is now written down where the next person to pick the work up will find it, together with the thing that has to be sorted out first: the two records disagree with each other about whether the list of collaborators counts as a field the app writes. One app\u2019s entry says yes, another\u2019s says no. Both have been shipped that way for a while and neither is causing a problem, but they cannot both be the rule, and that needs settling before the record is re-checked rather than discovered halfway through.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.23',
     date: 'August 24, 2026',
     sections: [

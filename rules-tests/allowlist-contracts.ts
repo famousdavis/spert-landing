@@ -115,7 +115,32 @@ export interface AllowlistContract {
   shape: AllowlistShape;
   /** Every field the `hasOnly()` permits. */
   allowlist: string[];
-  /** Maximal field set the app actually writes to this site. */
+  /**
+   * Maximal field set the app actually writes to this site.
+   *
+   * RE-DERIVING THESE IS DEFERRED, AND THE NEXT BRIEF INHERITS A PREREQUISITE
+   * ------------------------------------------------------------------------
+   * Deferred on blast radius, not on effort: `appMax`/`appMin` feed generated
+   * shapes 1-4 AND are pinned by the `coincides` and `unionOnly` self-checks,
+   * so re-deriving them in the same pass as a `clearable` change - which
+   * expands the generated set - makes any red ambiguous between two
+   * independent expansions. 2.5.23 moved `clearable` alone for that reason.
+   *
+   * The prerequisite, found in 2.5.23 and recorded here so the later brief
+   * RECONCILES it rather than rediscovering it: `appMax` is already
+   * internally inconsistent about scoping. `spertforecaster_projects`
+   * includes `members` (16 entries, `unionOnly` empty);
+   * `spertstorymap_projects` excludes it and parks `members` in `unionOnly`.
+   * Two entries, two scoping rules, both already shipped.
+   *
+   * Note also that `appMax` and `clearable` are NOT read from the same place,
+   * so the two sweeps are not one sweep. They co-locate for MOST project
+   * sites, not all - 4 of 7 by the file the `source` SYMBOL lives in, 5 of 7
+   * by whether the `source` string mentions the file at all. Forecaster is
+   * the difference: it names `firestore-sharing.ts` in a parenthetical rather
+   * than as its symbol. State which criterion you mean before quoting either
+   * number.
+   */
   appMax: string[];
   /** Minimal realistic write - every conditional field absent. */
   appMin: string[];
