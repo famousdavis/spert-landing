@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.25',
+    date: 'August 24, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'The record of which fields each app writes has been re-scoped, and the disagreement noted last release is settled. One entry claimed an app both does and does not write the same key. Neither half was wrong on its own: the two neighbouring fields were simply counting different things, one looking at every way the app can write to that collection and the other at a single routine save. The wider of the two now counts every write path, which is what the narrower one was always compared against.',
+          'The other field, the one that records the smallest write an app makes, has deliberately not been changed to match. A largest-of is well behaved when you widen what it covers; a smallest-of is not, because it collapses to whatever the tiniest write in the whole app happens to be, and then it no longer tests anything. Instead each entry now names the specific write it was measured against, because the honest answer differs from app to app: for some it is a routine save, for one it is a rule the app has to satisfy rather than any code, and for another it is a deliberate decision about what to leave out. A previous attempt to state one rule covering all of them was wrong for five.',
+          'While re-scoping it, every entry claiming an app writes the whole of its permitted field list was checked against the app itself, two of them field by field and the rest by sampling the least likely fields. All of them held. The comments that had gone out of date were corrected in the same pass, including one that named the wrong function as the widest writer.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.24',
     date: 'August 24, 2026',
     sections: [

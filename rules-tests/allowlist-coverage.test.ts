@@ -37,6 +37,15 @@
  *      a future app field lands in and deserves its own case. Where the two
  *      sets are equal this case would be shape 1 re-run against an identical
  *      document, so it is skipped by name rather than silently.
+ *
+ *      SKIPPED EVERYWHERE SINCE 2.5.25, AND THAT IS THE ANSWER, NOT A DEAD
+ *      BRANCH. A non-empty `unionOnly` means an allowlisted field no app
+ *      writes; `coincides: false` is the same statement; the self-checks red
+ *      when either changes. 2.5.25 rescoped `appMax` to all write paths
+ *      reaching a site, which closed the last gap (Story Map's), so every
+ *      entry now coincides and every shape 4 skips. Do NOT delete this branch
+ *      because nothing exercises it - the day it runs is the day an allowlist
+ *      has grown past its app, which is precisely what it exists to catch.
  *   5. ALLOWED - `deleteField()` removal, wherever a site declares `clearable`.
  *      Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
  *      REMOVAL, and both apps make them: Forecaster writes deleteField()
