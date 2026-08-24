@@ -47,6 +47,22 @@
  * At the time of reading, EVERY site's real field set matched its allowlist
  * exactly (see `coincides`), with one deliberate exception: Story Map's update
  * allowlist is broader than any single save touches - see that entry.
+ *
+ * !! `clearable` RE-DERIVED 2026-08-24 across all seven app repos, at
+ * spert-story-map@3d6a1ab, spert-forecaster@b4ad06a, GanttApp@4df3e58,
+ * spert-scheduler@93d7bd6, spert-cfd@e7185c1, MyScrumBudget@c803f9b and
+ * spert-ahp@9ff3050. The original 2.5.17 pass populated `clearable` only for
+ * the two sites it authored and back-filled `[]` for the other eleven without
+ * a sweep, so five real `members.<editor>` deletion paths went unrecorded and
+ * shape 5 generated no case for any of them.
+ *
+ * Recorded as one dated block rather than a per-entry field on purpose:
+ * `sourceVersion`/`sourceCommit` already exist to say how stale a snapshot is,
+ * and that pair has already failed silently here - `spertcfd_settings` pins a
+ * commit at which the transforms its `source` describes did not exist. A
+ * second instance of the same mechanism would not fix the first. A date, seven
+ * repos at seven SHAs and a diff to read are checkable; twenty-six strings
+ * nobody can verify without redoing the sweep are not. The diff is PR #114.
  */
 
 /** Which rule operations a site guards. `write` covers create and update together. */
@@ -117,8 +133,37 @@ export interface AllowlistContract {
    * removal; the token `members.<editor>` is a nested removal from the members
    * map, which the harness expands to the editor uid. Empty means the app has
    * no clearing path at this site - not that removals are forbidden.
+   *
+   * ALL-PATHS scoped, unlike `appMax`/`appMin`, which are read from the one
+   * symbol `source` names. This records every clearing path that reaches the
+   * collection from anywhere in the app: Forecaster's `members.<editor>` comes
+   * from `firestore-sharing.ts`, not from the `_PROJECT_WRITE_KEYS_GUARD` its
+   * `source` names.
    */
   clearable: string[];
+  /*
+   * THERE IS DELIBERATELY NO `transforms` FIELD - proposed twice, cut twice.
+   *
+   * Six of the thirteen sites carry a non-`deleteField` transform:
+   * `users_tos.acceptedAt`; `spertscheduler_projects.updatedAt`;
+   * `spertstorymap_projects.updatedAt` and `_changeLog`;
+   * `spertcfd_settings.projectOrder` (arrayUnion AND arrayRemove); and both
+   * `anonymous_sessions` rows' serverTimestamps. Every one already sits inside
+   * its own allowlist, so there is nothing live to catch. Nothing would consume
+   * the field either - shape 5 consumes `clearable`, `appMax`/`appMin` feed the
+   * comparison brief - and of these same transforms
+   * `ganttapp-snapshot-fields.test.ts:257` already says it: "They add no engine
+   * information".
+   *
+   * Decisively, its `[]` cells would have been FALSE. `clearable` is swept from
+   * the app repositories' `src/`, and `claimPendingInvitations.ts:126-133`
+   * writes `updatedAt: FieldValue.serverTimestamp()` into all seven
+   * `*_projects` collections from `functions/`, outside that boundary. Five
+   * rows would have read "swept, nothing here."
+   *
+   * Revisit only for a NAMED consumer. "We are already reading these files" is
+   * not one.
+   */
   /**
    * True when the collection keeps `owner` OUT of the members map, so the two
    * are orthogonal (Forecaster alone). The seeded pre-image must then name the
@@ -179,7 +224,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
-    clearable: [],
+    clearable: ['members.<editor>'],
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:projectToFirestoreMeta',
     sourceVersion: 'GanttApp v0.28.10',
     sourceCommit: '73931d1',
@@ -249,7 +294,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // The five keys the allowlist permits but `doSaveProduct` never touches,
     // named rather than left to be inferred from the two lists above.
     unionOnly: ['createdAt', '_originRef', '_changeLog', 'owner', 'members'],
-    clearable: [],
+    clearable: ['members.<editor>'],
     source: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
@@ -291,7 +336,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
-    clearable: [],
+    clearable: ['members.<editor>'],
     source:
       'spert-scheduler/src/infrastructure/firebase/firestore-driver.ts:create ' +
       '(field set governed by src/domain/models/types.ts:Project)',
@@ -332,7 +377,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
-    clearable: [],
+    clearable: ['members.<editor>'],
     source: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:createProject / saveProject',
     sourceVersion: 'MyScrumBudget v0.37.0',
     sourceCommit: 'df11dca',
@@ -366,7 +411,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
-    clearable: [],
+    clearable: ['members.<editor>'],
     source: 'spert-cfd/src/lib/firestore-driver.ts:createProject / saveProject',
     sourceVersion: 'spert-cfd v0.15.1',
     sourceCommit: 'a29dbd0',

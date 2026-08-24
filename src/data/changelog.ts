@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.23',
+    date: 'August 24, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing in this release changes what the apps do. It corrects a record that was wrong, and adds two checks that go off if it ever goes wrong the same way again.',
+          'Each app keeps a list of who may work on a project. When someone is removed, the app does not overwrite that list — it sends a specific instruction to delete just that one person\u2019s entry, so that two people removing different collaborators at the same time cannot undo each other. All seven apps do it exactly this way.',
+          'This repository keeps a written record of which fields each app deletes like that, and a test reads the record to decide what to check. The record said only two of the seven apps ever delete anything. It was written that way in a release that added the lists for those two apps and filled in a blank for the other eleven entries without going and looking. So for five of the seven apps the test had nothing to check, and it did not complain, because a check that was never created and a check that passed look exactly alike from the outside.',
+          'The record has now been re-derived by reading all seven apps\u2019 own source code, and the five missing entries are filled in. The test that had been covering two deletion paths now covers all seven, and all seven pass — the rules were always accepting these deletions correctly, so nothing was broken for anyone. What was broken was the evidence that they were.',
+          'Two new checks were added so this cannot recur quietly. The first says that every app holding a collaborator list must declare that it deletes from it — that is true of all seven today, and it would have failed on the day the record was written. The second catches the mirror-image mistake: an entry can be recorded against a part of the rules the test is unable to exercise, where it would again sit there checking nothing. Four of the thirteen entries are in that position today, all of them correctly blank, and the check makes sure it stays that way.',
+          'A third gap was closed in the test itself. It confirmed a deletion by looking for the field afterwards and finding it gone — but a field that was never there in the first place is also gone, and the two are indistinguishable. It now also confirms the field was present before the deletion, and that confirmation deliberately sits in the part of the suite that checks the test\u2019s own setup, so that a problem with the setup cannot be mistaken for a problem with the rules.',
+          'Finally, a note explains why a related record was considered and deliberately not created — including the reason that decides it, which is that it could not have been filled in correctly from where the reading is done. Writing the reason down means the idea does not have to be worked through from scratch a third time.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.22',
     date: 'August 24, 2026',
     sections: [
