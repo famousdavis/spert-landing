@@ -560,7 +560,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     clearable: [],
     source:
-      'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject / reorderProjects',
+      'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject / deleteProject / reorderProjects',
     sourceVersion: 'spert-cfd v0.15.1',
     sourceCommit: 'a29dbd0',
     notes:

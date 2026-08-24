@@ -83,9 +83,12 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  arrayUnion,
   deleteField,
   doc,
   getDoc,
+  increment,
+  serverTimestamp,
   setDoc,
   updateDoc,
   type DocumentReference,
@@ -290,6 +293,36 @@ function write(
 /** Ops that write a whole document (`create`, and `write` which subsumes it). */
 function isFullDocOp(op: string): op is 'create' | 'write' {
   return op === 'create' || op === 'write';
+}
+
+/**
+ * A MERGE write. `write()` above deliberately does not do one, and it is not
+ * being changed to.
+ *
+ * The apps' real call at the two `selfOwned` settings sites is
+ * `setDoc(ref, payload, { merge: true })`, sometimes onto a document that
+ * already exists. `write()` issues a full-document `setDoc` against the FRESH
+ * id, which is the right model for the driver writes it was built for.
+ *
+ * WHY THIS IS ADDITIVE RATHER THAN A FLAG ON `write()`
+ * ---------------------------------------------------
+ * Adding `{ merge: true }` inside `write()` would most likely leave every
+ * existing shape-2 and shape-3 outcome green: a seed key set is a subset of
+ * the allowlist, so a bogus key stays in the post-image either way. That is
+ * the hazard, not the reassurance. Each existing case's tested PROPOSITION
+ * would silently change from "a full-document write carrying these keys" to
+ * "a merge update carrying these keys" while the case name kept claiming the
+ * first. A green suite that has quietly stopped testing what its name says is
+ * worse than a red one, so the merge path is its own function and the cases
+ * that want it name it.
+ */
+function mergeWrite(
+  client: Firestore,
+  c: AllowlistContract,
+  docId: string,
+  payload: Doc,
+): Promise<void> {
+  return setDoc(refFor(client, c, docId), payload, { merge: true });
 }
 
 describe('allowlist contracts - self-check', () => {
@@ -552,4 +585,161 @@ describe('spertstorymap_projects - create carries no field allowlist by design',
       }),
     );
   });
+});
+
+/**
+ * TRANSFORM VISIBILITY - regression coverage for a measured negative.
+ *
+ * THE QUESTION
+ * ------------
+ * `hasOnly()` is a SUBSET predicate, so an empty key set satisfies it
+ * vacuously. If a field transform - `arrayUnion`, `increment`,
+ * `serverTimestamp` - were resolved AFTER the rules evaluated, its key would be
+ * absent from `request.resource.data`, and every one of the ruleset's fourteen
+ * allowlist sites would be bypassable by a write that carried its payload as
+ * transforms instead of as plain values.
+ *
+ * THE ANSWER, MEASURED
+ * --------------------
+ * Transforms are VISIBLE. Firestore resolves them before the rules run, so the
+ * key appears in `keys()` and in `diff(resource.data).affectedKeys()` alike,
+ * and a transform on a non-allowlisted key is refused exactly as a plain value
+ * is. Eight pre-registered cases against the real ruleset, 8/8, measured
+ * 2026-08-23 and re-run independently 2026-08-24.
+ *
+ * So there is no bypass, and no rule changed here. What this block buys is a
+ * guard against the ENGINE BEHAVIOUR changing: were a future emulator or
+ * backend to resolve transforms later, the six denials below turn red and name
+ * the reason, instead of this suite continuing to pass while every allowlist in
+ * the ruleset had quietly become advisory.
+ *
+ * WHY 2 x 3, AND NOT PER SITE
+ * ---------------------------
+ * Two axes can vary. The PREDICATE FAMILY - `keys()` on create/write versus
+ * `diff().affectedKeys()` on update, which are separate rules reached by
+ * separate code paths. And the TRANSFORM CLASS - array, numeric and timestamp
+ * are three different server-side resolutions, and a divergence in any one of
+ * them would be equally suite-wide.
+ *
+ * Site does NOT vary. A transform written to a bogus key is bogus at every
+ * site, because the allowlist it fails is not consulted until the key set has
+ * been built. Generating this per contract would be twenty cases all carrying
+ * one transform class - redundant on the axis that does not vary, blind on the
+ * one that does - and twenty cases read as per-site coverage while asserting a
+ * single engine property.
+ *
+ * The two ACCEPT cases are the must-pass controls, and they assert CONTENT.
+ * An engine that stripped the transform entirely would also accept, because
+ * `[].hasOnly(['projectOrder'])` is true - so bare acceptance is consistent
+ * with the very failure this block tests for. Both read the document back with
+ * rules disabled.
+ */
+describe('field transforms are visible to the allowlists - both predicate families', () => {
+  const settings = ALLOWLIST_CONTRACTS.find((c) => c.key === 'spertcfd_settings');
+  const storyMap = ALLOWLIST_CONTRACTS.find((c) => c.key === 'spertstorymap_projects');
+
+  /** `spertcfd_settings` is `selfOwned`, so its document id is the acting uid. */
+  const SETTINGS_DOC = ALICE;
+  const STORY_DOC = EXISTING;
+
+  /**
+   * The `affectedKeys()` family needs a pre-image: `updateDoc` requires the
+   * document to exist, and the rule reads `resource.data.members` to decide
+   * whether the caller may write at all. Seeded as the production shape rather
+   * than through `buildSeed`, which would make `_changeLog` a string.
+   */
+  async function seedStoryMapProduct(): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      await setDoc(doc(admin, 'spertstorymap_projects', STORY_DOC), {
+        name: 'Alice product',
+        owner: ALICE,
+        members: { [ALICE]: 'owner' },
+        _changeLog: ['seed-entry'],
+      });
+    });
+  }
+
+  it('self-check: both host contracts are present', () => {
+    // A contract key rename would otherwise empty this whole block silently.
+    expect(settings, 'spertcfd_settings contract present').toBeDefined();
+    expect(storyMap, 'spertstorymap_projects contract present').toBeDefined();
+    expect(settings!.allowlist, 'projectOrder is the allowlisted key').toContain('projectOrder');
+    expect(storyMap!.allowlist, '_changeLog is the allowlisted key').toContain('_changeLog');
+  });
+
+  it('ALLOWED: keys() family - arrayUnion on the allowlisted key, and the value lands', async () => {
+    const client = db(ALICE);
+    await assertSucceeds(
+      mergeWrite(client, settings!, SETTINGS_DOC, { projectOrder: arrayUnion('p1') }),
+    );
+
+    // Content, not bare acceptance: a stripped transform would leave the key
+    // absent and `[]` satisfies the allowlist, so "it resolved" proves nothing.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      const stored = await getDoc(doc(admin, 'spertcfd_settings', SETTINGS_DOC));
+      expect(stored.exists(), 'settings doc created by the merge write').toBe(true);
+      expect(stored.data()?.projectOrder).toStrictEqual(['p1']);
+    });
+  });
+
+  it('ALLOWED: affectedKeys() family - arrayUnion on the allowlisted key, and the value lands', async () => {
+    await seedStoryMapProduct();
+    const client = db(ALICE);
+    await assertSucceeds(
+      updateDoc(doc(client, 'spertstorymap_projects', STORY_DOC), {
+        _changeLog: arrayUnion('appended-entry'),
+      }),
+    );
+
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const admin = ctx.firestore() as unknown as Firestore;
+      const stored = await getDoc(doc(admin, 'spertstorymap_projects', STORY_DOC));
+      expect(stored.data()?._changeLog).toStrictEqual(['seed-entry', 'appended-entry']);
+    });
+  });
+
+  /**
+   * The six denials, as the product of the two axes that vary. Each writes a
+   * transform to a key no allowlist contains and expects refusal.
+   *
+   * The transforms are FACTORIES because these sentinels are single-use values,
+   * not constants - one shared instance reused across cases is a different bug
+   * with the same green.
+   */
+  const TRANSFORM_CLASSES: ReadonlyArray<readonly [string, () => unknown]> = [
+    ['arrayUnion', () => arrayUnion('y')],
+    ['increment', () => increment(1)],
+    ['serverTimestamp', () => serverTimestamp()],
+  ];
+
+  const FAMILIES: ReadonlyArray<{
+    readonly name: string;
+    readonly host: string;
+    readonly deny: (payload: Doc) => Promise<unknown>;
+    readonly seed: () => Promise<void>;
+  }> = [
+    {
+      name: 'keys()',
+      host: 'spertcfd_settings',
+      deny: (payload) => mergeWrite(db(ALICE), settings!, SETTINGS_DOC, payload),
+      seed: async () => {},
+    },
+    {
+      name: 'affectedKeys()',
+      host: 'spertstorymap_projects',
+      deny: (payload) => updateDoc(doc(db(ALICE), 'spertstorymap_projects', STORY_DOC), payload),
+      seed: seedStoryMapProduct,
+    },
+  ];
+
+  for (const family of FAMILIES) {
+    for (const [className, make] of TRANSFORM_CLASSES) {
+      it(`DENIED: ${family.name} family - ${className} on a non-allowlisted key of ${family.host}`, async () => {
+        await family.seed();
+        await assertFails(family.deny({ evil: make() }));
+      });
+    }
+  }
 });

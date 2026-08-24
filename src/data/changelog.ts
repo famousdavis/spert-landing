@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.22',
+    date: 'August 24, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing in this release changes what the apps do. It adds checks around a question that was asked, measured and answered "no problem" — so that if the answer ever changes, something says so.',
+          'The rules deciding what may be saved to each app’s records work by listing the field names that are allowed and refusing anything else. Alongside ordinary saves, which send a value, the database also accepts saves that send an instruction instead — "add this item to that list", "add one to that number", "put the current time here". The database works the instruction out on its own side. The question was whether the rules can still see which field is being written when the save arrives in that form. If they could not, every one of those permitted-field lists could be walked straight around by anyone who sent instructions rather than values, and none of them would have been protecting anything.',
+          'They can see it. Eight outcomes were written down in advance and all eight came out as predicted, against the real rules, on two different days by two different people working separately. There is no hole here and no rule was changed.',
+          'What the release adds is the alarm. The rules ask their question in two different ways depending on whether a record is being created or edited, and there are three kinds of instruction a save can carry, so six refusals are now checked — every combination of the two and the three. Alongside them sit two acceptances, and those matter more than they look: a database that quietly discarded the instruction would also have accepted the save, and an accepted save proves nothing on its own. So both acceptances read the saved record back afterwards and confirm the value actually arrived.',
+          'They are deliberately not repeated for each of the lists. Doing that would have produced twenty checks covering one of the three kinds of instruction and none of the other two — more cases, less of the thing that could actually vary. Where a save is refused, it is refused for naming a field that is not permitted, and a field that is not permitted is not permitted anywhere. The part that does vary got the coverage.',
+          'There are fourteen of these permitted-field lists. Thirteen are checked together in one place; the fourteenth keeps its own separate set of checks, because it is the one that silently rejected every saved snapshot in the Gantt app for seven days and its checks were written around that. Two matching cases were added there so that no list in the rules is left without one. They are labelled in place as being there for completeness rather than because they prove anything the other six do not — otherwise someone finds them in six months, works out that they add nothing, and removes them.',
+          'One correction. A note recording where one of these lists came from named three places in the Cumulative Flow app that write to it and left out a fourth, which had been writing to it since long before the note was made. The missing name was added. The note’s date and version stamp were deliberately left alone: the field list it records was read correctly at the time, only the list of names was short, and re-stamping it would have made a statement at the top of that same file — that everything in it was read on one particular day — untrue for that one entry.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.21',
     date: 'August 22, 2026',
     sections: [
