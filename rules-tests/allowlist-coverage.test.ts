@@ -373,6 +373,57 @@ describe('allowlist contracts - self-check', () => {
     }
   });
 
+  // WHAT THIS IS FOR, SO NOBODY DELETES IT LOOKING FOR A REASON
+  // ------------------------------------------------------------
+  // `clearable` is a hand-recorded snapshot of the app repositories, and in
+  // 2.5.17 it was recorded WRONG: populated for the two sites that commit
+  // authored and back-filled `[]` for the other eleven without a sweep. All
+  // seven project apps drop a member with `deleteField()`, so five of those
+  // `[]` cells were false and shape 5's `clearable.length > 0` gate generated
+  // no case for any of them. Nothing went red, because an absent case and a
+  // passing case are the same silence. This is the assertion that could have
+  // gone red on 2026-08-20, and it reds again on the next back-fill or when an
+  // eighth project app arrives with its cell unfilled.
+  //
+  // IT IS A CONVENTION CHECK, AND THIS IS THE ESCAPE ROUTE. Owning a members
+  // map does not ENTAIL having a removal path - all seven simply happen to
+  // have one. If a future project app legitimately has none, the response to
+  // this red is to record an exception, NOT to back-fill the array and NOT to
+  // relax the filter. Follow the house pattern: the `EXEMPT` map in
+  // `src/guards/copyright-headers.test.ts:37`, whose companion assertion at
+  // `:194` checks every exempt key still exists. Do not add that map now -
+  // with no contract setting it the branch would be dead code.
+  //
+  // It also independently catches a mis-tokenised path. The generator
+  // substitutes exactly one token, `<editor>`; a cell written `members.<uid>`
+  // is never substituted and still passes BOTH of shape 5's assertions -
+  // affectedKeys() reports the allowlisted top-level `members`, and reading
+  // back a key that never existed is `undefined`. `toContain` reds on it here,
+  // so that defect no longer depends on anyone reading prose.
+  it('every project-shaped site declares the member removal every app performs', () => {
+    for (const c of ALLOWLIST_CONTRACTS.filter((x) => x.shape === 'project')) {
+      expect(c.clearable, `${c.key}.clearable`).toContain('members.<editor>');
+    }
+  });
+
+  // The mirror image of the gate above: shape 5 runs only when a contract's
+  // `ops` include `update`, so a clearable path declared on a site it cannot
+  // run for is invisible - the same silence, from the other direction. Four of
+  // the thirteen can never generate shape 5: `anonymous_sessions_create`
+  // (`['create']`) and three `['write']` sites - `spertscheduler_settings`,
+  // `spertcfd_settings` and `users_tos`, whose `allow write` COVERS updates
+  // and which are therefore updatable in production.
+  //
+  // If this reds, teach shape 5 about `write` ops. Do NOT empty the array: a
+  // `['write']` contract with a real clearing path needs coverage, not silence.
+  it('every declared clearable path sits where shape 5 can generate a case for it', () => {
+    for (const c of ALLOWLIST_CONTRACTS) {
+      if (c.clearable.length > 0) {
+        expect(c.ops, `${c.key} declares clearable but shape 5 cannot run`).toContain('update');
+      }
+    }
+  });
+
   it('records one rule line per guarded operation, and full provenance', () => {
     for (const c of ALLOWLIST_CONTRACTS) {
       expect(c.lines, `${c.key}.lines`).toHaveLength(c.ops.length);
@@ -413,6 +464,28 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
       const scalar = c.allowlist.find((f) => f !== 'owner' && f !== 'members' && !TYPED_VALUES[f]);
       if (scalar !== undefined) {
         expect(seeded.data()?.[scalar]).not.toStrictEqual(targetValue(scalar, uid ?? ALICE));
+      }
+
+      // Shape 5 verifies each removal with `toBeUndefined()`, which "was
+      // present, now removed" and "was NEVER present" satisfy identically. Its
+      // soundness therefore rests entirely on seedValue() having put BOB in the
+      // members map - a coupling in another function that nothing asserted, and
+      // the mechanism a mis-tokenised path rides in on. Assert the pre-image
+      // here rather than inside shape 5: a red HERE means the fixture is unfit,
+      // while a red in shape 5 still means the RULES rejected a removal. Those
+      // are different findings and they should not share a failure site.
+      //
+      // Boundary: this covers `members.*` paths only. A future nested clearable
+      // path into some other map would meet a string-typed seed and pass
+      // vacuously. No such path exists today.
+      for (const path of c.clearable) {
+        const field = path.replace('<editor>', BOB);
+        const [top, nested] = field.split('.');
+        if (nested === undefined) continue;
+        expect(
+          (seeded.data()?.[top] as Record<string, unknown> | undefined)?.[nested],
+          `${c.key} ${field} present in the pre-image shape 5 will delete from`,
+        ).toBeDefined();
       }
     });
   });
@@ -470,9 +543,12 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
 
     it(`ALLOWED shape 5 - deleteField() removal of every clearable path, ${at}`, async () => {
       // Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
-      // REMOVAL. Both apps perform them: Forecaster writes deleteField()
-      // sentinels for its four clearable scalars on every debounced save, and
-      // both apps drop a member with a nested members.<uid> delete. A removal
+      // REMOVAL. ALL SEVEN project apps perform one: each drops a member with a
+      // nested members.<uid> delete, and Forecaster additionally writes
+      // deleteField() sentinels for its four clearable scalars on every
+      // debounced save. (This comment read "both apps" until 2.5.23, when
+      // `clearable` was re-derived and five under-declared cells were filled -
+      // five of those seven generated no case at all until then.) A removal
       // lands in affectedKeys() exactly like any other change, so the allowlist
       // governs it - this is what proves that rather than assuming it.
       const removed: string[] = [];
