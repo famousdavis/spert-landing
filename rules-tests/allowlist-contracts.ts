@@ -30,23 +30,34 @@
  *
  * WHY THE FIELD SETS ARE DATA
  * ---------------------------
- * `appMax`, `appMin`, `source`, `sourceVersion` and `sourceCommit` are the
- * seam a later brief consumes to compare these declarations against the apps'
- * real converters. Inline literals scattered through test cases cannot be
- * consumed, so every test in `allowlist-coverage.test.ts` derives from the
- * structure below rather than restating it.
+ * `appMax`, `appMin`, `source`, `minSource`, `sourceVersion` and
+ * `sourceCommit` are the seam a later brief consumes to compare these
+ * declarations against the apps' real converters. Inline literals scattered
+ * through test cases cannot be consumed, so every test in
+ * `allowlist-coverage.test.ts` derives from the structure below rather than
+ * restating it.
  *
  * `sourceVersion` AND `sourceCommit` are both recorded because a tag can be
  * re-pointed and a SHA cannot. Together they let a later session report how
  * stale a snapshot is rather than merely that it is one.
  *
  * !! THESE FIELD SETS WERE READ FROM THE APP REPOSITORIES ON 2026-08-20.
- * They are a dated snapshot, not a live query. Each entry names the exact
- * function it was read from, at the version and commit recorded with it.
+ * They are a dated snapshot, not a live query, pinned per entry by
+ * `sourceVersion` and `sourceCommit`.
  *
- * At the time of reading, EVERY site's real field set matched its allowlist
- * exactly (see `coincides`), with one deliberate exception: Story Map's update
- * allowlist is broader than any single save touches - see that entry.
+ * WHAT `source` NAMES IS NOT UNIFORM, and this header used to say it was
+ * ("the exact function"). Most entries do name a function; `spertahp_projects`
+ * names a TypeScript interface, `spertscheduler_settings` a Zod schema,
+ * `spertforecaster_projects` a key-set constant, and four name more than one
+ * function. Read the string rather than a rule about the strings. The `appMin`
+ * counterpart is `minSource`, which is not uniform either and says so per
+ * entry.
+ *
+ * At the time of reading, every site's real field set matched its allowlist
+ * exactly (see `coincides`), with one exception: Story Map, whose update
+ * allowlist was broader than any single save touches. 2.5.25 closed that by
+ * scoping `appMax` to ALL write paths reaching a site rather than to the one
+ * symbol `source` names - see that entry, and `appMax` below.
  *
  * !! `clearable` RE-DERIVED 2026-08-24 across all seven app repos, at
  * spert-story-map@3d6a1ab, spert-forecaster@b4ad06a, GanttApp@4df3e58,
@@ -56,13 +67,31 @@
  * a sweep, so five real `members.<editor>` deletion paths went unrecorded and
  * shape 5 generated no case for any of them.
  *
- * Recorded as one dated block rather than a per-entry field on purpose:
+ * !! 2.5.25 read those same seven repositories AT THE SAME SEVEN SHAs listed
+ * above - verified against their working trees at the time, not assumed - for
+ * two further things: the member-removal SYMBOL now recorded beside each
+ * project site's `clearable`, and a per-field check that every
+ * `coincides: true` entry is really written by its app. Two sites were checked
+ * exhaustively (`spertscheduler_settings` 25 of 25 fields,
+ * `spertscheduler_projects` 16 of 16); the other ten were sampled at three
+ * fields each, chosen as the least plausible. No counterexample. THESE ARE
+ * THREE DISTINCT READS, NOT ONE SWEEP - 2.5.23's was a different release, and
+ * the SHAs coinciding is a fact about these repositories on 2026-08-24 rather
+ * than a property of the sweeps.
+ *
+ * Recorded as dated blocks rather than per-entry fields on purpose:
  * `sourceVersion`/`sourceCommit` already exist to say how stale a snapshot is,
  * and that pair has already failed silently here - `spertcfd_settings` pins a
  * commit at which the transforms its `source` describes did not exist. A
  * second instance of the same mechanism would not fix the first. A date, seven
  * repos at seven SHAs and a diff to read are checkable; twenty-six strings
- * nobody can verify without redoing the sweep are not. The diff is PR #114.
+ * nobody can verify without redoing the sweep are not.
+ *
+ * EACH CLAIM ABOVE NAMES ITS OWN DIFF, because one pointer cannot carry two
+ * releases: the `clearable` re-derivation is PR #114, and the 2.5.25 additions
+ * are PR #116. A single "the diff is ..." line under both would leave half
+ * this block checkable and half of it pinned to a release that does not
+ * contain it - which is the `spertcfd_settings` failure one level up.
  */
 
 /** Which rule operations a site guards. `write` covers create and update together. */
@@ -116,24 +145,35 @@ export interface AllowlistContract {
   /** Every field the `hasOnly()` permits. */
   allowlist: string[];
   /**
-   * Maximal field set the app actually writes to this site.
+   * Maximal field set the app writes to this site.
    *
-   * RE-DERIVING THESE IS DEFERRED, AND THE NEXT BRIEF INHERITS A PREREQUISITE
-   * ------------------------------------------------------------------------
-   * Deferred on blast radius, not on effort: `appMax`/`appMin` feed generated
-   * shapes 1-4 AND are pinned by the `coincides` and `unionOnly` self-checks,
-   * so re-deriving them in the same pass as a `clearable` change - which
-   * expands the generated set - makes any red ambiguous between two
-   * independent expansions. 2.5.23 moved `clearable` alone for that reason.
+   * ALL-PATHS SCOPED, AND THE UNIT IS THE SITE
+   * ------------------------------------------
+   * Every write path in the app that reaches THIS SITE, unioned - not only the
+   * one symbol `source` names. `source` records where the set was READ; it is
+   * not the boundary of what counts. 2.5.23 shipped `clearable` all-paths
+   * beside an `appMax` scoped to a single save path, and the two then made
+   * opposite claims about `members` on `spertstorymap_projects`: one listed it
+   * as cleared there, the other as never written there. 2.5.25 removed the
+   * collision by scoping this field the same way rather than by narrowing
+   * `clearable`.
    *
-   * The prerequisite, found in 2.5.23 and recorded here so the later brief
-   * RECONCILES it rather than rediscovering it: `appMax` is already
-   * internally inconsistent about scoping. `spertforecaster_projects`
-   * includes `members` (16 entries, `unionOnly` empty);
-   * `spertstorymap_projects` excludes it and parks `members` in `unionOnly`.
-   * Two entries, two scoping rules, both already shipped.
+   * The unit is the SITE, not the document, and `anonymous_sessions` is split
+   * into `_create`/`_update` for exactly that reason. Under a document reading
+   * `anonymous_sessions_update` would have to gain `lastSeq` and
+   * `aiLastSeenAt` - MCP-server-owned, absent from that allowlist, and the
+   * subset self-check would red. That reading is not implementable here.
    *
-   * Note also that `appMax` and `clearable` are NOT read from the same place,
+   * `functions/` IS OUT OF SCOPE, and durably so: `appMax` is the app-side
+   * pre-image of a rules predicate, and an Admin SDK write never faces the
+   * predicate, so it cannot inform it. Counting Admin writes would report a
+   * gap on `aiLastSeenAt`, whose EXCLUSION from the browser allowlist is the
+   * security control - the report would argue for widening the thing that
+   * holds the line.
+   *
+   * A MAXIMUM CAN BE SCOPED THIS WAY AND A MINIMUM CANNOT - see `appMin`.
+   *
+   * Note that `appMax` and `clearable` are still NOT read from the same place,
    * so the two sweeps are not one sweep. They co-locate for MOST project
    * sites, not all - 4 of 7 by the file the `source` SYMBOL lives in, 5 of 7
    * by whether the `source` string mentions the file at all. Forecaster is
@@ -142,15 +182,47 @@ export interface AllowlistContract {
    * number.
    */
   appMax: string[];
-  /** Minimal realistic write - every conditional field absent. */
+  /**
+   * Minimal realistic write to this site - every conditional field absent.
+   *
+   * NOT ALL-PATHS SCOPED, AND NOT UNIFORM. `appMax` is a union over write
+   * paths: monotone, and well defined all-paths. A minimum is an infimum, and
+   * taken over all paths it collapses to the smallest single-key write
+   * anywhere, which asserts almost nothing. On `spertstorymap_projects` the
+   * all-paths minimum would be `['_changeLog']` - one key - because the
+   * changelog delta rides its own arrayUnion update.
+   *
+   * So each entry's `appMin` is ANCHORED at one write path or bound, and
+   * `minSource` names which. Read `minSource` and the comment above each
+   * array. There is no single rule covering all thirteen: the anchors are a
+   * routine save for some, a rule-imposed bound for others, and a deliberate
+   * policy for one. An attempt to state one uniform rule was wrong for five of
+   * them, which is why the anchor is recorded per entry instead.
+   */
   appMin: string[];
-  /** True when `appMax` and `allowlist` are the same set. */
+  /**
+   * True when `appMax` and `allowlist` are the same set.
+   *
+   * `coincides: false` and a non-empty `unionOnly` are the same statement, and
+   * both are pinned by self-checks that red when either moves. True for all
+   * thirteen since 2.5.25 - the current answer, not an invariant. See
+   * `unionOnly`.
+   */
   coincides: boolean;
   /**
    * Allowlisted keys the app does NOT write here - `allowlist` minus `appMax`.
    * Derived, but recorded so a reader sees the gap named instead of computing
    * it, and pinned by a self-check so the two statements cannot drift apart.
    * Empty wherever `coincides` is true.
+   *
+   * A NON-EMPTY `unionOnly` MEANS AN ALLOWLISTED FIELD NO APP WRITES;
+   * `coincides: false` says the same thing; the self-check reds when either
+   * changes. Shape 4 in `allowlist-coverage.test.ts` runs ONLY in that case.
+   * It is empty for all thirteen since 2.5.25, so shape 4 is skipped
+   * everywhere - that is the current answer, NOT a dead branch. Do not remove
+   * the branch because nothing exercises it: the day it runs is the day an
+   * allowlist has grown past what its app writes, which is the gap a new app
+   * field lands in.
    */
   unionOnly: string[];
   /**
@@ -159,11 +231,16 @@ export interface AllowlistContract {
    * map, which the harness expands to the editor uid. Empty means the app has
    * no clearing path at this site - not that removals are forbidden.
    *
-   * ALL-PATHS scoped, unlike `appMax`/`appMin`, which are read from the one
-   * symbol `source` names. This records every clearing path that reaches the
-   * collection from anywhere in the app: Forecaster's `members.<editor>` comes
-   * from `firestore-sharing.ts`, not from the `_PROJECT_WRITE_KEYS_GUARD` its
-   * `source` names.
+   * ALL-PATHS scoped - and since 2.5.25 so is `appMax`, which removes the
+   * scope contrast this note used to draw. What survives it is the ANCHOR
+   * contrast, which is the part that mattered: `clearable` never came from the
+   * one symbol `source` names, and still does not. Forecaster's
+   * `members.<editor>` comes from `firestore-sharing.ts`, not from the
+   * `_PROJECT_WRITE_KEYS_GUARD` its `source` names. `appMin` remains the
+   * narrow one - anchored per entry, see `minSource`.
+   *
+   * The symbol each project site removes a member with is named in the comment
+   * beside its array, so the two sweeps stay traceable to different code.
    */
   clearable: string[];
   /*
@@ -209,6 +286,36 @@ export interface AllowlistContract {
    * 2.5.18. Enforced by `src/guards/cross-repo-pointers.test.ts`.
    */
   source: string;
+  /**
+   * The symbol, or described write path, this entry's `appMin` is ANCHORED at.
+   * Where the create rule compels extra keys, or the bound is read off a rule
+   * rather than off code, the entry comment beside `appMin` states which.
+   *
+   * NOT the same kind of thing as `source`, and deliberately not uniform.
+   * `source` says where `appMax` was read; `minSource` says what a minimum was
+   * taken OVER, and the answers genuinely differ in kind: `saveProject` and
+   * `updateStructure` are routine-save symbols, `anonymous_sessions_create`
+   * has no app symbol at all (its bound is the create rule's own `hasAll()`),
+   * and `users_tos` records a policy rather than a reading. Three entries -
+   * `spertforecaster_projects`, `spertscheduler_projects` and
+   * `spertstorymap_projects` - anchor somewhere OTHER than the symbol their
+   * `source` names, so copying `source` here is wrong for them specifically.
+   *
+   * REQUIRED, so `tsc` fails when an entry omits it, and DELIBERATELY carrying
+   * no runtime assertion. Not because a `toBeTruthy()` would be worthless - it
+   * would catch `''`, which `tsc` will not - but because presence is not the
+   * property that matters. A green presence check over a plausible-but-wrong
+   * anchor is exactly the geometry 2.5.25 exists to remove, and adding one
+   * would buy the appearance of coverage over the one field whose value only a
+   * reader can judge. Do not "complete" this by asserting it is non-empty.
+   *
+   * Subject to `src/guards/cross-repo-pointers.test.ts`, which scans this file
+   * WHOLE rather than merely its `source` strings, so a path followed by a
+   * colon and a line number reds `npm test` here just as it would in `source`.
+   * Name symbols, never line numbers. (Writing the offending form inline as an
+   * illustration reds it too - that is how this sentence lost its example.)
+   */
+  minSource: string;
   sourceVersion: string;
   sourceCommit: string;
   /** Anything structurally unusual about this site. */
@@ -249,8 +356,10 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
+    // firestore-sharing.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:projectToFirestoreMeta',
+    minSource: 'GanttApp/src/shared/utils/firestore-converters.ts:projectToFirestoreMeta',
     sourceVersion: 'GanttApp v0.28.10',
     sourceCommit: '73931d1',
   },
@@ -278,6 +387,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     clearable: [],
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:releaseToFirestore',
+    minSource: 'GanttApp/src/shared/utils/firestore-converters.ts:releaseToFirestore',
     sourceVersion: 'GanttApp v0.28.10',
     sourceCommit: '73931d1',
   },
@@ -296,33 +406,56 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       '_originRef', '_changeLog',
       'owner', 'members',
     ],
-    // The ONLY site where allowlist is strictly broader than appMax.
-    // `doSaveProduct` builds mergeFields from the product keys and then
-    // removes owner, members, createdAt, _originRef and _changeLog, adding
-    // updatedAt - so a routine save can never touch those five. They reach the
-    // doc by other paths: _changeLog via a separate arrayUnion update,
-    // owner/members via createProduct/replaceProduct and owner
-    // member-management, createdAt and _originRef at create time only.
+    // ALL-PATHS: the union over every write path reaching this site, which is
+    // the whole allowlist. `doSaveProduct` alone touches only twelve of the
+    // seventeen - it builds mergeFields from the product keys, removes owner,
+    // members, createdAt, _originRef and _changeLog, and adds updatedAt - and
+    // scoping this field to that one symbol is what produced the 2.5.23
+    // collision with `clearable`, which was already all-paths.
+    //
+    // !! THE WIDEST WRITER IS `replaceProduct`, NOT CREATE. Until 2.5.25 this
+    // comment said createdAt and _originRef arrived "at create time only".
+    // False: replaceProduct does an UNMERGED tx.set on a POSSIBLY-EXISTING
+    // document, so it binds `allow update`, and it carries all five of the
+    // formerly-excluded keys - owner, members, createdAt and _originRef
+    // explicitly, and _changeLog through the `...data` spread of the product.
+    // _changeLog also arrives alone via the separate arrayUnion update after
+    // each save; owner and members also via createProduct and owner
+    // member-management.
+    //
+    // replaceProduct cannot EXCEED the allowlist, which is why `coincides` is
+    // true rather than a live 2.5.15-class defect: it strips only `id`, but
+    // both of its production callers feed it products from `parseImportFile`,
+    // which runs importProductFromJSON (deleting _storageRef, _exportedBy and
+    // _exportedById) over validateProduct (which drops every key outside
+    // PRODUCT_FIELDS - a list that omits owner, members, _owner and _members
+    // behind a compile-time Omit<> guard).
     appMax: [
-      'name', 'description', 'updatedAt', 'schemaVersion',
+      'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
       'sizeMapping', 'releases', 'sprints', 'sprintCadenceWeeks',
       'themes', 'releaseCardOrder', 'sizingCardOrder', 'cardColorLabels',
+      '_originRef', '_changeLog',
+      'owner', 'members',
     ],
     // Optional on Product: sprintCadenceWeeks, releaseCardOrder,
     // sizingCardOrder, cardColorLabels. sanitizeForFirestore drops undefined,
     // so a product that never used them emits none of the four.
+    //
+    // NOT rescoped with `appMax`, deliberately: the all-paths minimum here is
+    // `['_changeLog']` - the lone arrayUnion update - and a shape 2 built from
+    // one key would assert almost nothing. Anchored at `doSaveProduct`.
     appMin: [
       'name', 'description', 'updatedAt', 'schemaVersion',
       'sizeMapping', 'releases', 'sprints', 'themes',
     ],
-    coincides: false,
-    // The five keys the allowlist permits but `doSaveProduct` never touches,
-    // named rather than left to be inferred from the two lists above.
-    unionOnly: ['createdAt', '_originRef', '_changeLog', 'owner', 'members'],
+    coincides: true,
+    unionOnly: [],
+    // firestoreDriver.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
     source: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
-    sourceVersion: 'spert-story-map v0.52.3',
-    sourceCommit: '8f0cfb2',
+    minSource: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
+    sourceVersion: 'spert-story-map v0.52.7',
+    sourceCommit: '3d6a1ab',
     notes:
       'UPDATE-only by design (firestore.rules:363-372): createProduct strips only ' +
       '`id`, so a keys().hasOnly() on create could reject a legitimate create still ' +
@@ -361,10 +494,15 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
+    // firestore-driver.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
     source:
       'spert-scheduler/src/infrastructure/firebase/firestore-driver.ts:create ' +
       '(field set governed by src/domain/models/types.ts:Project)',
+    // NOT `create`: the minimum is the REQUIRED keys of the Project interface
+    // - name, createdAt, schemaVersion, owner, scenarios - which `create`
+    // spreads; `members` and `updatedAt` are then added by the driver.
+    minSource: 'spert-scheduler/src/domain/models/types.ts:Project (required keys)',
     sourceVersion: 'spert-scheduler v0.64.4',
     sourceCommit: 'ee43bec',
   },
@@ -402,8 +540,10 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
+    // invitations.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
     source: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:createProject / saveProject',
+    minSource: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:saveProject',
     sourceVersion: 'MyScrumBudget v0.37.0',
     sourceCommit: 'df11dca',
   },
@@ -436,8 +576,10 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ],
     coincides: true,
     unionOnly: [],
+    // firestore-driver.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
     source: 'spert-cfd/src/lib/firestore-driver.ts:createProject / saveProject',
+    minSource: 'spert-cfd/src/lib/firestore-driver.ts:saveProject',
     sourceVersion: 'spert-cfd v0.15.1',
     sourceCommit: 'a29dbd0',
   },
@@ -490,6 +632,14 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'spert-forecaster/src/shared/firebase/firestore-driver.ts:' +
       '_PROJECT_WRITE_KEYS_GUARD (+ owner/members, which that guard Omits by ' +
       'construction and firestore-sharing.ts writes)',
+    // NOT `_PROJECT_WRITE_KEYS_GUARD`, which is a Record<..., true> key set
+    // with no conditional fields and so cannot anchor a minimum. The
+    // optionality lives in projectToFirestoreDoc's optional PARAMETERS
+    // (_originRef, _changeLog) and in CLEARABLE_PROJECT_FIELDS being optional
+    // on Project itself.
+    minSource:
+      'spert-forecaster/src/shared/firebase/firestore-driver.ts:' +
+      'projectToFirestoreDoc (optional parameters) + CLEARABLE_PROJECT_FIELDS',
     sourceVersion: 'spert-forecaster v0.40.2',
     sourceCommit: '4223e1d',
     notes:
@@ -545,6 +695,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // removeCollaborator (FirestoreAdapter.ts) clears members.<uid>.
     clearable: ['members.<editor>'],
     source: 'spert-ahp/src/storage/FirestoreAdapter.ts:FirestoreModelDoc',
+    minSource: 'spert-ahp/src/storage/FirestoreAdapter.ts:updateStructure',
     sourceVersion: 'spert-ahp v0.18.23',
     sourceCommit: 'a3a6254',
     notes:
@@ -604,6 +755,9 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     clearable: [],
     source: 'spert-scheduler/src/domain/schemas/preferences.schema.ts:UserPreferencesSchema',
+    minSource:
+      'spert-scheduler/src/domain/schemas/preferences.schema.ts:' +
+      'UserPreferencesSchema (the keys not marked .optional())',
     sourceVersion: 'spert-scheduler v0.64.4',
     sourceCommit: 'ee43bec',
     notes:
@@ -631,6 +785,10 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     clearable: [],
     source:
       'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject / deleteProject / reorderProjects',
+    // No derivation: one field of one, so the minimum and the maximum are the
+    // same set by construction. There is no symbol to name here, and naming
+    // one would imply a reading that was never taken.
+    minSource: 'no derivation - single-field allowlist, appMin == appMax necessarily',
     sourceVersion: 'spert-cfd v0.15.1',
     sourceCommit: 'a29dbd0',
     notes:
@@ -655,6 +813,13 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     clearable: [],
     source: 'spert-story-map/src/lib/tosHelpers.ts:writeTosAcceptance',
+    // A POLICY, not a reading: writeTosAcceptance emits `appId` only when the
+    // document does not yet exist, so a re-acceptance deliberately omits it to
+    // preserve the app that recorded the FIRST acceptance. The minimum is that
+    // branch, not a conditional-field analysis.
+    minSource:
+      'policy - re-acceptance omits `appId` on purpose ' +
+      '(spert-story-map/src/lib/tosHelpers.ts:writeTosAcceptance, the exists branch)',
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
     notes:
@@ -694,6 +859,11 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     clearable: [],
     source: 'spert-story-map/src/hooks/useAiConnectivity.ts:startSession (setDoc on session create)',
+    // NO APP SYMBOL EXISTS for this minimum. It is read off the RULE: the
+    // create rule pairs hasOnly() with a hasAll() over the same list minus
+    // `appId`, so the smallest legal document is those nine required fields.
+    // The app itself has only one create payload, which sends all ten.
+    minSource: "the create rule's own hasAll() bound, minus `appId` (firestore.rules)",
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
     notes:
@@ -732,6 +902,14 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'spert-story-map/src/hooks/useAiConnectivity.ts:startHeartbeat, the ' +
       'visibilitychange and openProductId effects, and changePermissions ' +
       '(the four updateDoc call sites)',
+    // The smallest of those four call sites: the openProductId product-change
+    // effect, which emits two keys. Unlike every other entry this minimum IS
+    // all-paths already - it is a minimum across the same four paths `source`
+    // names - and it still asserts something, because two of the five keys is
+    // not one.
+    minSource:
+      'spert-story-map/src/hooks/useAiConnectivity.ts:' +
+      'the openProductId product-change effect (smallest of the four)',
     sourceVersion: 'spert-story-map v0.52.3',
     sourceCommit: '8f0cfb2',
     notes:
