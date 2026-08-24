@@ -62,7 +62,7 @@
  * commit at which the transforms its `source` describes did not exist. A
  * second instance of the same mechanism would not fix the first. A date, seven
  * repos at seven SHAs and a diff to read are checkable; twenty-six strings
- * nobody can verify without redoing the sweep are not.
+ * nobody can verify without redoing the sweep are not. The diff is PR #114.
  */
 
 /** Which rule operations a site guards. `write` covers create and update together. */
