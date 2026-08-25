@@ -1352,3 +1352,67 @@ describe("sendInvitationEmail invalid-email filter", () => {
       expect(resendSend).not.toHaveBeenCalled();
     });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// PC-2 (Brief 19) — the project-doc `updatedAt` is an ISO 8601 string.
+//
+// The SHAPE is the assertion, not the type. `typeof === "string"` passes for
+// "now" and for this file's own `FieldValue.serverTimestamp` mock, which
+// returns the literal "<serverTimestamp>" — so a regex is what makes this
+// discriminate. It is also what makes lexicographic order chronological.
+//
+// SITE, not module: this function has TWO `updatedAt` writes and only one of
+// them converts. The second test pins the other one as deliberately unchanged,
+// because a per-module reading of this condition reproduces the very bug
+// Brief 19 fixed — one of two sites converted, the other left.
+// ─────────────────────────────────────────────────────────────────────────
+const ISO_8601_MS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+describe("sendInvitationEmail updatedAt convergence (PC-2)", () => {
+  it("writes updatedAt to the project doc as an ISO 8601 string", async () => {
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+    profilesQueryGet.mockResolvedValueOnce({
+      empty: false,
+      docs: [{id: "uid-existing", data: () => ({})}],
+    });
+    // Branch A re-read of the model doc.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({owner: "uid-owner", members: {"uid-owner": "owner"}}),
+    });
+    // Throttle doc absent.
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+
+    await handler(makeReq({
+      dataOverrides: {appId: "spertcfd", emails: ["existing@example.com"]},
+    }));
+
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>)["members.uid-existing"] !==
+        undefined,
+    );
+    if (!modelUpdateCall) {
+      throw new Error("Expected the project-doc update to have been called");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
+    expect(typeof update.updatedAt).toBe("string");
+    expect(update.updatedAt as string).toMatch(ISO_8601_MS_UTC);
+    // Round-trips to the instant it encodes.
+    expect(new Date(update.updatedAt as string).toISOString())
+      .toBe(update.updatedAt);
+    expect(lastProjectsCollection).toBe("spertcfd_projects");
+  });
+
+  it("leaves the INVITATION doc on serverTimestamp() — out of scope",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({
+        exists: false, get: () => undefined,
+      });
+
+      await handler(makeReq());
+
+      expect(invitationsDocSet).toHaveBeenCalledWith(
+        expect.objectContaining({updatedAt: "<serverTimestamp>"}),
+      );
+    });
+});

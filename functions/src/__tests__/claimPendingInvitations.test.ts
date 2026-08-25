@@ -570,3 +570,79 @@ describe("claimPendingInvitations", () => {
     expect(fakeDb.runTransaction).not.toHaveBeenCalled();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// PC-2 (Brief 19) — the project-doc `updatedAt` is an ISO 8601 string.
+//
+// This function has FOUR `updatedAt` writes and exactly one converts: the
+// project-doc update. The other three are invitation-doc writes and keep
+// serverTimestamp(). The second test pins that boundary, because the defect
+// Brief 19 fixed was precisely one-of-N converted.
+//
+// The regex is load-bearing: `FieldValue.serverTimestamp` is mocked in this
+// file to return the literal "<serverTimestamp>", which is a string. A
+// `typeof === "string"` assertion would have passed BEFORE the change.
+// ─────────────────────────────────────────────────────────────────────────
+const ISO_8601_MS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+describe("claimPendingInvitations updatedAt convergence (PC-2)", () => {
+  it("writes updatedAt to the project doc as an ISO 8601 string, and leaves " +
+    "the invitation doc on serverTimestamp()",
+  async () => {
+    const inviteRef = {id: "tok-iso"};
+    const inviteDoc = {
+      id: "tok-iso",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "spertcfd",
+          modelId: "model-ISO",
+          role: "editor",
+          isVoting: false,
+          modelName: "ISO Project",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "model-ISO"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        exists: true,
+        data: () => ({owner: "uid-owner", members: {"uid-owner": "owner"}}),
+      });
+
+    await handler(makeReq());
+
+    const modelUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>)["members.uid-claim"] !==
+        undefined,
+    );
+    if (!modelUpdateCall) {
+      throw new Error("Expected the project-doc update to have been called");
+    }
+    const update = modelUpdateCall[1] as Record<string, unknown>;
+    expect(typeof update.updatedAt).toBe("string");
+    expect(update.updatedAt as string).toMatch(ISO_8601_MS_UTC);
+    expect(new Date(update.updatedAt as string).toISOString())
+      .toBe(update.updatedAt);
+
+    // The invitation-doc write in the SAME transaction is out of scope and
+    // deliberately still a server timestamp.
+    const inviteUpdateCall = fakeTx.update.mock.calls.find(
+      (c) => (c[1] as Record<string, unknown>).status === "accepted",
+    );
+    if (!inviteUpdateCall) {
+      throw new Error("Expected the invitation-doc update to have been called");
+    }
+    expect((inviteUpdateCall[1] as Record<string, unknown>).updatedAt)
+      .toBe("<serverTimestamp>");
+  });
+});

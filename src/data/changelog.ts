@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.26',
+    date: 'August 24, 2026',
+    sections: [
+      {
+        heading: 'Fixed',
+        items: [
+          'When you invite someone to a project, or accept an invitation to one, the behind-the-scenes service records the time the project last changed. It was writing that time in a format the apps do not use \u2014 and it was writing the same one to every app, regardless of what that app actually stores. For the Cumulative Flow Diagram app the mismatch was not cosmetic: opening the project list after someone was added would fail to draw the row, because the app tried to read a date and found something it could not interpret. Both services now write the time in the same plain text format the apps themselves use.',
+          'The Forecaster had a quieter version of the same problem. It reads the date, keeps it, and writes it back the next time you save \u2014 and on the way back out the date was being flattened into a shape nothing can read afterwards. Once one save had happened the original time was gone for good. The date is now converted to the standard format as soon as it is read, so what is written back is always something the app can read again.',
+        ],
+      },
+      {
+        heading: 'Infrastructure',
+        items: [
+          'One time format across the whole suite, instead of four. Projects are stored in the cloud by seven different apps, and between them they were recording \u201clast updated\u201d in four different ways: plain text, a number, a database-specific timestamp object, and \u2014 in one case \u2014 an unfinished placeholder that was never filled in. They all now agree on plain text, which is the only one of the four that survives being saved to your own browser and read back, and the only one that sorts correctly as text.',
+          'A note in the security rules said that the invitation service disagreed with the apps about this format, and was harmless for now. That stopped being true with this release, so it has been removed rather than reworded \u2014 a corrected version would have been a fresh claim about other repositories with nothing in place to catch it going stale, which is the problem the note itself was an example of.',
+          'The record of which fields carry special write instructions has been corrected in two places, not one. One entry disappears from the count because the only such field on it was the one changed here; a second entry keeps its place on the strength of a different field, but the mention of the changed field had to go. Correcting only the count would have left the second claim false in the file whose entire purpose is that its claims can be checked.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.25',
     date: 'August 24, 2026',
     sections: [
