@@ -125,11 +125,7 @@ export const claimPendingInvitations = onCall(
           // access control.
           const update: Record<string, unknown> = {
             [`members.${callerUid}`]: role,
-            // Admin SDK server-side write timestamp — matches the Timestamp
-            // type written by every other suite writer and by the sibling
-            // invite-doc update in this same transaction. `Date.now()` here
-            // would leave `updatedAt` as a plain JS number on the project doc.
-            updatedAt: FieldValue.serverTimestamp(),
+            updatedAt: new Date().toISOString(),
           };
 
           // AHP-shaped schema only: maintain the embedded collaborators

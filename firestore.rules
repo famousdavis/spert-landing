@@ -529,12 +529,6 @@ service cloud.firestore {
     // (unmasked full document), firestore-sharing.ts shareProject,
     // removeProjectMember (transaction) and updateMemberRole (members.<uid> only)
     // — at spert-forecaster v0.40.2 (4223e1d).
-    //
-    // TYPE NOTE, inert today: claimPendingInvitations (Cloud Function, Admin SDK,
-    // bypasses these rules) writes `updatedAt` as a server Timestamp, while
-    // FirestoreProjectDoc types it `string`. hasOnly() does not type-check, so
-    // nothing breaks — but any future `is string` assertion added here must
-    // account for it. The same divergence exists on spertahp_projects.
     function spertForecasterProjectFields() {
       return [
         'name', 'unitOfMeasure', 'sprints',
@@ -800,11 +794,6 @@ service cloud.firestore {
     //      const v = { title, bogus }; updateModel(id, v) compiles clean and
     //      carries bogus through the spread. Closing that needs a runtime key set,
     //      the shape of spert-forecaster's _PROJECT_WRITE_KEYS_GUARD.
-    //
-    // TYPE NOTE, inert today: claimPendingInvitations (Cloud Function, Admin SDK,
-    // bypasses these rules) writes `updatedAt` as a server Timestamp, while
-    // FirestoreModelDoc types it `number`. hasOnly() does not type-check. Any
-    // future `is number` assertion added here must account for it.
     function spertAhpProjectFields() {
       return [
         'owner', 'members', 'title', 'goal', 'createdBy',

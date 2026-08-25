@@ -246,9 +246,8 @@ export interface AllowlistContract {
   /*
    * THERE IS DELIBERATELY NO `transforms` FIELD - proposed twice, cut twice.
    *
-   * Six of the thirteen sites carry a non-`deleteField` transform:
-   * `users_tos.acceptedAt`; `spertscheduler_projects.updatedAt`;
-   * `spertstorymap_projects.updatedAt` and `_changeLog`;
+   * FIVE of the thirteen sites carry a non-`deleteField` transform:
+   * `users_tos.acceptedAt`; `spertstorymap_projects._changeLog`;
    * `spertcfd_settings.projectOrder` (arrayUnion AND arrayRemove); and both
    * `anonymous_sessions` rows' serverTimestamps. Every one already sits inside
    * its own allowlist, so there is nothing live to catch. Nothing would consume
@@ -257,11 +256,28 @@ export interface AllowlistContract {
    * `ganttapp-snapshot-fields.test.ts:257` already says it: "They add no engine
    * information".
    *
-   * Decisively, its `[]` cells would have been FALSE. `clearable` is swept from
-   * the app repositories' `src/`, and `claimPendingInvitations.ts:126-133`
-   * writes `updatedAt: FieldValue.serverTimestamp()` into all seven
-   * `*_projects` collections from `functions/`, outside that boundary. Five
-   * rows would have read "swept, nothing here."
+   * ⚠️ IT WAS SIX UNTIL 2.5.26, AND TWO CLAUSES MOVED, NOT ONE. Brief 19
+   * converged `updatedAt` on ISO 8601, so `spertscheduler_projects.updatedAt`
+   * stopped being a transform and its site dropped out of the count entirely;
+   * `spertstorymap_projects.updatedAt` stopped being one too, but that site
+   * SURVIVES on `_changeLog`, so it does not drop out. Repairing only the
+   * number would have left the second clause false in the file whose entire
+   * point is that its claims are checked.
+   *
+   * ⚠️ THE DECISIVE ARGUMENT FOR CUTTING IT DIED IN THE SAME RELEASE, AND IS
+   * KEPT HERE BECAUSE THE DECISION IT CARRIED WAS TAKEN TWICE. It read: the
+   * `[]` cells would have been FALSE, because `clearable` is swept from the app
+   * repositories' `src/` while `claimPendingInvitations.ts` wrote
+   * `updatedAt: FieldValue.serverTimestamp()` into all seven `*_projects`
+   * collections from `functions/`, outside that boundary - five rows would have
+   * read "swept, nothing here." True when written. Both Functions now write an
+   * ISO string to those collections, so `functions/` no longer contributes a
+   * project-collection transform at all, and that particular falsifier is gone.
+   * ⚠️ The BOUNDARY observation under it is untouched: `functions/` still writes
+   * these collections and is still outside any sweep of the apps' `src/`. A
+   * future `transforms` column would be un-falsified here rather than false -
+   * which is a weaker reason to cut it than the one above, and is why this
+   * paragraph records the death rather than deleting it.
    *
    * Revisit only for a NAMED consumer. "We are already reading these files" is
    * not one.
@@ -512,7 +528,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [624, 635],
+    lines: [618, 629],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -553,7 +569,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [701, 716],
+    lines: [695, 710],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -589,7 +605,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertforecaster_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [555, 562],
+    lines: [549, 556],
     shape: 'project',
     // Exactly `keyof FirestoreProjectDoc` (types.ts). Every full write routes
     // through projectToFirestoreDoc, which emits these sixteen and nothing else;
@@ -656,7 +672,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [827, 841],
+    lines: [816, 830],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -775,7 +791,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [746],
+    lines: [740],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -802,7 +818,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [933],
+    lines: [922],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -835,7 +851,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [972],
+    lines: [961],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -879,7 +895,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [990],
+    lines: [979],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',

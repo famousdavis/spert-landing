@@ -375,7 +375,7 @@ export const sendInvitationEmail = onCall(
             // security rules + UI lookups read.
             const update: Record<string, unknown> = {
               [`members.${inviteeUid}`]: role,
-              updatedAt: Date.now(),
+              updatedAt: new Date().toISOString(),
             };
 
             // AHP-shaped schema only: maintain the embedded
