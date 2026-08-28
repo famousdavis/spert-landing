@@ -3,4 +3,4 @@
 // See LICENSE file in the project root for full license text.
 
 /** App-wide constants. Bump APP_VERSION on each release. */
-export const APP_VERSION = '2.5.29';
+export const APP_VERSION = '2.5.30';
