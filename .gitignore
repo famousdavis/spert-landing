@@ -138,6 +138,13 @@ MEMORY_*.md
 !/scripts/release-notes.mjs
 # check-scheduler-mirror.mjs is run by scheduler-mirror-drift.yml — same reason.
 !/scripts/check-scheduler-mirror.mjs
+# check-pointers.mjs is `npm run check:pointers`, a pre-flight tool. It must be
+# tracked for the same reason as the rest — and the negation has to come FIRST,
+# before the file exists: while ignored it is invisible to
+# src/guards/copyright-headers.test.ts, which enumerates
+# `git ls-files --cached --others --exclude-standard` and so cannot see an
+# IGNORED file. The header guard would then pass vacuously rather than earned.
+!/scripts/check-pointers.mjs
 
 # Firestore emulator output (npm run test:rules)
 firestore-debug.log

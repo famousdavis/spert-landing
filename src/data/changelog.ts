@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.30',
+    date: 'August 27, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Seven of the columns in the cloud-permissions record are copies of what another app looked like on a particular day, and nothing here could tell you whether they had since gone wrong. A new pre-flight tool reads those other apps directly and reports two separate things: how many changes each cited file has seen since it was last read, and whether the specific function each entry names still exists at the exact commit it was read from.',
+          'The two answers are kept apart on purpose. Being out of date is not the same as being wrong — a file can have changed many times and the record still be exactly right, and two of the four currently behind are known to be correct. The first number is a prompt to go and look, nothing more. The second is the one that can actually be false.',
+          'It found one. An entry pointing at the Forecaster names a function in a file that does not contain it, and never did — the function lives in a neighbouring file. That is a genuine error in the record rather than a fault in the tool, and it is reported rather than quietly worked around.',
+          'One target cannot be placed at all, because the record names the file without saying where it lives. That is reported as unresolved rather than dropped, and the tool deliberately does not go looking for it by name: guessing would make the summary tidier while making it less true, and the right fix is to correct the record. Reporting it also keeps it visible — a dropped entry looks exactly like a clean one.',
+          'The tool prints the rows, not just the totals. Three plausible-but-wrong ways of writing it produce exactly the same totals as the correct one and differ only in the rows they fail to print, so the summary line alone cannot tell you which you are running. It also states which of its green results are meaningless: a shared licence header means certain common words are found in every file it inspects, so only a red result carries information.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.29',
     date: 'August 27, 2026',
     sections: [
