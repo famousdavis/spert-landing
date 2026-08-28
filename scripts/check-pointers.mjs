@@ -75,10 +75,9 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..');
-const DEV_ROOT = resolve(REPO_ROOT, '..');
 
 /** Sibling repositories the register may point into. */
-const REPOS = [
+export const REPOS = [
   'GanttApp',
   'MyScrumBudget',
   'spert-ahp',
@@ -90,24 +89,6 @@ const REPOS = [
 
 /** Prescribed. Broadening this changes the published population — see above. */
 const PATH_RE = /[A-Za-z0-9_@./-]*\.tsx?/g;
-
-const repoDir = (repo) => join(DEV_ROOT, repo);
-const repoPresent = (repo) => existsSync(join(repoDir(repo), '.git'));
-
-function git(repo, args) {
-  return execFileSync('git', ['-C', repoDir(repo), ...args], { encoding: 'utf8' }).trim();
-}
-
-function existsAtPin(repo, pin, rel) {
-  try {
-    execFileSync('git', ['-C', repoDir(repo), 'cat-file', '-e', `${pin}:${rel}`], {
-      stdio: 'ignore',
-    });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Every `path` (and the symbol immediately after its colon, if any) in a cell.
@@ -126,145 +107,197 @@ function mentions(text) {
   return out;
 }
 
-/** The repo a bare path belongs to: the first repo-prefixed path in `source`. */
-function homeRepo(contract) {
-  for (const { raw } of mentions(contract.source)) {
+/**
+ * Resolve and check a set of contracts against checkouts under `devRoot`.
+ *
+ * ⚠️ `devRoot` AND `repos` ARE PARAMETERS, NOT CONSTANTS, and that is what
+ * makes this checkable. `src/guards/pointer-check-discriminates.test.ts` builds
+ * a throwaway git repository in a temp directory and drives this function
+ * against it, so the proof that the checker still DISCRIMINATES does not depend
+ * on any sibling repo being checked out — and therefore runs in CI, where none
+ * of them are. Hard-coding the root would have made that proof skippable, and a
+ * skipped discrimination proof is the vacuity this whole exercise is about.
+ *
+ * Returns data. Printing and exit codes belong to the CLI below.
+ */
+export function analyse({ contracts, devRoot, repos = REPOS }) {
+  const repoDir = (repo) => join(devRoot, repo);
+  const repoPresent = (repo) => existsSync(join(repoDir(repo), '.git'));
+  const git = (repo, args) =>
+    execFileSync('git', ['-C', repoDir(repo), ...args], { encoding: 'utf8' }).trim();
+  const existsAtPin = (repo, pin, rel) => {
+    try {
+      execFileSync('git', ['-C', repoDir(repo), 'cat-file', '-e', `${pin}:${rel}`], {
+        stdio: 'ignore',
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const homeRepo = (c) => {
+    for (const { raw } of mentions(c.source)) {
+      const seg = raw.split('/')[0];
+      if (repos.includes(seg)) return seg;
+    }
+    return null;
+  };
+  const place = (raw, home) => {
     const seg = raw.split('/')[0];
-    if (REPOS.includes(seg)) return seg;
-  }
-  return null;
-}
+    if (repos.includes(seg)) return { repo: seg, rel: raw.split('/').slice(1).join('/') };
+    return { repo: home, rel: raw };
+  };
 
-function place(raw, home) {
-  const seg = raw.split('/')[0];
-  if (REPOS.includes(seg)) return { repo: seg, rel: raw.split('/').slice(1).join('/') };
-  return { repo: home, rel: raw };
-}
+  const metered = new Map();
+  const unresolved = [];
+  const skippedRepos = new Set();
 
-const contracts = (await import(join(REPO_ROOT, 'rules-tests/allowlist-contracts.ts')))
-  .ALLOWLIST_CONTRACTS;
-
-// ---------------------------------------------------------------------------
-// (a) pin-staleness meter, over distinct (file, pin) targets
-// ---------------------------------------------------------------------------
-const metered = new Map();
-const unresolved = [];
-const skippedRepos = new Set();
-
-for (const c of contracts) {
-  const home = homeRepo(c);
-  for (const [slot, text] of [
-    ['source', c.source],
-    ['minSource', c.minSource],
-  ]) {
-    for (const { raw } of mentions(text)) {
-      const { repo, rel } = place(raw, home);
-      if (!repo) {
-        unresolved.push({ cell: `${c.key}.${slot}`, raw, reason: 'NO-REPO' });
-        continue;
-      }
-      if (!repoPresent(repo)) {
-        skippedRepos.add(repo);
-        continue;
-      }
-      if (!existsAtPin(repo, c.sourceCommit, rel)) {
-        unresolved.push({
-          cell: `${c.key}.${slot}`,
-          raw,
-          reason: `ABSENT-AT-PIN ${repo}@${c.sourceCommit}`,
-        });
-        continue;
-      }
-      metered.set(`${repo}|${rel}|${c.sourceCommit}`, { repo, rel, pin: c.sourceCommit });
-    }
-  }
-}
-
-let behind = 0;
-let atZero = 0;
-const meterRows = [];
-for (const { repo, rel, pin } of metered.values()) {
-  const n = Number(git(repo, ['rev-list', '--count', `${pin}..HEAD`, '--', rel]));
-  if (n > 0) behind++;
-  else atZero++;
-  meterRows.push({ n, label: `${repo}/${rel}@${pin}` });
-}
-meterRows.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
-
-// ---------------------------------------------------------------------------
-// (b) pointer resolution, one row per CELL (13 entries x 2 slots = 26)
-// ---------------------------------------------------------------------------
-const cells = [];
-for (const c of contracts) {
-  const home = homeRepo(c);
-  for (const [slot, text] of [
-    ['source', c.source],
-    ['minSource', c.minSource],
-  ]) {
-    const pairs = mentions(text).filter((m) => m.symbol);
-    if (pairs.length === 0) {
-      cells.push({ cell: `${c.key}.${slot}`, status: 'SKIP', reason: 'NO-PATH' });
-      continue;
-    }
-    const failures = [];
-    let skipped = null;
-    for (const { raw, symbol } of pairs) {
-      const { repo, rel } = place(raw, home);
-      if (!repo) {
-        skipped = 'UNRESOLVABLE-REPO';
-        break;
-      }
-      if (!repoPresent(repo)) {
-        skippedRepos.add(repo);
-        skipped = `REPO-ABSENT ${repo}`;
-        break;
-      }
-      if (!existsAtPin(repo, c.sourceCommit, rel)) {
-        failures.push(`${raw} does not exist at ${repo}@${c.sourceCommit}`);
-        continue;
-      }
-      const body = git(repo, ['show', `${c.sourceCommit}:${rel}`]);
-      if (!body.includes(symbol)) {
-        failures.push(`${symbol} absent from ${raw} at ${repo}@${c.sourceCommit}`);
+  for (const c of contracts) {
+    const home = homeRepo(c);
+    for (const [slot, text] of [
+      ['source', c.source],
+      ['minSource', c.minSource],
+    ]) {
+      for (const { raw } of mentions(text)) {
+        const { repo, rel } = place(raw, home);
+        if (!repo) {
+          unresolved.push({ cell: `${c.key}.${slot}`, raw, reason: 'NO-REPO' });
+          continue;
+        }
+        if (!repoPresent(repo)) {
+          skippedRepos.add(repo);
+          continue;
+        }
+        if (!existsAtPin(repo, c.sourceCommit, rel)) {
+          unresolved.push({
+            cell: `${c.key}.${slot}`,
+            raw,
+            reason: `ABSENT-AT-PIN ${repo}@${c.sourceCommit}`,
+          });
+          continue;
+        }
+        metered.set(`${repo}|${rel}|${c.sourceCommit}`, { repo, rel, pin: c.sourceCommit });
       }
     }
-    if (skipped) cells.push({ cell: `${c.key}.${slot}`, status: 'SKIP', reason: skipped });
-    else if (failures.length) {
-      cells.push({ cell: `${c.key}.${slot}`, status: 'FAIL', reason: failures.join('; ') });
-    } else cells.push({ cell: `${c.key}.${slot}`, status: 'OK', reason: '' });
   }
+
+  let behind = 0;
+  let atZero = 0;
+  const meterRows = [];
+  for (const { repo, rel, pin } of metered.values()) {
+    const n = Number(git(repo, ['rev-list', '--count', `${pin}..HEAD`, '--', rel]));
+    if (n > 0) behind++;
+    else atZero++;
+    meterRows.push({ n, label: `${repo}/${rel}@${pin}` });
+  }
+  meterRows.sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
+
+  const cells = [];
+  for (const c of contracts) {
+    const home = homeRepo(c);
+    for (const [slot, text] of [
+      ['source', c.source],
+      ['minSource', c.minSource],
+    ]) {
+      const pairs = mentions(text).filter((m) => m.symbol);
+      if (pairs.length === 0) {
+        cells.push({ cell: `${c.key}.${slot}`, status: 'SKIP', reason: 'NO-PATH' });
+        continue;
+      }
+      const failures = [];
+      let skipped = null;
+      for (const { raw, symbol } of pairs) {
+        const { repo, rel } = place(raw, home);
+        if (!repo) {
+          skipped = 'UNRESOLVABLE-REPO';
+          break;
+        }
+        if (!repoPresent(repo)) {
+          skippedRepos.add(repo);
+          skipped = `REPO-ABSENT ${repo}`;
+          break;
+        }
+        if (!existsAtPin(repo, c.sourceCommit, rel)) {
+          failures.push(`${raw} does not exist at ${repo}@${c.sourceCommit}`);
+          continue;
+        }
+        if (!git(repo, ['show', `${c.sourceCommit}:${rel}`]).includes(symbol)) {
+          failures.push(`${symbol} absent from ${raw} at ${repo}@${c.sourceCommit}`);
+        }
+      }
+      if (skipped) cells.push({ cell: `${c.key}.${slot}`, status: 'SKIP', reason: skipped });
+      else if (failures.length) {
+        cells.push({ cell: `${c.key}.${slot}`, status: 'FAIL', reason: failures.join('; ') });
+      } else cells.push({ cell: `${c.key}.${slot}`, status: 'OK', reason: '' });
+    }
+  }
+
+  return { metered, meterRows, behind, atZero, unresolved, cells, skippedRepos };
 }
 
-// ---------------------------------------------------------------------------
-// report
-// ---------------------------------------------------------------------------
-const skips = cells.filter((c) => c.status === 'SKIP');
-const fails = cells.filter((c) => c.status === 'FAIL');
+/**
+ * CLI. Runs only when this file is INVOKED, never when it is imported — the
+ * guard imports `analyse` and must not trigger a report or a process.exit.
+ */
+async function main() {
+  const devRoot = resolve(REPO_ROOT, '..');
+  const contracts = (await import(join(REPO_ROOT, 'rules-tests/allowlist-contracts.ts')))
+    .ALLOWLIST_CONTRACTS;
+  const { metered, meterRows, behind, atZero, unresolved, cells, skippedRepos } = analyse({
+    contracts,
+    devRoot,
+  });
 
-console.log('parser       evaluate-the-module; paths /\\.tsx?/; bare paths -> the');
-console.log("             entry's own repo; existence verified at the pin;");
-console.log('             anything unplaceable is UNRESOLVED, never dropped');
-console.log('');
-console.log(`(a) PIN STALENESS — ${metered.size} metered targets, ${behind} behind / ${atZero} at zero`);
-for (const r of meterRows) {
-  console.log(`      ${r.n > 0 ? `behind ${r.n}` : 'zero    '}  ${r.label}`);
-}
-console.log(`    UNRESOLVED: ${unresolved.length}`);
-for (const u of unresolved) console.log(`      ${u.cell}  ${u.raw}  [${u.reason}]`);
-console.log('    Staleness, not wrongness. A sweep prompt, not a falsity detector.');
-console.log('');
-console.log(`(b) POINTER RESOLUTION — ${cells.length} cells: ${fails.length} failed, ${skips.length} skipped, ${cells.length - fails.length - skips.length} checked`);
-for (const s of skips) console.log(`      SKIP  ${s.cell}  [${s.reason}]`);
-for (const f of fails) console.log(`      FAIL  ${f.cell}  ${f.reason}`);
-if (skippedRepos.size) {
-  console.log(`    repos absent (declared skip): ${[...skippedRepos].sort().join(', ')}`);
-}
-console.log('    A green row may be vacuous — the copyright header makes prose');
-console.log('    tokens resolve in every file. Only a red row carries information.');
+  const skips = cells.filter((c) => c.status === 'SKIP');
+  const fails = cells.filter((c) => c.status === 'FAIL');
+  const checked = cells.length - fails.length - skips.length;
 
-if (fails.length) {
+  console.log('parser       evaluate-the-module; paths /\\.tsx?/; bare paths -> the');
+  console.log("             entry's own repo; existence verified at the pin;");
+  console.log('             anything unplaceable is UNRESOLVED, never dropped');
   console.log('');
-  console.log(`FAILED: ${fails.length} pointer(s) do not resolve at their own pin.`);
-  process.exit(1);
+
+  // ⚠️ THE DENOMINATOR PRINTS ON EVERY RUN, GREEN OR RED, and that is not
+  // cosmetic. With no sibling repositories checked out — CI, or a partial
+  // clone — every repo-scoped row is a declared skip and this exits 0 having
+  // checked NOTHING. A green without its denominator beside it is exactly the
+  // vacuity this script was written to expose, and it would be absurd for the
+  // script to commit it.
+  console.log(
+    `SCOPE        checked ${checked} of ${cells.length} cells; ` +
+      `${metered.size} metered targets; ` +
+      `${skippedRepos.size} of ${REPOS.length} repos absent`,
+  );
+  if (checked === 0) {
+    console.log('             ⚠️ ZERO CELLS CHECKED — this run proves nothing about');
+    console.log('             the register. Exit 0 here is advisory, not evidence.');
+  }
+  console.log('');
+  console.log(`(a) PIN STALENESS — ${metered.size} metered targets, ${behind} behind / ${atZero} at zero`);
+  for (const r of meterRows) {
+    console.log(`      ${r.n > 0 ? `behind ${r.n}` : 'zero    '}  ${r.label}`);
+  }
+  console.log(`    UNRESOLVED: ${unresolved.length}`);
+  for (const u of unresolved) console.log(`      ${u.cell}  ${u.raw}  [${u.reason}]`);
+  console.log('    Staleness, not wrongness. A sweep prompt, not a falsity detector.');
+  console.log('');
+  console.log(`(b) POINTER RESOLUTION — ${cells.length} cells: ${fails.length} failed, ${skips.length} skipped, ${checked} checked`);
+  for (const s2 of skips) console.log(`      SKIP  ${s2.cell}  [${s2.reason}]`);
+  for (const f of fails) console.log(`      FAIL  ${f.cell}  ${f.reason}`);
+  if (skippedRepos.size) {
+    console.log(`    repos absent (declared skip): ${[...skippedRepos].sort().join(', ')}`);
+  }
+  console.log('    A green row may be vacuous — the copyright header makes prose');
+  console.log('    tokens resolve in every file. Only a red row carries information.');
+
+  if (fails.length) {
+    console.log('');
+    console.log(`FAILED: ${fails.length} pointer(s) do not resolve at their own pin.`);
+    process.exit(1);
+  }
+  process.exit(0);
 }
-process.exit(0);
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}
