@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.27',
+    date: 'August 27, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'A note in the security rules gave the wrong reason why one app’s missing field never seemed to cause trouble. It said that a field left deliberately empty is not counted when the rules check which fields a save contains. That has now been measured directly against the rules engine, with a control in each direction, and it is false: an explicitly empty field is still a field that is present, and the save is rejected exactly as it would be carrying any other value.',
+          'So those saves were being rejected after all, for the six weeks between the field shipping and the rules being widened to allow it. What actually separated that case from the similar one recorded beside it was not the value written but whether the app said anything: one raised a sync error and was noticed within days, the other raised nothing and was never noticed at all. The note now says that, and carries the measurement with it, so the old explanation is not reached for again the next time someone asks why a silent failure was silent.',
+          'The same wrong explanation appeared twice in the security rules and twice more in MyScrumBudget, one of those on a page that app shows to its own users. All four have now been corrected.',
+          'The line references the rules test data keeps into the security rules were updated to follow the edit above, and every one of them re-checked to confirm it still lands on the rule it names.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.26',
     date: 'August 24, 2026',
     sections: [
