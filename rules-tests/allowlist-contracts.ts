@@ -288,8 +288,19 @@ export interface AllowlistContract {
    * ACTING uid in the top-level `owner` field: its update rule reads
    * `resource.data.owner`, and a pre-image owned by someone else is denied
    * before the allowlist is ever reached.
+   *
+   * REQUIRED SINCE 2.5.29, and the change is about the FOURTEENTH entry, not
+   * the thirteen. While it was optional, twelve entries asserted `false` BY
+   * OMISSION - which is indistinguishable from having never considered the
+   * question. A new entry could be added without its author ever meeting the
+   * owner/members distinction, and `seedValue` would silently seed a
+   * pre-image owned by someone else; the ALLOWED cases would then fail on the
+   * escalation guard rather than the allowlist, which is a red that means
+   * nothing. Wrongly-FALSE is loud - measured, it reds exactly three ALLOWED
+   * update cases with the suite total preserved at 172 - but wrongly-ABSENT
+   * was not a state anything could see. Now `tsc` names it.
    */
-  ownerOrthogonal?: boolean;
+  ownerOrthogonal: boolean;
   /**
    * Exact function the field sets were read from, as `path:symbolName`.
    *
@@ -338,6 +349,175 @@ export interface AllowlistContract {
   notes?: string;
 }
 
+/**
+ * What holds one field of this register to reality. Exactly two kinds, and
+ * naming them is the point of the map below.
+ *
+ *  - `joined`   Something IN THIS REPOSITORY goes red when the cell is wrong.
+ *               `joiner` names it, as `file:symbol` - a real symbol, so the
+ *               claim can be checked rather than believed.
+ *  - `unjoined` Nothing here can falsify it. `trigger` names the event that
+ *               should prompt a re-read, because a cell nobody can check is
+ *               only as good as the last time a human looked. `crossRepo`
+ *               says whether the unfalsifiable claim is about ANOTHER
+ *               repository - which is the expensive kind - or merely local.
+ */
+export type Bucket =
+  | { kind: 'joined'; joiner: string }
+  | { kind: 'unjoined'; crossRepo: boolean; trigger: string };
+
+/**
+ * Every field of `AllowlistContract`, bucketed.
+ *
+ * `satisfies`, NOT AN ANNOTATION, AND THE REASON IS MEASURED
+ * ---------------------------------------------------------
+ * Both forms name a missing key (`satisfies` -> TS1360, annotation -> TS2741)
+ * and both reject an excess one (TS2353), and narrowing at a read site works
+ * under both. An earlier draft of this file justified `satisfies` by claiming
+ * the annotation widens `kind` to `string` and kills the union at read sites.
+ * That was measured FALSE on tsc 6.0.3.
+ *
+ * What `satisfies` actually buys is PER-FIELD LITERAL PRECISION: under it
+ * `typeof FIELD_BUCKETS['appMax']['kind']` is exactly `'unjoined'`, and under
+ * the annotation it is the whole union. `_PinsSatisfies` below depends on that
+ * and is the only thing stopping a later "simplification" back to `:`.
+ *
+ * ⚠️ ONE COST YOU MAY HIT. Under `satisfies`, a CONCRETE-key read narrowed the
+ * wrong way - `FIELD_BUCKETS['appMax'].joiner` - fails with TS2339, because
+ * that entry's type is known exactly and has no `joiner`. A GENERIC read does
+ * not: `FIELD_BUCKETS[k]` with `k` a union compiles clean, as do
+ * `Object.values(FIELD_BUCKETS).map(...)` and a `Bucket`-typed helper. Do not
+ * "fix" a TS2339 by switching to the annotation - that silently discards the
+ * property `_PinsSatisfies` tests. Narrow on `kind` instead.
+ *
+ * ⚠️ THE TYPE FORCES EVERY FIELD TO CARRY A LABEL. IT CANNOT FORCE THE LABEL
+ * TO BE TRUE. A map labelling all nineteen identically type-checks. That is
+ * what `src/guards/register-field-buckets.test.ts` exists to catch.
+ */
+export const FIELD_BUCKETS = {
+  // --- joined: something here reds when the cell is wrong -----------------
+  collection: {
+    kind: 'joined',
+    joiner: 'src/guards/allowlist-vs-rules.test.ts:contractPath',
+  },
+  sub: {
+    kind: 'joined',
+    joiner: 'src/guards/allowlist-vs-rules.test.ts:contractPath',
+  },
+  ops: {
+    kind: 'joined',
+    joiner: 'src/guards/allowlist-vs-rules.test.ts:compare',
+  },
+  allowlist: {
+    kind: 'joined',
+    joiner: 'src/guards/allowlist-vs-rules.test.ts:compare',
+  },
+  lines: {
+    kind: 'joined',
+    joiner: 'rules-tests/allowlist-coverage.test.ts:ALLOWLIST_CONTRACTS',
+  },
+  shape: {
+    kind: 'joined',
+    joiner: 'rules-tests/allowlist-coverage.test.ts:seedFor',
+  },
+  coincides: {
+    kind: 'joined',
+    joiner: 'rules-tests/allowlist-contracts.ts:sameSet',
+  },
+  unionOnly: {
+    kind: 'joined',
+    joiner: 'rules-tests/allowlist-contracts.ts:sameSet',
+  },
+  ownerOrthogonal: {
+    kind: 'joined',
+    joiner: 'rules-tests/allowlist-coverage.test.ts:seedValue',
+  },
+
+  // --- unjoined, and about ANOTHER repository ------------------------------
+  // These seven are the expensive kind: read from an app repo on a date, and
+  // nothing in this repository can tell you they have gone stale. `appMax`
+  // has had ZERO app-tracking refreshes across eight register versions.
+  appMax: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: "the app's document type gains or loses a TOP-LEVEL field",
+  },
+  appMin: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: "a field named in this entry's `minSource` write path becomes conditional",
+  },
+  clearable: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: 'the app gains or drops a deleteField() path at this site',
+  },
+  source: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: 'the named symbol is renamed, moved, or stops being the widest writer',
+  },
+  minSource: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: 'the anchor write path is renamed, or stops being the narrowest',
+  },
+  sourceVersion: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: 'any re-read of this entry from its app repository',
+  },
+  sourceCommit: {
+    kind: 'unjoined',
+    crossRepo: true,
+    trigger: 'any re-read of this entry from its app repository',
+  },
+
+  // --- unjoined, but purely local ------------------------------------------
+  // Nothing checks these either, and saying so is the honest answer. They are
+  // cheap to re-derive by reading this file, which is why they are not in the
+  // expensive bucket above.
+  key: {
+    kind: 'unjoined',
+    crossRepo: false,
+    trigger: 'a site is added to or removed from firestore.rules',
+  },
+  path: {
+    kind: 'unjoined',
+    crossRepo: false,
+    trigger: 'the document path in firestore.rules changes',
+  },
+  notes: {
+    kind: 'unjoined',
+    crossRepo: false,
+    trigger: 'the structural oddity the note describes is fixed or changes',
+  },
+} satisfies Record<keyof AllowlistContract, Bucket>;
+
+/**
+ * Type-level pin on the `satisfies` choice itself.
+ *
+ * Under `satisfies` each entry keeps its own narrow literal type, which the
+ * whole `Bucket` union does NOT extend, so this resolves to `true`. Swap
+ * `satisfies` for `: Record<keyof AllowlistContract, Bucket>` and every entry
+ * widens to `Bucket`, `Bucket extends Bucket` holds, the conditional falls to
+ * `never`, and `tsc` fails here with TS2322. Nothing else notices that swap -
+ * the missing-key and excess-key errors fire identically under both forms - so
+ * without this the mandate would survive exactly until someone tidied it.
+ *
+ * ⚠️ DELIBERATELY KIND-AGNOSTIC. An earlier version pinned
+ * `FIELD_BUCKETS['appMax']['kind']` against the literal `'unjoined'`, which
+ * silently made this a second assertion about how `appMax` is BUCKETED -
+ * measured: re-labelling `appMax` failed here with "Type 'true' is not
+ * assignable to type 'never'" instead of the crossRepo pin's message naming
+ * the field. Re-bucketing a field is a content decision and belongs to
+ * `src/guards/register-field-buckets.test.ts` alone. This form holds for
+ * either kind and cares only about the widening.
+ */
+type _PinsSatisfies<T> = Bucket extends T ? never : true;
+const _pinsSatisfies: _PinsSatisfies<(typeof FIELD_BUCKETS)['appMax']> = true;
+void _pinsSatisfies;
+
 /** Set equality, used to derive and to self-check `coincides`. */
 export function sameSet(a: string[], b: string[]): boolean {
   return a.length === b.length && [...a].sort().join(' ') === [...b].sort().join(' ');
@@ -374,6 +554,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     // firestore-sharing.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
+    ownerOrthogonal: false,
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:projectToFirestoreMeta',
     minSource: 'GanttApp/src/shared/utils/firestore-converters.ts:projectToFirestoreMeta',
     sourceVersion: 'GanttApp v0.28.10',
@@ -402,6 +583,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     coincides: true,
     unionOnly: [],
     clearable: [],
+    ownerOrthogonal: false,
     source: 'GanttApp/src/shared/utils/firestore-converters.ts:releaseToFirestore',
     minSource: 'GanttApp/src/shared/utils/firestore-converters.ts:releaseToFirestore',
     sourceVersion: 'GanttApp v0.28.10',
@@ -468,6 +650,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     // firestoreDriver.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
+    ownerOrthogonal: false,
     source: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
     minSource: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
     sourceVersion: 'spert-story-map v0.52.7',
@@ -512,6 +695,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     // firestore-driver.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
+    ownerOrthogonal: false,
     source:
       'spert-scheduler/src/infrastructure/firebase/firestore-driver.ts:create ' +
       '(field set governed by src/domain/models/types.ts:Project)',
@@ -558,6 +742,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     // invitations.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
+    ownerOrthogonal: false,
     source: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:createProject / saveProject',
     minSource: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:saveProject',
     sourceVersion: 'MyScrumBudget v0.37.0',
@@ -594,6 +779,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     // firestore-driver.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
+    ownerOrthogonal: false,
     source: 'spert-cfd/src/lib/firestore-driver.ts:createProject / saveProject',
     minSource: 'spert-cfd/src/lib/firestore-driver.ts:saveProject',
     sourceVersion: 'spert-cfd v0.15.1',
@@ -710,6 +896,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     unionOnly: [],
     // removeCollaborator (FirestoreAdapter.ts) clears members.<uid>.
     clearable: ['members.<editor>'],
+    ownerOrthogonal: false,
     source: 'spert-ahp/src/storage/FirestoreAdapter.ts:FirestoreModelDoc',
     minSource: 'spert-ahp/src/storage/FirestoreAdapter.ts:updateStructure',
     sourceVersion: 'spert-ahp v0.18.23',
@@ -770,6 +957,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     coincides: true,
     unionOnly: [],
     clearable: [],
+    ownerOrthogonal: false,
     source: 'spert-scheduler/src/domain/schemas/preferences.schema.ts:UserPreferencesSchema',
     minSource:
       'spert-scheduler/src/domain/schemas/preferences.schema.ts:' +
@@ -799,6 +987,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     coincides: true,
     unionOnly: [],
     clearable: [],
+    ownerOrthogonal: false,
     source:
       'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject / deleteProject / reorderProjects',
     // No derivation: one field of one, so the minimum and the maximum are the
@@ -828,6 +1017,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     coincides: true,
     unionOnly: [],
     clearable: [],
+    ownerOrthogonal: false,
     source: 'spert-story-map/src/lib/tosHelpers.ts:writeTosAcceptance',
     // A POLICY, not a reading: writeTosAcceptance emits `appId` only when the
     // document does not yet exist, so a re-acceptance deliberately omits it to
@@ -874,6 +1064,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     coincides: true,
     unionOnly: [],
     clearable: [],
+    ownerOrthogonal: false,
     source: 'spert-story-map/src/hooks/useAiConnectivity.ts:startSession (setDoc on session create)',
     // NO APP SYMBOL EXISTS for this minimum. It is read off the RULE: the
     // create rule pairs hasOnly() with a hasAll() over the same list minus
@@ -914,6 +1105,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     coincides: true,
     unionOnly: [],
     clearable: [],
+    ownerOrthogonal: false,
     source:
       'spert-story-map/src/hooks/useAiConnectivity.ts:startHeartbeat, the ' +
       'visibilitychange and openProductId effects, and changePermissions ' +
