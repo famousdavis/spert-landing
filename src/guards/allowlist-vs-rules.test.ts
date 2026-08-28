@@ -49,6 +49,21 @@ import {
  * An in-line widening - the case this guard exists for - moves no pointer at
  * all and was invisible end to end.
  *
+ * WHAT THIS DOES *NOT* CATCH, AND WHO DOES
+ * ----------------------------------------
+ * It compares FIELD SETS. It cannot see a rule that is wrong in a way the
+ * field set does not express - an over-REQUIRING `hasAll()` beside the
+ * `hasOnly()`, say, which would reject a save carrying fewer fields while the
+ * two sets still agree exactly. Shape 2 in `rules-tests/allowlist-coverage.
+ * test.ts` covers that, by writing the app's MINIMAL document against the real
+ * emulator. The division is deliberate: this file asks whether the register
+ * describes the rule, that one asks whether the rule accepts the app. Stated
+ * here because an unstated division of labour reads as a gap.
+ *
+ * It also reads `allowlist` ONLY. `appMax`, `appMin` and `clearable` are
+ * claims about OTHER repositories and nothing here can falsify them - see
+ * `FIELD_BUCKETS` in the register, which says so per field.
+ *
  * WHY `src/guards/` AND NOT `rules-tests/`
  * ----------------------------------------
  * This is text parsing, not rule evaluation: no emulator, no JRE, no network.

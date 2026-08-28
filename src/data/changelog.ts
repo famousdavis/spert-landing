@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.29',
+    date: 'August 27, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'The record of what each app may save to the cloud has nineteen columns, and they are not all worth the same. Some are held to reality by a check that would fail if they went wrong. Others are copies of what an app looked like on a particular day, and nothing here can tell you they have since gone stale. Reading the file, there was no way to tell which was which. Every column now has to say, and the answer is checked rather than merely written down.',
+          'Seven of the nineteen are the expensive kind: statements about another app’s code that nothing in this repository can test. Each now records what would make it out of date — a field being added to the app, a function being renamed — so the next person to look knows what to look for rather than having to re-read everything. The other columns must name the specific check that holds them, and that name is verified to point at something that actually exists. A label claiming a check that is not there is the same defect this record was built to stop making about other people’s code.',
+          'The labels are enforced by the type system, which forces every column to carry one. A type cannot force a label to be true, though — a record calling all nineteen columns the same thing would pass — so the seven expensive ones are pinned by name as well, and mislabelling any one of them now fails and says which.',
+          'A single flag saying whether an app keeps its ownership field separate from its member list is now required rather than optional. Twelve of the thirteen entries were answering “no” by saying nothing, which is indistinguishable from never having considered the question — and a fourteenth entry could have been added without its author ever meeting it, producing a test failure pointing at entirely the wrong thing. Getting it wrong was always loud. Leaving it out was silent. It cannot be left out now.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.28',
     date: 'August 27, 2026',
     sections: [
