@@ -839,9 +839,22 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // optionality lives in projectToFirestoreDoc's optional PARAMETERS
     // (_originRef, _changeLog) and in CLEARABLE_PROJECT_FIELDS being optional
     // on Project itself.
+    // CORRECTED 2.5.31. This cell used to read `firestore-driver.ts:
+    // projectToFirestoreDoc (optional parameters) + CLEARABLE_PROJECT_FIELDS`
+    // and was wrong twice over. `projectToFirestoreDoc` is not in
+    // firestore-driver.ts at all - it is exported from firestore-converters.ts
+    // - and `CLEARABLE_PROJECT_FIELDS` does not establish appMin in the first
+    // place: it is what puts the four cleared scalars BACK as deleteField()
+    // sentinels, which is `clearable`'s business and is already recorded in
+    // the comment beside it. The duplicate was deleted rather than relocated.
+    // What actually makes the minimum is the converter's optional parameters
+    // plus sanitizeForFirestore dropping undefined values, so both are named
+    // with resolvable paths and `npm run check:pointers` verifies both at the
+    // pin. Found by that script on its first run.
     minSource:
-      'spert-forecaster/src/shared/firebase/firestore-driver.ts:' +
-      'projectToFirestoreDoc (optional parameters) + CLEARABLE_PROJECT_FIELDS',
+      'spert-forecaster/src/shared/firebase/firestore-converters.ts:' +
+      'projectToFirestoreDoc (its optional parameters; undefined values dropped by ' +
+      'spert-forecaster/src/shared/firebase/firestore-sanitize.ts:sanitizeForFirestore)',
     sourceVersion: 'spert-forecaster v0.40.2',
     sourceCommit: '4223e1d',
     notes:

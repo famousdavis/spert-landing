@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.31',
+    date: 'August 27, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'The error the new pre-flight tool found last release is fixed, and it turned out to be a different error than it first appeared. The entry did not merely point at the wrong file: it named two functions that live in two different files, and it named the second one for a job it does not do. That second function is what puts cleared fields back as explicit deletions — which is a separate column’s business, and that column already records it. The duplicate was removed rather than moved, and the entry now names the two things that genuinely determine the answer, both with addresses the tool can check.',
+          'The count of files being watched went from eleven to thirteen as a result. ⚠️ That is worth being precise about, because a number moving is usually bad news here: earlier corrections were the same population being counted wrongly. This one is a larger population, counted correctly — the record now points at two real files it had been silently failing to mention. More to watch, not a worse count of the same thing.',
+          'Fixing it created a second problem, which is fixed in the same release. That one real error was the only evidence the tool worked; repairing it would have left a check that has never once been seen to fail, which is indistinguishable from one that cannot fail. So the tool now proves itself: a test builds a small throwaway repository with two commits, points the checker at a name that exists in the later commit but not the earlier one, and requires it to object — then moves the pin forward and requires it to stop objecting. That proof needs nothing outside this repository, so it runs everywhere, including where the other apps are not present.',
+          'Only with that in place was the check added to the release gate. It now reports how much it actually examined on every run, passing or failing — because on a machine without the other apps checked out it examines nothing at all, and a pass that does not say so is the precise failure this whole line of work has been about. The gate’s own configuration records that limit, so it is visible to someone reading it rather than only to someone running it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.30',
     date: 'August 27, 2026',
     sections: [

@@ -4,11 +4,11 @@
     "file": "src/config.ts",
     "export": "APP_VERSION"
   },
-  "_changelogNote": "There is no CHANGELOG.md in this repository \u2014 the changelog lives only in src/data/changelog.ts, rendered by src/app/changelog/page.tsx. So there is no markdown surface to check package.json against, and the `changelog` key is deliberately absent. Instead src/guards/changelog-renders.test.ts asserts that the newest entry matches APP_VERSION, which the version-surface check above ties back to package.json. Note this file's section key is `heading`, where every other app in the suite uses `title` \u2014 do not copy a sibling guard without adjusting.",
+  "_changelogNote": "There is no CHANGELOG.md in this repository — the changelog lives only in src/data/changelog.ts, rendered by src/app/changelog/page.tsx. So there is no markdown surface to check package.json against, and the `changelog` key is deliberately absent. Instead src/guards/changelog-renders.test.ts asserts that the newest entry matches APP_VERSION, which the version-surface check above ties back to package.json. Note this file's section key is `heading`, where every other app in the suite uses `title` — do not copy a sibling guard without adjusting.",
   "claudeMdVersionPatterns": [
     "^\\*\\*Version:\\*\\* (\\d+\\.\\d+\\.\\d+)"
   ],
-  "_claudeMdNote": "Swept on 2026-07-30. The `**Version:** X.Y.Z` line is the only version declaration; the other X.Y.Z mentions are historical prose ('v2.5.6 cleared nine GHSAs') and are correct as written \u2014 never flag those. Skipped in CI, where this gitignored file is not checked out.",
+  "_claudeMdNote": "Swept on 2026-07-30. The `**Version:** X.Y.Z` line is the only version declaration; the other X.Y.Z mentions are historical prose ('v2.5.6 cleared nine GHSAs') and are correct as written — never flag those. Skipped in CI, where this gitignored file is not checked out.",
   "commands": [
     {
       "name": "lint (root)",
@@ -23,30 +23,35 @@
       "run": "npm test"
     },
     {
+      "name": "check:pointers (register cross-repo cells)",
+      "run": "npm run check:pointers",
+      "_note": "Resolves every `path:symbol` in allowlist-contracts.ts `source`/`minSource` at that entry's own sourceCommit, in the sibling checkouts under ~/Developer, and meters how stale each cited file is. ⚠️ WHAT ITS GREEN DOES AND DOES NOT PROVE, stated here so the limit survives someone reading this gate without running it: IN CI THE SIBLING REPOSITORIES ARE NOT CHECKED OUT, so every repo-scoped row is a declared skip, the command checks ZERO of 26 cells and exits 0. That green proves nothing about the register. It prints `SCOPE checked N of 26 cells` on EVERY run, green or red, precisely so an empty pass is never mistaken for a clean one. Enforcement is therefore LOCAL PRE-FLIGHT only — which for a one-committer suite is the real enforcement point. The proof that the checker still DISCRIMINATES is src/guards/pointer-check-discriminates.test.ts, which builds its own throwaway git repository and so runs in CI and cannot skip. Added in 2.5.31, once that self-test existed: wiring it in beforehand would have converted a script with one demonstrated live failure into one that had never been observed to fail."
+    },
+    {
       "name": "test:rules (Firestore rules vs emulator)",
       "run": "npm run test:rules",
-      "_note": "Runs the REAL firestore.rules against the Firestore emulator. This is the guard on LIST-1 (2026-08-19): every *_projects collection had shipped `allow list: if isAuth();`, letting any authenticated SPERT user list every project in the suite. It asserts BOTH directions \u2014 the unfiltered list is denied AND each of the seven apps' actual production queries still return their documents, checked down to document ids. A rule loosened again fails it; so does one tightened past an app's own query, which would black out project loading for all seven apps. Deliberately NOT in `npm test`: that suite must stay runnable with no emulator. Needs firebase-tools (a pinned devDependency here, so `npm ci` supplies the CLI) and a JRE (ubuntu-latest has one; scripts/run-rules-tests.mjs resolves Homebrew's keg-only JDK on macOS and EXITS NON-ZERO if it finds none \u2014 it never skips). No change to .github/workflows/shipgate.yml, which stays byte-identical across all nine repos."
+      "_note": "Runs the REAL firestore.rules against the Firestore emulator. This is the guard on LIST-1 (2026-08-19): every *_projects collection had shipped `allow list: if isAuth();`, letting any authenticated SPERT user list every project in the suite. It asserts BOTH directions — the unfiltered list is denied AND each of the seven apps' actual production queries still return their documents, checked down to document ids. A rule loosened again fails it; so does one tightened past an app's own query, which would black out project loading for all seven apps. Deliberately NOT in `npm test`: that suite must stay runnable with no emulator. Needs firebase-tools (a pinned devDependency here, so `npm ci` supplies the CLI) and a JRE (ubuntu-latest has one; scripts/run-rules-tests.mjs resolves Homebrew's keg-only JDK on macOS and EXITS NON-ZERO if it finds none — it never skips). No change to .github/workflows/shipgate.yml, which stays byte-identical across all nine repos."
     },
     {
       "name": "build (next build)",
       "run": "npm run build"
     },
     {
-      "name": "functions \u2014 install",
+      "name": "functions — install",
       "run": "npm --prefix functions ci",
-      "_note": "REQUIRED, and easy to miss. functions/ is a separate package with its own manifest and node_modules. The CI workflow runs `npm ci` at the ROOT only, so without this step the functions build fails in CI with `Cannot find type definition file for 'jest'` while passing locally, where functions/node_modules already exists. Putting it here rather than in the workflow keeps .github/workflows/shipgate.yml byte-identical across all nine repos \u2014 repo-specific detail belongs in this file."
+      "_note": "REQUIRED, and easy to miss. functions/ is a separate package with its own manifest and node_modules. The CI workflow runs `npm ci` at the ROOT only, so without this step the functions build fails in CI with `Cannot find type definition file for 'jest'` while passing locally, where functions/node_modules already exists. Putting it here rather than in the workflow keeps .github/workflows/shipgate.yml byte-identical across all nine repos — repo-specific detail belongs in this file."
     },
     {
-      "name": "functions \u2014 lint",
+      "name": "functions — lint",
       "run": "npm --prefix functions run lint",
-      "_note": "functions/ predates the suite's move to Vitest and stays on Jest \u2014 two runners in one repository is deliberate, and they never interact."
+      "_note": "functions/ predates the suite's move to Vitest and stays on Jest — two runners in one repository is deliberate, and they never interact."
     },
     {
-      "name": "functions \u2014 build (tsc)",
+      "name": "functions — build (tsc)",
       "run": "npm --prefix functions run build"
     },
     {
-      "name": "functions \u2014 test (jest)",
+      "name": "functions — test (jest)",
       "run": "npm --prefix functions test",
       "_note": "Includes aiOpContractHash.test.ts, which pins the cross-repo digest of ai-op-contract.json. SPERT Scheduler pins the same constant in src/integration/ai-op-contract-hash.test.ts, so a one-sided edit to the contract now fails in the repo where it was made."
     }
