@@ -350,7 +350,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'ganttapp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [288, 299],
+    lines: [309, 320],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members', 'finishDate', 'order',
@@ -385,7 +385,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'ganttapp_projects',
     sub: 'releases',
     ops: ['create', 'update'],
-    lines: [309, 311],
+    lines: [330, 332],
     shape: 'subcollection',
     allowlist: [
       'name', 'startDate', 'earlyFinishDate', 'lateFinishDate',
@@ -413,7 +413,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertstorymap_projects',
     sub: null,
     ops: ['update'],
-    lines: [395],
+    lines: [416],
     shape: 'project',
     allowlist: [
       'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
@@ -484,7 +484,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [454, 465],
+    lines: [475, 486],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -528,7 +528,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [618, 629],
+    lines: [641, 652],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -569,7 +569,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [695, 710],
+    lines: [718, 733],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -605,7 +605,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertforecaster_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [549, 556],
+    lines: [570, 577],
     shape: 'project',
     // Exactly `keyof FirestoreProjectDoc` (types.ts). Every full write routes
     // through projectToFirestoreDoc, which emits these sixteen and nothing else;
@@ -672,7 +672,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [816, 830],
+    lines: [839, 853],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -736,7 +736,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_settings',
     sub: null,
     ops: ['write'],
-    lines: [488],
+    lines: [509],
     shape: 'selfOwned',
     allowlist: [
       'defaultTrialCount', 'defaultDistributionType', 'defaultConfidenceLevel',
@@ -791,7 +791,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [740],
+    lines: [763],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -818,7 +818,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [922],
+    lines: [945],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -851,7 +851,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [961],
+    lines: [984],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -895,7 +895,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [979],
+    lines: [1002],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',

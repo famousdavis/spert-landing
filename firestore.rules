@@ -171,16 +171,37 @@
 //     ProjectColor tile tint shipped in MSB v0.33.0) and `archived` (the
 //     project-archiving visibility flag shipping in MSB v0.34.0).
 //     firestoreRepo writes both on every create/save as `field ?? null`.
-//     Added both to the allowlist. `color` never caused a live failure
-//     despite being un-allowlisted since v0.33.0 because a new project
-//     writes `color: null`, and a null-valued field is not counted by
-//     keys().hasOnly() — contrast Scheduler's non-null `forcedWorkDays: []`,
-//     which WAS rejected (hotfix above). The archive toggle writes a
-//     NON-null `archived: true` on update, so this entry closes the gap
-//     before that path can trip affectedKeys().hasOnly(). Rules-only
-//     deploy; safe against old app code (color was already being written;
-//     archived is inert until MSB v0.34.0 ships). Mirrors the sibling
-//     Scheduler allowlist, which already carries `archived`/`tileColor`.
+//     Added both to the allowlist.
+//
+//     !! CORRECTED 2.5.27 (2026-08-27). This entry used to say `color`
+//     "never caused a live failure" because "a null-valued field is not
+//     counted by keys().hasOnly()". BOTH CLAUSES ARE FALSE, and the second
+//     is why the first was believed. Measured on the Firestore emulator
+//     against this ruleset, with three controls: an exact-allowlist write
+//     ACCEPTED, an un-allowlisted NON-null key DENIED, and an
+//     un-allowlisted key valued `null` DENIED TOO. An explicit null is a
+//     PRESENT KEY — keys() counts it and hasOnly() rejects it. Writing
+//     `field ?? null` buys nothing here.
+//
+//     So `color` WAS denied throughout the 43 days it was un-allowlisted
+//     (MSB v0.33.0, 2026-06-03, to the rules fix on 2026-07-16), the same
+//     as Scheduler's `forcedWorkDays`. `createProject` and `saveProject`
+//     both always send it. The real difference is LOUDNESS, not null-ness:
+//     Scheduler surfaced a "Cloud sync error" toast and MyScrumBudget
+//     surfaced nothing, so that denial went unobserved and whether any user
+//     was affected is unknown. Do not reinstate the null reasoning to
+//     explain a silent failure — silence is a client-side property, not a
+//     rules-engine one.
+//
+//     `archived` writes a NON-null `true` on update, so this entry also
+//     closes that path before it can trip affectedKeys().hasOnly().
+//     Rules-only deploy; safe against old app code (color was already being
+//     written; archived is inert until MSB v0.34.0 ships). Mirrors the
+//     sibling Scheduler allowlist, which already carries
+//     `archived`/`tileColor`. The two MyScrumBudget copies of the same
+//     false claim — its CHANGELOG and the changelog data module that
+//     renders at that app's /changelog route — were repaired in
+//     MyScrumBudget v0.37.3, merged as dc99ec9 (no tag cut).
 
 rules_version = '2';
 service cloud.firestore {
@@ -593,8 +614,10 @@ service cloud.firestore {
     // If firestoreRepo starts writing a new top-level field, add it here in
     // the SAME PR or saves will fail silently with PERMISSION_DENIED.
     // color + archived (July 2026): both are top-level scalar fields written
-    // as `field ?? null`; see the header entry for why color's null default
-    // slipped past keys().hasOnly() while a non-null value would not.
+    // as `field ?? null`. This line used to say color's null default
+    // "slipped past keys().hasOnly() while a non-null value would not" —
+    // MEASURED FALSE in 2.5.27; an explicit null is a present key and
+    // hasOnly() denies it. See the header entry for the controls.
     function myScrumBudgetProjectFields() {
       return [
         'name', 'startDate', 'endDate',
