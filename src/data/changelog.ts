@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.28',
+    date: 'August 27, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'The suite keeps a written record of which fields each app is permitted to save to the cloud, alongside the security rules that actually enforce it. Nothing compared the two. The record could say one thing and the rules do another, and every check in the repository would still pass — so a rule quietly widened to permit a field nobody had declared went unnoticed by design. This release adds the comparison.',
+          'It reads the rules directly and works out, for each app and each kind of save, the exact set of fields that rule permits — following the named lists where they are used and reading the inline ones where they are not. Any disagreement is reported as a line naming the app, the operation, the rule it came from, and which fields are on which side. A count on its own could not tell you which of the two was wrong, so it reports the rows rather than a total.',
+          'It also refuses to ignore anything. Every permission list in the rules must either be claimed by an entry in the record or be written down as a deliberate exception with a reason — there is exactly one of those today, and it is covered by a separate suite of its own. That means a new permission list added without a matching entry now fails, which nothing previously checked.',
+          'Deliberately keyed to the rule’s own address — which collection, which operation — rather than to a line number. An earlier version keyed on line numbers and, when a single line was added above the rules, produced nineteen alarming reports about apps that had not changed. The real problem was one line. It now reports nothing at all for a move that changes no permissions, and the existing line-number check still catches the move itself.',
+          'This runs with the ordinary checks rather than the ones needing a database emulator, because it only reads files. That puts it on every release rather than on the ones where somebody remembered to run the slower suite.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.27',
     date: 'August 27, 2026',
     sections: [
