@@ -127,6 +127,12 @@ MEMORY_*.md
 # Derive the allowlist, never recall it:   git ls-files scripts/
 /scripts/*
 !/scripts/shipgate.mjs
+# verify-sync.mjs is the post-merge half of the release gate, added in 2.5.32 and
+# byte-identical across the suite alongside shipgate.mjs. It MUST be published:
+# package.json declares `verify:sync` pointing at it, so leaving it unpublished
+# gives every clean checkout a script that fails with "module not found" — and the
+# gate would not catch that, because the gate never runs it.
+!/scripts/verify-sync.mjs
 # run-rules-tests.mjs launches the Firestore rules suite and IS run by CI,
 # so it has to be published. Note the failure mode if it is not: the gate
 # passes locally, where the file exists, and dies in CI with MODULE_NOT_FOUND.
