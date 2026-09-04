@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.33',
+    date: 'September 3, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'A check in the release gate had been quietly skipping itself, in exactly the situation releases are normally prepared in. The gate confirms that each project\u2019s internal notes file declares the same version number as everything else, so those notes cannot drift out of date unnoticed. That check skips when the notes file is not present \u2014 which is correct on the automated build server, where the file is deliberately excluded from the repository and genuinely is not there.',
+          '\u26a0\ufe0f The same absence had a second, unrelated cause, and the check could not tell the two apart. When a release is prepared in a separate working copy \u2014 which is how these releases are normally prepared \u2014 the tooling that creates that copy leaves excluded files behind. The check saw a missing file, assumed the build-server reason, and skipped. It printed a skip line and the gate went green, so nothing looked wrong. The check that exists to stop the notes drifting was itself absent from every release prepared the usual way.',
+          'The two reasons are now told apart. On the build server it skips as before. Otherwise it looks for the notes file in the main working copy and reads it from there, so the check runs even when the release is being prepared elsewhere. If it still cannot be found, that is now a failure rather than a skip: a check that cannot run should say so instead of passing quietly.',
+          '\u26a0\ufe0f This is the same shape as the problem the notes file itself once had \u2014 it sat thirteen releases out of date because the tool meant to notice it could not see it. A skip and a pass look identical from the outside unless the reason is stated, which is why the failure branch was chosen over a warning.',
+          'The change lives in the release script that is deliberately identical in every project in the suite, so each project takes the same corrected copy rather than growing its own variant. Worth noting for anyone auditing the nine: only four of them actually switch this check on, and the other five declare it as an empty list, so for those the fix is preventive rather than closing a live gap.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.32',
     date: 'September 3, 2026',
     sections: [
