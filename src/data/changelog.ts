@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.34',
+    date: 'September 12, 2026',
+    sections: [
+      {
+        heading: 'Fixed',
+        items: [
+          'Invitation claiming had been failing for every Microsoft sign-in, across all seven apps. Firebase records a Microsoft account’s email as unverified, because Microsoft’s sign-in token carries no verified-email flag for Firebase to copy, and the shared claim function refused any unverified email. A student who signed in with a university Microsoft account and clicked an invite link was told the link did not match their account. The email matched. It was never compared. Measured on September 12, 2026 in the live user export: all ten Microsoft accounts unverified, all eleven Google accounts verified, no exceptions and no account on both providers.',
+          'The claim function now accepts a Microsoft sign-in with an unverified email, and still refuses every other unverified identity — an email-and-password account, an anonymous one, or a Google account that reports unverified. The decision keys on the provider used for this particular sign-in, not on the list of providers linked to the account, so an account holding both is judged by whichever it signed in with.',
+          '⚠️ The refusal message had told the caller to “use a Microsoft work or school account” — measurably the case that was failing. It now reads: “Your account’s email address could not be verified, so invitations can’t be accepted. Please sign in with Google or Microsoft.”',
+          '⚠️ This release on its own changes nothing a student can see, and that is deliberate. All seven apps still decline to call the function while the account’s email is unverified — a client-side courtesy that suppressed console noise and was never the policy — so the Microsoft path stays closed until each app is changed to call the function unconditionally and let it decide. MyScrumBudget goes first. The function is also deployed by hand, separately from this site, so merging this release does not put it into production; the owner authorises that step.',
+          'The tests now model a real sign-in token, which always names its provider. The two new cases are one token shape differing only in the provider string, so the refusal of a password identity is attributable to the provider and not to a claim the test forgot to include. A third case pins that a token with no provider claim at all — a shape no real token has — is refused rather than crashing.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.33',
     date: 'September 3, 2026',
     sections: [
