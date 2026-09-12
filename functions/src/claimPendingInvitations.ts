@@ -29,6 +29,36 @@ interface CollaboratorDoc {
   isVoting: boolean;
 }
 
+/**
+ * Sign-in providers whose tokens pass the claim gate even when the token's
+ * `email_verified` claim is false.
+ *
+ * Firebase records EVERY `microsoft.com` sign-in as `emailVerified: false`,
+ * because Microsoft's ID token carries no verified-email claim for Firebase
+ * to copy. Measured 2026-09-12 in the live Auth export: 10 of 10 Microsoft
+ * accounts unverified, 11 of 11 Google accounts verified, zero exceptions.
+ * Until v2.5.34 this gate therefore refused every Microsoft student — and
+ * its error text told them to "use a Microsoft work or school account", the
+ * exact case that was failing.
+ *
+ * `sign_in_provider` names THIS sign-in's provider, not the account's linked
+ * providers (`providerData`), so an account holding both Google and Microsoft
+ * is judged by whichever it signed in with. Everything else unverified —
+ * `password`, `anonymous`, a `google.com` token that reports unverified — is
+ * still refused, which is what the `spertsuite_invitations` rules comment
+ * says the verified-email gate exists for.
+ *
+ * ⚠️ Adding a provider here is a trust decision about that provider's email
+ * claim, not a convenience. Microsoft's rests on the Azure app registration
+ * being multi-tenant and created after June 2023, when Entra began stripping
+ * unverified-domain email claims by default. Whether that stripping is in
+ * force for THIS registration is an owner-held risk decision recorded with
+ * the v2.5.34 release — it is not a fact this file asserts.
+ */
+const UNVERIFIED_EMAIL_PROVIDERS: ReadonlySet<string> = new Set([
+  "microsoft.com",
+]);
+
 export const claimPendingInvitations = onCall(
   {cors: true, region: "us-central1"},
   async (request): Promise<ClaimResponse> => {
@@ -37,12 +67,25 @@ export const claimPendingInvitations = onCall(
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
     }
-    if (request.auth.token.email_verified !== true) {
+    // The verified-email gate, with one allowlisted exception (see
+    // UNVERIFIED_EMAIL_PROVIDERS above). `email_verified` is OPTIONAL on
+    // DecodedIdToken, so `=== true` is the only safe reading of it.
+    const emailVerified = request.auth.token.email_verified === true;
+    // `firebase.sign_in_provider` is non-optional on a verified token. The
+    // optional chain is deliberate anyway: a token that somehow lacks the
+    // claim must fail CLOSED — refused as not-allowlisted — rather than
+    // throw a TypeError that reaches the client as an opaque `internal`.
+    const signInProvider =
+      request.auth.token.firebase?.sign_in_provider ?? "";
+    if (!emailVerified && !UNVERIFIED_EMAIL_PROVIDERS.has(signInProvider)) {
+      logger.info("claimPendingInvitations refused: email unverified", {
+        signInProvider,
+      });
       throw new HttpsError(
         "failed-precondition",
-        "Your sign-in account's email could not be verified. " +
-          "Please sign in with Google, or use a Microsoft work or " +
-          "school account.",
+        "Your account's email address could not be verified, so " +
+          "invitations can't be accepted. Please sign in with Google or " +
+          "Microsoft.",
       );
     }
 

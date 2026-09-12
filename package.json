@@ -1,6 +1,6 @@
 {
   "name": "spert-landing-page",
-  "version": "2.5.33",
+  "version": "2.5.34",
   "private": true,
   "engines": {
     "node": "24.x"

@@ -59,9 +59,30 @@ const handler = (
 const futureTs = Timestamp.fromMillis(Date.now() + 86_400_000);
 
 /**
+ * The `firebase` claim every real, verified ID token carries — on
+ * DecodedIdToken `firebase.sign_in_provider: string` is NON-optional. Every
+ * token these tests build carries one, so a refusal in this file is
+ * attributable to the provider VALUE and never to an absent claim, which is
+ * a shape no real token has.
+ * @param {string} provider The `sign_in_provider` of this sign-in.
+ * @return {Record<string, unknown>} A `firebase` claim shaped like the real one.
+ */
+function firebaseClaim(provider: string): Record<string, unknown> {
+  return {
+    identities: {
+      [provider]: [`${provider}-subject`],
+      email: ["claim@example.com"],
+    },
+    sign_in_provider: provider,
+  };
+}
+
+/**
  * Build a fake CallableRequest for handler.run().
  * @param {Record<string, unknown>} overrides Optional sub-objects to merge
  *   in (tokenOverrides for auth.token, top-level for the request itself).
+ *   The default token is a verified `google.com` sign-in; pass
+ *   `tokenOverrides.firebase` to change the provider.
  * @return {unknown} A v2 CallableRequest-shaped object.
  */
 function makeReq(overrides: Record<string, unknown> = {}): unknown {
@@ -71,6 +92,7 @@ function makeReq(overrides: Record<string, unknown> = {}): unknown {
       token: {
         email: "claim@example.com",
         email_verified: true,
+        firebase: firebaseClaim("google.com"),
         ...((overrides.tokenOverrides as Record<string, unknown>) ?? {}),
       },
     },
@@ -94,7 +116,9 @@ beforeEach(() => {
 });
 
 describe("claimPendingInvitations", () => {
-  it("rejects unverified-email callers with failed-precondition", async () => {
+  it("refuses a google.com token with email_verified: false " +
+    "(failed-precondition)",
+  async () => {
     await expect(
       handler(makeReq({tokenOverrides: {email_verified: false}})),
     ).rejects.toMatchObject({code: "failed-precondition"});
@@ -644,5 +668,106 @@ describe("claimPendingInvitations updatedAt convergence (PC-2)", () => {
     }
     expect((inviteUpdateCall[1] as Record<string, unknown>).updatedAt)
       .toBe("<serverTimestamp>");
+  });
+});
+
+
+// ─────────────────────────────────────────────────────────────────────────
+// WI-1 (v2.5.34) — the provider gate.
+//
+// Firebase records every `microsoft.com` sign-in as `email_verified: false`,
+// so the gate accepts that provider unverified and refuses every other
+// unverified identity.
+//
+// PC1 and PC2 are ONE token shape — `email_verified: false` plus a complete
+// `firebase` claim — differing only in the `sign_in_provider` string. That is
+// the only construction under which PC2's refusal is attributable to the
+// provider VALUE: a token with no `firebase` claim at all is refused too, but
+// for a reason no real token can have. The third test pins that fail-closed
+// branch separately and by name, so it can never be mistaken for PC2.
+// ─────────────────────────────────────────────────────────────────────────
+describe("claimPendingInvitations provider gate (WI-1)", () => {
+  const unverifiedTokenFor = (provider: string): unknown => makeReq({
+    tokenOverrides: {email_verified: false, firebase: firebaseClaim(provider)},
+  });
+
+  it("PC1: microsoft.com with email_verified: false CLAIMS — members.{uid} " +
+    "written and the invitation marked accepted",
+  async () => {
+    const inviteRef = {id: "tok-ms"};
+    const inviteDoc = {
+      id: "tok-ms",
+      ref: inviteRef,
+      get: (k: string) => (
+        {
+          appId: "myscrumbudget",
+          modelId: "project-MSB",
+          role: "editor",
+          isVoting: false,
+          modelName: "Sprint Budget",
+          expiresAt: futureTs,
+        } as Record<string, unknown>
+      )[k],
+    };
+    queryChain.get.mockResolvedValueOnce({docs: [inviteDoc]});
+
+    const modelRef = {id: "project-MSB"};
+    fakeDoc.mockReturnValueOnce(modelRef);
+
+    fakeTx.get
+      .mockResolvedValueOnce({
+        exists: true,
+        get: (k: string) => (k === "status" ? "pending" : undefined),
+      })
+      .mockResolvedValueOnce({
+        // MyScrumBudget project shape — owner plus members map, nothing else.
+        exists: true,
+        data: () => ({owner: "uid-owner", members: {"uid-owner": "owner"}}),
+      });
+
+    const out = await handler(unverifiedTokenFor("microsoft.com"));
+
+    expect(out.claimed).toEqual([
+      {appId: "myscrumbudget", modelId: "project-MSB", modelName: "Sprint Budget"},
+    ]);
+    expect(fakeTx.update).toHaveBeenCalledWith(
+      modelRef,
+      expect.objectContaining({"members.uid-claim": "editor"}),
+    );
+    expect(fakeTx.update).toHaveBeenCalledWith(
+      inviteRef,
+      expect.objectContaining({status: "accepted", acceptedByUid: "uid-claim"}),
+    );
+    expect(lastCollectionName).toBe("myscrumbudget_projects");
+  });
+
+  it("PC2: password with email_verified: false — the SAME token shape, only " +
+    "the provider string differs — is refused with failed-precondition " +
+    "before any Firestore read",
+  async () => {
+    let caught: unknown;
+    try {
+      await handler(unverifiedTokenFor("password"));
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toMatchObject({code: "failed-precondition"});
+    const {message} = caught as {message: string};
+    expect(message).toContain("Google or Microsoft");
+    // The old text advised "a Microsoft work or school account" — the exact
+    // case that was failing. Pinned so it cannot come back.
+    expect(message).not.toMatch(/work or school/);
+    expect(queryChain.get).not.toHaveBeenCalled();
+    expect(fakeDb.runTransaction).not.toHaveBeenCalled();
+  });
+
+  it("a token with NO firebase claim — a shape no real token has — fails " +
+    "CLOSED with failed-precondition, not a TypeError",
+  async () => {
+    await expect(
+      handler(makeReq({
+        tokenOverrides: {email_verified: false, firebase: undefined},
+      })),
+    ).rejects.toMatchObject({code: "failed-precondition"});
   });
 });
