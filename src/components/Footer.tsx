@@ -65,6 +65,7 @@ export function Footer({ linkVersion = true }: FooterProps) {
           License
         </a>
       </div>
+      <div className="mt-2">Operated by famousdavis, LLC</div>
     </footer>
   );
 }
