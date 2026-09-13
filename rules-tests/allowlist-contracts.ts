@@ -712,20 +712,20 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [641, 680],
+    lines: [641, 696],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
       'reforecasts', 'activeReforecastId', 'color', 'archived',
       'owner', 'members', 'order',
-      '_teamSnapshot', '_originRef', '_changeLog',
+      '_teamSnapshot', '_costSnapshot', '_originRef', '_changeLog',
       'schemaVersion', 'createdAt', 'updatedAt',
     ],
     appMax: [
       'name', 'startDate', 'endDate',
       'reforecasts', 'activeReforecastId', 'color', 'archived',
       'owner', 'members', 'order',
-      '_teamSnapshot', '_originRef', '_changeLog',
+      '_teamSnapshot', '_costSnapshot', '_originRef', '_changeLog',
       'schemaVersion', 'createdAt', 'updatedAt',
     ],
     // createProject has no conditional spreads (`color` and `archived` use
@@ -745,8 +745,16 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ownerOrthogonal: false,
     source: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:createProject / saveProject',
     minSource: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:saveProject',
-    sourceVersion: 'MyScrumBudget v0.37.0',
-    sourceCommit: 'df11dca',
+    // Re-read at 725a147 (MyScrumBudget v0.38.5), which is what this stamp
+    // names. `_costSnapshot` is allowlisted AHEAD of the app change on purpose:
+    // the ruleset must be deployed before the app that writes the field, because
+    // createProject and importAll write it as an explicit null and an explicit
+    // null is a PRESENT key that hasOnly() denies. The field lands in
+    // FirestoreProjectDoc at MyScrumBudget v0.39.0 — so a reader diffing this
+    // entry against 725a147 will not find it there, and that is expected rather
+    // than drift.
+    sourceVersion: 'MyScrumBudget v0.38.5',
+    sourceCommit: '725a147',
   },
   {
     key: 'spertcfd_projects',
@@ -754,7 +762,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [746, 761],
+    lines: [762, 777],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -871,7 +879,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [867, 881],
+    lines: [883, 897],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -992,7 +1000,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [791],
+    lines: [807],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -1020,7 +1028,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [973],
+    lines: [989],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -1054,7 +1062,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [1012],
+    lines: [1028],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -1099,7 +1107,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [1030],
+    lines: [1046],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',

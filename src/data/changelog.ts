@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.38',
+    date: 'September 13, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'MyScrumBudget projects: the cost-snapshot field is owner-only. A project can now carry the labor rates, holidays and discount rate it was costed with, so every collaborator sees the same figures instead of pricing the project with their own rate card. Only the project owner may write it — an editor who could change it would silently alter the basis on which somebody else\'s project is costed.',
+          'The field is added to the MyScrumBudget project allowlist ahead of the app release that writes it, because the ruleset has to permit a field before the app can send it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.37',
     date: 'September 13, 2026',
     sections: [
