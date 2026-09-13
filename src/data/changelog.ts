@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.36',
+    date: 'September 13, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'The licence file now names famousdavis, LLC as the owner of the SPERT\u00ae trademarks. The SPERT\u00ae Suite business \u2014 the spertsuite.com website, the hosting it runs on, and the SPERT\u00ae, Statistical PERT\u00ae and Estimation Made Easy\u00ae marks \u2014 transferred to that company on September 12, 2026. The licence\u2019s trademark clause still named the previous owner while the newly published Terms of Service named the company, so two published legal documents disagreed about who owns the marks.',
+          '\u26a0\ufe0f Copyright in the software did not transfer, and the licence still says so. It is held by William W. Davis, MSPM, PMP personally and licensed to the company. The clauses requiring his name to be kept as the author, and withholding his name from promotional use, are unchanged \u2014 as are the copyright notices in every source file, the credit shown in each app, and the copyright line in this site\u2019s footer. Two different names now appear in the licence and both are correct: the company operates the service, the individual owns the code.',
+          'Nothing you may do with this software changed. It is still the GNU General Public License v3 with the same additional terms \u2014 the code is free to take, change and share, a modified version must still be released under a different name, and credit to the original author must still travel with it.',
+          'The licence is one file copied byte-for-byte into eight repositories, each of which pins a checksum of it, so changing it in one place alone fails the other seven at once. All eight were updated in the same pass and are released separately. The checksum guard was confirmed to still catch both ways this can go wrong \u2014 a repository left on the old checksum, and a copy edited in place instead of recopied \u2014 by breaking it each way and watching it fail.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.35',
     date: 'September 12, 2026',
     sections: [

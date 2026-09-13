@@ -16,7 +16,7 @@ import { describe, it, expect } from 'vitest';
  *
  * These guards cover the three cross-repo contracts this repository owns:
  *
- *   1. LICENSE — the file all nine repos copy verbatim.
+ *   1. LICENSE — the file all eight repos carrying it copy verbatim.
  *   2. The legal PDFs — every other app's footer links to
  *      https://spertsuite.com/TOS.pdf and /PRIVACY.pdf, and the Connect AI
  *      consent flow links to /ai-privacy and /ai-consent-notice, which are
@@ -42,9 +42,17 @@ import { describe, it, expect } from 'vitest';
  * repos carried a brand retired in March 2026, six carried weaker additional
  * terms, and spert-ssv had no repository URL at all.
  *
- * All nine now assert this same constant. That is the point: a drift here is a
- * drift in the master, and the eight copies will disagree with it — so the
+ * All eight now assert this same constant. That is the point: a drift here is a
+ * drift in the master, and the seven copies will disagree with it — so the
  * suite fails loudly rather than quietly diverging again.
+ *
+ * The two counts in this file are different sets, and both were measured on
+ * 2026-09-13. LICENSE lives in EIGHT repositories — this master plus SEVEN
+ * siblings. spert-ssv is not one of them: it withdrew the GPL v3 grant and
+ * deleted its copy at v0.2.17, being private, instructor-only and conveyed to
+ * nobody, so there is no recipient to offer source terms to. Do not restore
+ * it. The legal PDFs below are a different set — EIGHT siblings link them,
+ * ssv included, because it dropped the licence and kept the links.
  *
  * The clause directions in ADDITIONAL TERMS are deliberately opposite: a)/b)
  * *compel* retention of the author name, c)/d) *withhold* the brand (GPL §7(e)
@@ -54,15 +62,24 @@ import { describe, it, expect } from 'vitest';
  * use of the author's name (§7(d)); f) requires indemnification from anyone
  * who resells with contractual warranties (§7(f)).
  *
+ * Two different names appear in ADDITIONAL TERMS, and that is correct. The
+ * SPERT® Suite business — domain, hosting, and the marks — transferred to
+ * famousdavis, LLC effective 2026-09-12, so clause c) names the LLC as the
+ * mark owner. Copyright did NOT transfer: it is held by William W. Davis
+ * individually and licensed to the LLC, so a)/b)/e), the file header, every
+ * source-file copyright header and the app footers all still name him. Do not
+ * reconcile the two by renaming either — operator and copyright holder are
+ * deliberately different parties.
+ *
  * Changing this constant means changing the licence for the whole suite, and
- * all nine repos must be updated in the same pass.
+ * all eight repos must be updated in the same pass.
  */
 const SUITE_LICENSE_BODY_SHA256 =
-  '06d6dbc5fee76aa6b82198254e4a7489ef20718f7bd4445b87432878d2160630';
+  '1e6f03b041f4a5f42a3d50b554657371742c9ffca7608028129621130222effe';
 
 const REPO_URL = 'https://github.com/famousdavis/spert-landing';
 
-describe('LICENSE — the canonical copy for all nine repos', () => {
+describe('LICENSE — the canonical copy for all eight repos', () => {
   const lines = readFileSync(join(process.cwd(), 'LICENSE'), 'utf-8').split('\n');
 
   it('names this repository on line 4', () => {
@@ -77,9 +94,9 @@ describe('LICENSE — the canonical copy for all nine repos', () => {
 
     expect(
       actual,
-      'LICENSE has changed. This is the canonical copy — the other eight repos ' +
+      'LICENSE has changed. This is the canonical copy — the other seven repos ' +
         'assert this same digest, so they will now all fail. If the change is ' +
-        'intended, update the constant here AND in all eight copies in the same pass.',
+        'intended, update the constant here AND in all seven copies in the same pass.',
     ).toBe(SUITE_LICENSE_BODY_SHA256);
   });
 });
