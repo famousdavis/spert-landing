@@ -712,7 +712,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [641, 652],
+    lines: [641, 680],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -754,7 +754,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [718, 733],
+    lines: [746, 761],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -871,7 +871,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [839, 853],
+    lines: [867, 881],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -992,7 +992,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [763],
+    lines: [791],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -1020,7 +1020,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [945],
+    lines: [973],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -1054,7 +1054,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [984],
+    lines: [1012],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -1099,7 +1099,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [1002],
+    lines: [1030],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',
