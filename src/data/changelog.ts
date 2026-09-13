@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.35',
+    date: 'September 12, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'On a shared MyScrumBudget project, anyone invited as an editor could rewrite four record-keeping fields on a project owned by somebody else. These are not the project\u2019s content \u2014 they are the fields that record where a project came from, when it was created, which version of the data format it uses, and a log of the changes made to it. An editor could clear that change log completely in a single action, leaving nothing on the server to show it had happened. Only the project\u2019s owner can change these four now.',
+          'Measured against the live rules before the fix: all four were writable by a non-owner editor. Fourteen editor seats across four shared projects were affected, and one account holds editor access on three of the four.',
+          '\u26a0\ufe0f This was not a new fault and nothing in a recent release caused it. It is being fixed on its own, ahead of other planned MyScrumBudget work, so that a security fix does not wait on anything else.',
+          '\u26a0\ufe0f Dashboard ordering is deliberately left as it was. Each person can drag their projects into a preferred order, but that order is stored on the project itself rather than against the person who chose it. Restricting it to owners would mean anyone invited to even one shared project could no longer reorder their own dashboard at all \u2014 the entire reordering action would be refused, and the app does not currently notice such a refusal. That is a genuine problem of its own, but the repair belongs in the app rather than in these rules, and it has been recorded as separate work rather than folded in here.',
+          'The change is covered by new tests that were first confirmed to fail against the unfixed rules, so they demonstrate the fault rather than merely describing it. They also hold in place the things that must keep working: an editor saving ordinary project content, and an editor reordering their dashboard. Writing the same protection for the other six apps is now a mechanical follow-on, and is deliberately not part of this release.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.34',
     date: 'September 12, 2026',
     sections: [

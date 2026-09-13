@@ -645,8 +645,36 @@ service cloud.firestore {
       // fields permitted on the diff).
       allow update: if isAuth()
                     && (resource.data.members[request.auth.uid] == 'owner' || resource.data.members[request.auth.uid] == 'editor')
+                    // v2.5.35: owner-only set widened from two fields to six.
+                    // `_originRef`, `_changeLog`, `schemaVersion` and
+                    // `createdAt` are PROVENANCE, not content, and any non-owner
+                    // editor could rewrite them on somebody else's project —
+                    // `_changeLog` clearable to [] in one write, unrecorded.
+                    // Pre-existing, not a regression. Same construct the
+                    // spertAhpProjectFields() block below already uses.
+                    //
+                    // Denies nothing the app does: the ordinary editor save is
+                    // SAVE_PROJECT_MERGE_SET in MyScrumBudget's firestoreRepo.ts
+                    // (nine content fields, none of these four), and the paths
+                    // that DO write them, createProject and importAll, also
+                    // claim `owner`/`members` and were already denied here.
+                    //
+                    // `order` is DELIBERATELY ABSENT: reorderProjects writes it
+                    // to every dashboard project in one atomic writeBatch, so
+                    // gating it would reject the whole batch for any editor
+                    // holding one shared project — breaking reorder of their own
+                    // dashboard, unhandled. That needs a client or data-model
+                    // fix, not a rules one. Pinned by the `order` cases in
+                    // rules-tests/myscrumbudget-provenance-fields.test.ts.
                     && (
-                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                         'owner',
+                         'members',
+                         '_originRef',
+                         '_changeLog',
+                         'schemaVersion',
+                         'createdAt'
+                       ]))
                       || resource.data.members[request.auth.uid] == 'owner'
                     )
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(myScrumBudgetProjectFields());
