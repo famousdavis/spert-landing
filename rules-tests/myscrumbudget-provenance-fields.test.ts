@@ -22,16 +22,26 @@
  * existed: ALLOW on all four for a non-owner editor, across 14 editor seats on
  * 4 shared projects. PRE-EXISTING, not a regression.
  *
+ * v2.5.38: `_costSnapshot` joins them, so the allowlist is SEVENTEEN fields and
+ * the owner-only set is seven. The paragraph above is dated and describes the
+ * four it was written about; it stays as written. The new member is the first
+ * that is CONTENT rather than provenance — it carries the OWNER's labor rates,
+ * holidays and discount rate so every collaborator prices the project the same
+ * way, and an editor who could rewrite it would silently change the basis on
+ * which somebody else's project is costed. The const below is still called
+ * PROVENANCE_FIELDS because its `Record` typing is what compile-forces every
+ * table in this file to cover a new member; read it as "the owner-only set".
+ *
  * WHY PROTECTING THEM BREAKS NOTHING
  * ----------------------------------
  * Every write path in MyScrumBudget that reaches this collection was
  * enumerated (`src/lib/storage/firestoreRepo.ts`, plus `invitations.ts`):
  *
  *   saveProject        setDoc with mergeFields = SAVE_PROJECT_MERGE_SET, which
- *                      is nine fields and contains NONE of the four. This is
+ *                      is nine fields and contains NONE of the five. This is
  *                      the ordinary save, and it is the only write path an
  *                      editor exercises against a shared project.
- *   createProject      full setDoc writing all four — but it also writes
+ *   createProject      full setDoc writing all five — but it also writes
  *                      `owner: uid` / `members: {uid: 'owner'}`, so on an
  *                      existing document owned by someone else the PREVIOUS
  *                      guard already denied it.
@@ -55,11 +65,16 @@
  *
  * WHAT THIS SUITE PINS
  * --------------------
- *   DENIED  — an editor writing each of the four, one case per field, plus one
+ *   DENIED  — an editor writing each of the five, one case per field, plus one
  *             smuggling a provenance field alongside a legitimate content
- *             write. All five FAILED against the unmodified ruleset; that is
- *             what makes them evidence rather than decoration.
- *   ALLOWED — the OWNER writing each of the four. The guard is about role, not
+ *             write. The ORIGINAL five FAILED against the unmodified ruleset;
+ *             that is what makes them evidence rather than decoration. The
+ *             `_costSnapshot` case is new in v2.5.38 and was held to the same
+ *             standard, MEASURED rather than asserted: neutralising its entry
+ *             in the owner-only `hasAny([...])` set (line count preserved, so
+ *             the pins stayed valid) failed EXACTLY this one case — 1 failed,
+ *             172 passed, 20 skipped — and the ruleset was restored md5-identical.
+ *   ALLOWED — the OWNER writing each of the five. The guard is about role, not
  *             about the values, and a fix that locked the fields outright would
  *             pass the denials while breaking migration and import.
  *   ALLOWED — an editor's ordinary content write (the nine merge-set fields).
@@ -113,12 +128,19 @@ const SEEDED_ORDER: Record<string, number> = {
   [BOB_PROJECT]: 7,
 };
 
-/** The four fields this suite moves behind the owner gate. */
+/**
+ * The owner-only set. Four are provenance; `_costSnapshot` (v2.5.38) is CONTENT
+ * and is here for a different reason — see the header. The name is kept because
+ * every table below is `Record<(typeof PROVENANCE_FIELDS)[number], unknown>`, so
+ * adding a member here is a COMPILE ERROR until each one covers it, and that
+ * forcing is this file's best property.
+ */
 const PROVENANCE_FIELDS = [
   '_originRef',
   '_changeLog',
   'schemaVersion',
   'createdAt',
+  '_costSnapshot',
 ] as const;
 
 /**
@@ -131,6 +153,13 @@ const EDITOR_ATTEMPT: Record<(typeof PROVENANCE_FIELDS)[number], unknown> = {
   _changeLog: [],
   schemaVersion: 0,
   createdAt: '2020-01-01T00:00:00.000Z',
+  // The abuse this field invites: an editor repricing somebody else's project
+  // by rewriting the owner's rate card underneath them.
+  _costSnapshot: {
+    laborRates: [{ role: 'BA', hourlyRate: 1 }],
+    holidays: [],
+    discountRateAnnual: 0.99,
+  },
 };
 
 /** What the OWNER writes for the same field — a plausible legitimate move. */
@@ -141,6 +170,12 @@ const OWNER_WRITE: Record<(typeof PROVENANCE_FIELDS)[number], unknown> = {
   // MUST differ from the seeded value, or the owner case asserts nothing. The
   // harness self-check below caught exactly that when these were equal.
   createdAt: '2026-02-01T09:30:00.000Z',
+  // MUST differ from the seed below, same reason as createdAt above.
+  _costSnapshot: {
+    laborRates: [{ role: 'BA', hourlyRate: 95 }],
+    holidays: [],
+    discountRateAnnual: 0.07,
+  },
 };
 
 /**
@@ -183,6 +218,13 @@ function seededProject(owner: string, members: Record<string, string>, order: nu
     _changeLog: [{ t: 1_757_000_000, op: 'create', entity: 'project', source: 'user' }],
     schemaVersion: 2,
     createdAt: '2026-01-15T10:00:00.000Z',
+    // Differs from OWNER_WRITE._costSnapshot on every field, so the owner case
+    // cannot degenerate into an empty diff.
+    _costSnapshot: {
+      laborRates: [{ role: 'BA', hourlyRate: 75 }],
+      holidays: [],
+      discountRateAnnual: 0.05,
+    },
   };
 }
 
@@ -248,7 +290,7 @@ describe('harness self-check', () => {
     expect(await storedField(SHARED_PROJECT, 'owner')).toBe(ALICE);
   });
 
-  it('seeds all four provenance fields, each differing from what the cases write', async () => {
+  it('seeds all five owner-only fields, each differing from what the cases write', async () => {
     for (const field of PROVENANCE_FIELDS) {
       const pre = await storedField(SHARED_PROJECT, field);
       expect(pre, `${field} seeded`).toBeDefined();
@@ -325,7 +367,7 @@ describe('myscrumbudget_projects — provenance fields are owner-only', () => {
     });
   }
 
-  it('ALLOWED: an editor can still write all four on a project they own', async () => {
+  it('ALLOWED: an editor can still write all five on a project they own', async () => {
     // The gate is role-on-this-document, not a property of the field names.
     const everything = Object.fromEntries(
       PROVENANCE_FIELDS.map((f) => [f, OWNER_WRITE[f]]),

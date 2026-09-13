@@ -623,7 +623,7 @@ service cloud.firestore {
         'name', 'startDate', 'endDate',
         'reforecasts', 'activeReforecastId', 'color', 'archived',
         'owner', 'members', 'order',
-        '_teamSnapshot', '_originRef', '_changeLog',
+        '_teamSnapshot', '_costSnapshot', '_originRef', '_changeLog',
         'schemaVersion', 'createdAt', 'updatedAt'
       ];
     }
@@ -653,9 +653,24 @@ service cloud.firestore {
                     // Pre-existing, not a regression. Same construct the
                     // spertAhpProjectFields() block below already uses.
                     //
+                    // v2.5.38: `_costSnapshot` joins the set, taking it to
+                    // SEVEN. ⚠️ It is the first member that is CONTENT, not
+                    // provenance — the paragraph above is dated and describes
+                    // its own four fields, so it stays as written rather than
+                    // being widened to cover a field it predates. The reason
+                    // differs in kind: `_costSnapshot` is the OWNER's labor
+                    // rates, holidays and discount rate, carried on the project
+                    // so every collaborator prices it the same way. An editor
+                    // who could rewrite it would silently change the basis on
+                    // which somebody else's project is costed. Added ahead of
+                    // MyScrumBudget v0.39.0, which writes the key as an
+                    // explicit null on create and import — an explicit null is
+                    // a PRESENT key, so without the allowlist entry above every
+                    // cloud create and import is denied.
+                    //
                     // Denies nothing the app does: the ordinary editor save is
                     // SAVE_PROJECT_MERGE_SET in MyScrumBudget's firestoreRepo.ts
-                    // (nine content fields, none of these four), and the paths
+                    // (nine content fields, none of these five), and the paths
                     // that DO write them, createProject and importAll, also
                     // claim `owner`/`members` and were already denied here.
                     //
@@ -673,7 +688,8 @@ service cloud.firestore {
                          '_originRef',
                          '_changeLog',
                          'schemaVersion',
-                         'createdAt'
+                         'createdAt',
+                         '_costSnapshot'
                        ]))
                       || resource.data.members[request.auth.uid] == 'owner'
                     )
