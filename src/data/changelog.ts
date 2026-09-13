@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.37',
+    date: 'September 13, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'New editions of all four legal documents are published: Terms of Service 1.2, Privacy Policy 1.2, AI Privacy Notice 2.1 and AI Connectivity Consent Notice 2.1, all effective September 13, 2026. Every one of them now names famousdavis, LLC as the operator of this site and the apps.',
+          'Each document carries a Change of Operator section recording that the SPERT\u00ae Suite business transferred to that company on September 12, 2026, and stating what the transfer did not change: not what the apps collect, not where it is stored, not who processes it, not how long it is kept, and not any right you hold. Cloud Storage data stayed in the same Firebase project under the same access controls throughout, and was not moved or disclosed to anyone as part of the transfer. Posting the Privacy Policy is the notice of the transfer its own Business Transfers section calls for.',
+          '\u26a0\ufe0f Copyright in the software did not transfer. It is held by William W. Davis, MSPM, PMP personally and licensed to the company, and the Terms now say so in their own right. The footer\u2019s copyright line, the credit shown in each app, and the copyright notice in every source file all still name him and are correct as they stand.',
+          'The Terms gained a short section defining who the word \u201cOperator\u201d covers, because after the transfer there are two parties rather than one. In the provisions that disclaim warranties, limit liability or provide for indemnification, it covers the company and William W. Davis individually. Everywhere else \u2014 in particular the content, feedback and AI licences you grant \u2014 it means the company alone, so those grants run to the company and not to an individual.',
+          'No new consent is required, and the Connect AI consent dialogs are unchanged and will not be shown again on account of this. Their wording and the data handling behind them were not affected by the transfer, so the consent version they record is deliberately unchanged.',
+          'This site\u2019s footer now reads \u201cOperated by famousdavis, LLC\u201d beneath the legal links. The apps\u2019 own footers are unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.36',
     date: 'September 13, 2026',
     sections: [
