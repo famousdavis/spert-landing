@@ -594,8 +594,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     path: 'spertstorymap_projects/{projectId}',
     collection: 'spertstorymap_projects',
     sub: null,
-    ops: ['update'],
-    lines: [416],
+    ops: ['create', 'update'],
+    lines: [436, 443],
     shape: 'project',
     allowlist: [
       'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
@@ -628,6 +628,21 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // _exportedById) over validateProduct (which drops every key outside
     // PRODUCT_FIELDS - a list that omits owner, members, _owner and _members
     // behind a compile-time Omit<> guard).
+    //
+    // !! STAYS AT 17 AFTER STORY MAP v0.53.7. DO NOT RE-DERIVE FROM PAYLOAD KEYS.
+    // v0.53.7 made replaceProduct CARRY FORWARD any _owner/_members a document
+    // already stores, so its tx.set payload can now literally contain two names
+    // that are not in the allowlist. Deriving appMax from payload keys therefore
+    // yields 19, which reds `keeps appMax and appMin within the allowlist` with
+    // the identical assertion that made shape C unshippable, and flips
+    // `coincides` to false (the target 176/21/197 would become 177/20/197).
+    //
+    // It stays at 17 because appMax is the app-side pre-image of a RULES
+    // PREDICATE, and the two ops have different predicates. create is keys() -
+    // payload keys, and v0.53.7 strips all five alias/export fields, so <= 17.
+    // update is diff().affectedKeys(), and a value CARRIED FORWARD UNCHANGED is
+    // not an affected key. Neither predicate ever sees the two aliases. Union =
+    // 17, coincides stays true.
     appMax: [
       'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
       'sizeMapping', 'releases', 'sprints', 'sprintCadenceWeeks',
@@ -642,9 +657,17 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     // NOT rescoped with `appMax`, deliberately: the all-paths minimum here is
     // `['_changeLog']` - the lone arrayUnion update - and a shape 2 built from
     // one key would assert almost nothing. Anchored at `doSaveProduct`.
+    // owner + members are NOT a rescope of the doSaveProduct anchor - they are
+    // required by `allow create` itself (owner == caller, members[caller] ==
+    // 'owner'), so shape 2 on create is denied without them for a reason that
+    // has nothing to do with any allowlist. All six other create-bearing project
+    // contracts carry both. Verified against the generator rather than against
+    // that precedent: targetValue() returns `uid` and
+    // {[uid]:'owner',[EXTRA]:'viewer'}, satisfying both legs.
     appMin: [
       'name', 'description', 'updatedAt', 'schemaVersion',
       'sizeMapping', 'releases', 'sprints', 'themes',
+      'owner', 'members',
     ],
     coincides: true,
     unionOnly: [],
@@ -653,13 +676,17 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     ownerOrthogonal: false,
     source: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
     minSource: 'spert-story-map/src/lib/firestoreDriver.ts:doSaveProduct',
-    sourceVersion: 'spert-story-map v0.52.7',
-    sourceCommit: '3d6a1ab',
+    sourceVersion: 'spert-story-map v0.53.7',
+    sourceCommit: '395ecbc',
     notes:
-      'UPDATE-only by design (firestore.rules:363-372): createProduct strips only ' +
-      '`id`, so a keys().hasOnly() on create could reject a legitimate create still ' +
-      'carrying an _owner/_members alias. The create surface is self-owned instead. ' +
-      'Tested as documented behaviour, not as a gap.',
+      'CREATE + UPDATE since landing 2.5.39 (firestore.rules:433-443). This entry ' +
+      'read "UPDATE-only by design" until then, because createProduct stripped only ' +
+      '`id` and a keys().hasOnly() on create would have rejected a legitimate create ' +
+      'still carrying an _owner/_members alias. THE CLIENT WAS FIXED FIRST: Story Map ' +
+      'v0.53.7 strips all five alias/export fields at create, and only then did the ' +
+      'clause land - rules are global and instant, the client is a static bundle. ' +
+      'The old note cited firestore.rules:363-372, which was already stale when ' +
+      'written: it pointed at the profiles paragraph, not the create argument.',
   },
   {
     key: 'spertscheduler_projects',
@@ -667,7 +694,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [475, 486],
+    lines: [502, 513],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -712,7 +739,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [641, 696],
+    lines: [668, 723],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -762,7 +789,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [762, 777],
+    lines: [789, 804],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -799,7 +826,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertforecaster_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [570, 577],
+    lines: [597, 604],
     shape: 'project',
     // Exactly `keyof FirestoreProjectDoc` (types.ts). Every full write routes
     // through projectToFirestoreDoc, which emits these sixteen and nothing else;
@@ -879,7 +906,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [883, 897],
+    lines: [910, 924],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -944,7 +971,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_settings',
     sub: null,
     ops: ['write'],
-    lines: [509],
+    lines: [536],
     shape: 'selfOwned',
     allowlist: [
       'defaultTrialCount', 'defaultDistributionType', 'defaultConfidenceLevel',
@@ -1000,7 +1027,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [807],
+    lines: [834],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -1028,7 +1055,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [989],
+    lines: [1016],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -1062,7 +1089,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [1028],
+    lines: [1055],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -1107,7 +1134,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [1046],
+    lines: [1073],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',
