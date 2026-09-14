@@ -631,31 +631,83 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
 });
 
 /**
- * Site 4's create surface carries no allowlist ON PURPOSE
- * (firestore.rules:363-372): `firestoreDriver.createProduct` strips only `id`,
- * so a `keys().hasOnly()` there could reject a legitimate create still
- * carrying an `_owner`/`_members` alias field. The create rule binds
- * `owner == caller` instead, making the surface self-owned.
+ * Site 4's create surface DOES carry a field allowlist, since landing 2.5.39
+ * (firestore.rules:433-443). This block previously asserted the opposite and
+ * explained why - that explanation is kept below rather than deleted, because
+ * it was correct when written and the reason it stopped being correct is the
+ * whole point.
  *
- * Tested as the documented behaviour it is, rather than recorded as a gap - if
- * someone later "completes" the ruleset by adding a create allowlist, this
- * case is what tells them why it was left out.
+ * WHAT IT SAID: `firestoreDriver.createProduct` stripped only `id`, so a
+ * `keys().hasOnly()` there would have rejected a legitimate create still
+ * carrying an `_owner`/`_members` alias - the aliases are re-attached on read
+ * and `duplicateProduct` spreads the loaded product wholesale, so every
+ * cloud-mode Duplicate carried them. The create rule bound `owner == caller`
+ * instead and the surface was called self-owned.
+ *
+ * WHAT SUPERSEDED IT: the premise was fixed in the client FIRST. Story Map
+ * v0.53.7 (395ecbc) strips all five alias/export fields from the create
+ * payload, shipped and went live, and only then did the clause land - rules are
+ * global and instant, the client is a static bundle, so the reverse order would
+ * have denied Duplicate for every stale tab. The same release made
+ * `replaceProduct` CARRY the aliases FORWARD on documents that already store
+ * them, which is what keeps older documents usable: an unmerged `tx.set`
+ * omitting them is a REMOVAL, and update's `affectedKeys().hasOnly()` denies
+ * removals. Those documents keep the two fields permanently, by ruling.
+ *
+ * ⚠️ DO NOT "FIX" A FAILURE HERE BY DELETING THE ALIAS FIELDS FROM THE FIXTURE.
+ * That takes ten seconds, leaves production untouched, and makes the suite
+ * report success. These cases are the ONLY place in this repo that writes
+ * `_owner` at a create, so gutting them silently removes the coverage rather
+ * than relocating it.
  */
-describe('spertstorymap_projects - create carries no field allowlist by design', () => {
+describe('spertstorymap_projects - create carries a field allowlist since 2.5.39', () => {
   const storyMap = ALLOWLIST_CONTRACTS.find((c) => c.key === 'spertstorymap_projects');
 
-  it('ALLOWED: a self-owned create still carrying an alias field is accepted', async () => {
+  it('DENIED: a self-owned create carrying an alias field is refused', async () => {
     expect(storyMap, 'spertstorymap_projects contract present').toBeDefined();
+    const client = db(ALICE);
+    await assertFails(
+      setDoc(doc(client, 'spertstorymap_projects', FRESH), {
+        ...buildDoc(storyMap!.appMin, ALICE),
+        owner: ALICE,
+        members: { [ALICE]: 'owner' },
+        // The alias fields a pre-v0.53.7 createProduct did not strip. Everything
+        // else in this document is allowlisted and the owner bindings are
+        // satisfied, so these two are the only reason it is refused.
+        _owner: ALICE,
+        _members: { [ALICE]: 'owner' },
+      }),
+    );
+  });
+
+  it('DENIED: a create carrying `_owner: null` ALONE is refused', async () => {
+    // `keys()` counts a key written as an explicit null. The reasoning that
+    // "null is not a key" is wrong, has been reached for before, and would
+    // reopen the surface for the one payload shape most likely to survive a
+    // half-applied client fix - `_owner` is written `data.owner ?? null` at the
+    // re-attach sites, so null is its natural value, not a contrived one.
+    // `_members` is deliberately absent here: one key, on its own, is enough.
+    const client = db(ALICE);
+    await assertFails(
+      setDoc(doc(client, 'spertstorymap_projects', FRESH), {
+        ...buildDoc(storyMap!.appMin, ALICE),
+        owner: ALICE,
+        members: { [ALICE]: 'owner' },
+        _owner: null,
+      }),
+    );
+  });
+
+  it('ALLOWED: the same create without the aliases is accepted', async () => {
+    // The control, and the one that would catch an allowlist tightened past
+    // what the fixed client actually writes - the 43-day `color` failure. Both
+    // DENIED cases above are this document plus one key.
     const client = db(ALICE);
     await assertSucceeds(
       setDoc(doc(client, 'spertstorymap_projects', FRESH), {
         ...buildDoc(storyMap!.appMin, ALICE),
         owner: ALICE,
         members: { [ALICE]: 'owner' },
-        // The alias fields createProduct does not strip. A create allowlist
-        // would reject these and break cloning.
-        _owner: ALICE,
-        _members: { [ALICE]: 'owner' },
       }),
     );
   });

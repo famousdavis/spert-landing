@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.39',
+    date: 'September 14, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'SPERT Story Map projects: a new project may now only contain the fields the app actually uses. Until now the create path was the one project surface in the suite with no field allowlist, so a crafted request could add arbitrary fields to a brand-new project document. Updates have been guarded since 2.5.17; creates now match.',
+          'The Story Map client was fixed and deployed FIRST, in its v0.53.7 release, and only then did this rule land. Rules are global and take effect within seconds, while the client is a static bundle that can sit in an open tab — so tightening the rule first would have broken Duplicate for anyone still running the older client. The reverse order is the whole reason this shipped as two releases rather than one.',
+          'Story Map v0.53.7 also stopped writing two internal bookkeeping fields into cloud storage at create, and made replacing a project keep any that an older client already stored. That second half is what repairs projects made with Duplicate before the fix, which could not be replaced by an import at all.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.38',
     date: 'September 13, 2026',
     sections: [
