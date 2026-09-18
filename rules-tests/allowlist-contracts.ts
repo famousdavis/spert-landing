@@ -816,8 +816,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'still STORE them, and a removed key is an affected key: dropping the three before ' +
       'those documents are cleaned would deny any full replace of such a document ' +
       '(importAll keeping an id) and leave the fields undeletable by clients. A pre-release ' +
-      'tab, v0.41.0 or earlier, also still writes all three. WI-E4 is PLANNED for the ' +
-      'post-semester window: clean the stored documents first, then drop the three here ' +
+      'tab, v0.41.0 or earlier, also still writes all three. WI-E4 is PLANNED: clean ' +
+      'the stored documents first, then drop the three here ' +
       'and in the Scheduler mirror, changing the KEEP cases in ' +
       'myscrumbudget-provenance-fields.test.ts on purpose. Until then this is the one ' +
       'entry where coincides is false, so shape 4 runs for it.',
