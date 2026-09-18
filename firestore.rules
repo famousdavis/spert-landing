@@ -202,6 +202,16 @@
 //     false claim — its CHANGELOG and the changelog data module that
 //     renders at that app's /changelog route — were repaired in
 //     MyScrumBudget v0.37.3, merged as dc99ec9 (no tag cut).
+//
+//     !! CORRECTED 2.5.40 (2026-09-17). Three present-tense sentences in
+//     this entry describe MyScrumBudget v0.33.0 to v0.41.0, not the app
+//     since: that firestoreRepo writes both fields on every create/save as
+//     `field ?? null`; that createProject and saveProject both always send
+//     `color`; and that `archived` writes a non-null `true` on update. Since
+//     v0.42.0 the app writes neither field — nor `order` — to a project
+//     document: colour, archive and dashboard order are per-user, stored in
+//     each reader's own settings document. The allowlist entries stay ON
+//     PURPOSE (KEEP): see the note above myScrumBudgetProjectFields().
 
 rules_version = '2';
 service cloud.firestore {
@@ -640,11 +650,23 @@ service cloud.firestore {
     //     ['members'] which is on the allowlist.
     // If firestoreRepo starts writing a new top-level field, add it here in
     // the SAME PR or saves will fail silently with PERMISSION_DENIED.
+    // !! THE EXCEPTION, SINCE 2.5.40 (KEEP): `color`, `archived` and `order`
+    // stay on this list although MyScrumBudget v0.42.0 writes none of them.
+    // Documents written by earlier versions still store them, and a removed
+    // key is an affected key: removing the three before those documents are
+    // cleaned would deny any full replace of them and leave the fields
+    // undeletable by clients. Do not remove them until the documents are
+    // cleaned (WI-E4, planned: clean first, then drop). The register marks
+    // them `unionOnly`; rules-tests/myscrumbudget-provenance-fields.test.ts
+    // goes red on a silent drop or a silent tightening.
     // color + archived (July 2026): both are top-level scalar fields written
     // as `field ?? null`. This line used to say color's null default
     // "slipped past keys().hasOnly() while a non-null value would not" —
     // MEASURED FALSE in 2.5.27; an explicit null is a present key and
     // hasOnly() denies it. See the header entry for the controls.
+    // !! CORRECTED 2.5.40 (2026-09-17): "written as `field ?? null`" describes
+    // MyScrumBudget up to v0.41.0. Since v0.42.0 neither field is written to a
+    // project document at all; both stay allowlisted on purpose (KEEP, above).
     function myScrumBudgetProjectFields() {
       return [
         'name', 'startDate', 'endDate',
@@ -697,16 +719,23 @@ service cloud.firestore {
                     //
                     // Denies nothing the app does: the ordinary editor save is
                     // SAVE_PROJECT_MERGE_SET in MyScrumBudget's firestoreRepo.ts
-                    // (nine content fields, none of these five), and the paths
+                    // (seven content fields since v0.42.0, nine before it; none
+                    // of these five), and the paths
                     // that DO write them, createProject and importAll, also
                     // claim `owner`/`members` and were already denied here.
                     //
-                    // `order` is DELIBERATELY ABSENT: reorderProjects writes it
-                    // to every dashboard project in one atomic writeBatch, so
-                    // gating it would reject the whole batch for any editor
-                    // holding one shared project — breaking reorder of their own
-                    // dashboard, unhandled. That needs a client or data-model
-                    // fix, not a rules one. Pinned by the `order` cases in
+                    // `order` is no longer written by the app (MyScrumBudget
+                    // v0.42.0). It stays allowlisted because removing it BEFORE
+                    // the stored documents are cleaned would deny any full
+                    // replace of them and leave the field undeletable by
+                    // clients — see the register notes. It also stays OUT of
+                    // the owner-only set below while KEEP holds: a pre-release
+                    // (v0.41.0 or earlier) tab still sends reorderProjects'
+                    // one-batch {order} write over every project on its
+                    // dashboard, and gating `order` would refuse that batch
+                    // whole for any editor holding one shared project (a
+                    // VIEWER's batch was already refused under v0.41.0).
+                    // Pinned by the `order` cases in
                     // rules-tests/myscrumbudget-provenance-fields.test.ts.
                     && (
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny([

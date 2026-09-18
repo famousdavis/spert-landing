@@ -38,14 +38,20 @@
  *      sets are equal this case would be shape 1 re-run against an identical
  *      document, so it is skipped by name rather than silently.
  *
- *      SKIPPED EVERYWHERE SINCE 2.5.25, AND THAT IS THE ANSWER, NOT A DEAD
- *      BRANCH. A non-empty `unionOnly` means an allowlisted field no app
- *      writes; `coincides: false` is the same statement; the self-checks red
- *      when either changes. 2.5.25 rescoped `appMax` to all write paths
- *      reaching a site, which closed the last gap (Story Map's), so every
- *      entry now coincides and every shape 4 skips. Do NOT delete this branch
- *      because nothing exercises it - the day it runs is the day an allowlist
- *      has grown past its app, which is precisely what it exists to catch.
+ *      A non-empty `unionOnly` means an allowlisted field no app writes;
+ *      `coincides: false` is the same statement; the self-checks red when
+ *      either changes. Do NOT delete this branch when nothing exercises it -
+ *      the day it runs is the day an allowlist has grown past its app, which
+ *      is precisely what it exists to catch.
+ *
+ *      CORRECTED 2.5.40 (2026-09-17). This said "SKIPPED EVERYWHERE SINCE
+ *      2.5.25, AND THAT IS THE ANSWER": 2.5.25 rescoped `appMax` to all write
+ *      paths reaching a site, which closed the last gap (Story Map's), so
+ *      every entry coincided and every shape 4 skipped. MyScrumBudget v0.42.0
+ *      ended that ON PURPOSE - it stopped writing `color`, `archived` and
+ *      `order`, and the three are KEPT on the allowlist until the documents
+ *      that still store them are cleaned. `myscrumbudget_projects` shape 4
+ *      therefore RUNS, on create and on update; the other twelve still skip.
  *   5. ALLOWED - `deleteField()` removal, wherever a site declares `clearable`.
  *      Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
  *      REMOVAL, and both apps make them: Forecaster writes deleteField()
@@ -60,8 +66,12 @@
  * THE OWNER/EDITOR TRAP
  * ---------------------
  * Every project allowlist contains `owner` and `members`, and every project
- * update rule carries a field-protection guard (firestore.rules:295-298)
- * restricting those two keys to owners. A maximal `affectedKeys()` write
+ * update rule carries a field-protection guard - an owner-only
+ * `hasAny([...])` clause that always includes those two (exactly those two
+ * in five of the seven), first in the `ganttapp_projects` update rule -
+ * restricting them to owners. (Named, not numbered, since 2.5.40: this
+ * cited firestore.rules:295-298, right when written in 2.5.16 and moved
+ * off the guard by lines added above it.) A maximal `affectedKeys()` write
  * therefore TOUCHES them, so it must run as owner - run as an editor it fails
  * on the escalation guard rather than the allowlist, which is a red that means
  * nothing, or a green after someone "fixes" it by trimming the document.
@@ -632,7 +642,8 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
 
 /**
  * Site 4's create surface DOES carry a field allowlist, since landing 2.5.39
- * (firestore.rules:433-443). This block previously asserted the opposite and
+ * (the create rule in the `spertstorymap_projects` match block - named, not
+ * numbered, since 2.5.40). This block previously asserted the opposite and
  * explained why - that explanation is kept below rather than deleted, because
  * it was correct when written and the reason it stopped being correct is the
  * whole point.

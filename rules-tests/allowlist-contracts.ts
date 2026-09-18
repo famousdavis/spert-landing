@@ -104,8 +104,14 @@ export type AllowlistOp = 'create' | 'update' | 'write';
  *  - `project`       top-level `*_projects` doc with a members map. Needs an
  *                    owner/editor/viewer caller; `owner` and `members` are
  *                    themselves allowlisted, so a maximal write touches them
- *                    and must run as OWNER (see the escalation guard at
- *                    firestore.rules:295-298).
+ *                    and must run as OWNER (see the escalation guard: the
+ *                    owner-only `hasAny([...])` clause every project update
+ *                    rule carries, which always includes `owner` and
+ *                    `members` - exactly those two in five of the seven -
+ *                    first in `ganttapp_projects`). Named, not numbered,
+ *                    since 2.5.40: this cited firestore.rules:295-298,
+ *                    right when written (2.5.16) and moved off the guard
+ *                    by lines added above it.
  *  - `subcollection` doc under a project. Gates on `canWriteGet(projectId)`,
  *                    which `get()`s the PARENT - the parent must be seeded or
  *                    every write is denied for the wrong reason.
@@ -204,9 +210,15 @@ export interface AllowlistContract {
    * True when `appMax` and `allowlist` are the same set.
    *
    * `coincides: false` and a non-empty `unionOnly` are the same statement, and
-   * both are pinned by self-checks that red when either moves. True for all
-   * thirteen since 2.5.25 - the current answer, not an invariant. See
-   * `unionOnly`.
+   * both are pinned by self-checks that red when either moves. It is the
+   * current answer, not an invariant. See `unionOnly`.
+   *
+   * CORRECTED 2.5.40 (2026-09-17). This said "True for all thirteen since
+   * 2.5.25". It was, until MyScrumBudget v0.42.0 stopped writing `color`,
+   * `archived` and `order`: `myscrumbudget_projects` is now `false`, ON
+   * PURPOSE, because the three are kept on the allowlist until the documents
+   * that still store them are cleaned - see that entry's `notes`. The other
+   * twelve still coincide.
    */
   coincides: boolean;
   /**
@@ -218,11 +230,17 @@ export interface AllowlistContract {
    * A NON-EMPTY `unionOnly` MEANS AN ALLOWLISTED FIELD NO APP WRITES;
    * `coincides: false` says the same thing; the self-check reds when either
    * changes. Shape 4 in `allowlist-coverage.test.ts` runs ONLY in that case.
-   * It is empty for all thirteen since 2.5.25, so shape 4 is skipped
-   * everywhere - that is the current answer, NOT a dead branch. Do not remove
-   * the branch because nothing exercises it: the day it runs is the day an
-   * allowlist has grown past what its app writes, which is the gap a new app
-   * field lands in.
+   * Do not remove the branch when nothing exercises it: the day it runs is the
+   * day an allowlist has grown past what its app writes, which is the gap a new
+   * app field lands in.
+   *
+   * CORRECTED 2.5.40 (2026-09-17). This said "It is empty for all thirteen
+   * since 2.5.25, so shape 4 is skipped everywhere - that is the current
+   * answer, NOT a dead branch." It held until MyScrumBudget v0.42.0 stopped
+   * writing `color`, `archived` and `order`. `myscrumbudget_projects` now
+   * carries all three here and its shape 4 RUNS, on create and on update: the
+   * case the paragraph above describes, reached on purpose rather than by
+   * drift. The other twelve are still empty and still skip.
    */
   unionOnly: string[];
   /**
@@ -436,7 +454,12 @@ export const FIELD_BUCKETS = {
   // --- unjoined, and about ANOTHER repository ------------------------------
   // These seven are the expensive kind: read from an app repo on a date, and
   // nothing in this repository can tell you they have gone stale. `appMax`
-  // has had ZERO app-tracking refreshes across eight register versions.
+  // had ZERO app-tracking refreshes across eight register versions, counted
+  // when this was written (2.5.29). CORRECTED 2.5.40 (2026-09-17): the first is
+  // 2.5.40 itself - `myscrumbudget_projects`, re-read at MyScrumBudget v0.42.0
+  // after that app stopped writing three fields. The one `appMax` change in
+  // between, 2.5.38's `_costSnapshot`, went AHEAD of its app rather than
+  // tracking it, so it is not counted.
   appMax: {
     kind: 'unjoined',
     crossRepo: true,
@@ -530,7 +553,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'ganttapp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [309, 320],
+    lines: [319, 330],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members', 'finishDate', 'order',
@@ -566,7 +589,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'ganttapp_projects',
     sub: 'releases',
     ops: ['create', 'update'],
-    lines: [330, 332],
+    lines: [340, 342],
     shape: 'subcollection',
     allowlist: [
       'name', 'startDate', 'earlyFinishDate', 'lateFinishDate',
@@ -595,7 +618,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertstorymap_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [436, 443],
+    lines: [446, 453],
     shape: 'project',
     allowlist: [
       'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
@@ -679,7 +702,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     sourceVersion: 'spert-story-map v0.53.7',
     sourceCommit: '395ecbc',
     notes:
-      'CREATE + UPDATE since landing 2.5.39 (firestore.rules:433-443). This entry ' +
+      'CREATE + UPDATE since landing 2.5.39 (the create and update rules in the ' +
+      'spertstorymap_projects match block - named, not numbered, since 2.5.40). This entry ' +
       'read "UPDATE-only by design" until then, because createProduct stripped only ' +
       '`id` and a keys().hasOnly() on create would have rejected a legitimate create ' +
       'still carrying an _owner/_members alias. THE CLIENT WAS FIXED FIRST: Story Map ' +
@@ -694,7 +718,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [502, 513],
+    lines: [512, 523],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -739,7 +763,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [668, 723],
+    lines: [690, 752],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -748,40 +772,57 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       '_teamSnapshot', '_costSnapshot', '_originRef', '_changeLog',
       'schemaVersion', 'createdAt', 'updatedAt',
     ],
+    // Exactly `keyof FirestoreProjectDoc` at MyScrumBudget v0.42.0 - fourteen
+    // keys, the set createProject and importAll write in full. `color`,
+    // `archived` and `order` left it in that release: they became per-user,
+    // stored in the reader's own settings document, not on the shared project.
     appMax: [
       'name', 'startDate', 'endDate',
-      'reforecasts', 'activeReforecastId', 'color', 'archived',
-      'owner', 'members', 'order',
+      'reforecasts', 'activeReforecastId',
+      'owner', 'members',
       '_teamSnapshot', '_costSnapshot', '_originRef', '_changeLog',
       'schemaVersion', 'createdAt', 'updatedAt',
     ],
-    // createProject has no conditional spreads (`color` and `archived` use
-    // `?? null`, so they are always present). The genuinely smaller real write
-    // is saveProject's SAVE_PROJECT_MERGE_FIELDS set; owner and members are
-    // added here because the create rule binds them.
+    // createProject has no conditional spreads, so the genuinely smaller real
+    // write is saveProject's non-owner mask, SAVE_PROJECT_MERGE_SET: seven
+    // fields since v0.42.0 (nine before it - `color` and `archived` left with
+    // the document fields). An owner's save adds `_costSnapshot` when there is
+    // a rate card to publish, so the non-owner mask is the minimum. `owner` and
+    // `members` are added here because the create rule binds them.
     appMin: [
       'name', 'startDate', 'endDate',
-      'reforecasts', 'activeReforecastId', 'color', 'archived',
+      'reforecasts', 'activeReforecastId',
       '_teamSnapshot', 'updatedAt',
       'owner', 'members',
     ],
-    coincides: true,
-    unionOnly: [],
+    // FALSE ON PURPOSE since 2.5.40, the first entry where it is: the three
+    // fields the app stopped writing are KEPT on the allowlist. See `notes`.
+    coincides: false,
+    unionOnly: ['archived', 'color', 'order'],
     // invitations.ts removeCollaborator drops members.<uid>.
     clearable: ['members.<editor>'],
     ownerOrthogonal: false,
     source: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:createProject / saveProject',
     minSource: 'MyScrumBudget/src/lib/storage/firestoreRepo.ts:saveProject',
-    // Re-read at 725a147 (MyScrumBudget v0.38.5), which is what this stamp
-    // names. `_costSnapshot` is allowlisted AHEAD of the app change on purpose:
-    // the ruleset must be deployed before the app that writes the field, because
-    // createProject and importAll write it as an explicit null and an explicit
-    // null is a PRESENT key that hasOnly() denies. The field lands in
-    // FirestoreProjectDoc at MyScrumBudget v0.39.0 — so a reader diffing this
-    // entry against 725a147 will not find it there, and that is expected rather
-    // than drift.
-    sourceVersion: 'MyScrumBudget v0.38.5',
-    sourceCommit: '725a147',
+    // Re-read at a8ba417 - a8ba417443ec41aeafa620d462f51837cbcd9283, the squash
+    // commit of MyScrumBudget v0.42.0 on its main - which is what this stamp
+    // names. Until 2.5.40 it named 725a147 (v0.38.5), at which `_costSnapshot`
+    // was allowlisted AHEAD of the app that writes it; the field reached
+    // FirestoreProjectDoc at v0.39.0 and is present at this stamp.
+    sourceVersion: 'MyScrumBudget v0.42.0',
+    sourceCommit: 'a8ba417',
+    notes:
+      'KEPT ON PURPOSE since landing 2.5.40: color, archived and order stay on this ' +
+      'allowlist although MyScrumBudget v0.42.0 writes none of them - they are per-user ' +
+      'now, in the reader\'s own settings document. Documents written by earlier versions ' +
+      'still STORE them, and a removed key is an affected key: dropping the three before ' +
+      'those documents are cleaned would deny any full replace of such a document ' +
+      '(importAll keeping an id) and leave the fields undeletable by clients. A pre-release ' +
+      'tab, v0.41.0 or earlier, also still writes all three. WI-E4 is PLANNED: clean ' +
+      'the stored documents first, then drop the three here ' +
+      'and in the Scheduler mirror, changing the KEEP cases in ' +
+      'myscrumbudget-provenance-fields.test.ts on purpose. Until then this is the one ' +
+      'entry where coincides is false, so shape 4 runs for it.',
   },
   {
     key: 'spertcfd_projects',
@@ -789,7 +830,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [789, 804],
+    lines: [818, 833],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -826,7 +867,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertforecaster_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [597, 604],
+    lines: [607, 614],
     shape: 'project',
     // Exactly `keyof FirestoreProjectDoc` (types.ts). Every full write routes
     // through projectToFirestoreDoc, which emits these sixteen and nothing else;
@@ -906,7 +947,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [910, 924],
+    lines: [939, 953],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -971,7 +1012,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_settings',
     sub: null,
     ops: ['write'],
-    lines: [536],
+    lines: [546],
     shape: 'selfOwned',
     allowlist: [
       'defaultTrialCount', 'defaultDistributionType', 'defaultConfidenceLevel',
@@ -1027,7 +1068,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [834],
+    lines: [863],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -1055,7 +1096,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [1016],
+    lines: [1045],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -1089,7 +1130,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [1055],
+    lines: [1084],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -1134,7 +1175,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [1073],
+    lines: [1102],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',

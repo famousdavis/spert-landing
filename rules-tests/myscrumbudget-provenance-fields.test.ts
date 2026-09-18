@@ -38,23 +38,30 @@
  * enumerated (`src/lib/storage/firestoreRepo.ts`, plus `invitations.ts`):
  *
  *   saveProject        setDoc with mergeFields = SAVE_PROJECT_MERGE_SET, which
- *                      is nine fields and contains NONE of the five. This is
- *                      the ordinary save, and it is the only write path an
- *                      editor exercises against a shared project.
+ *                      is seven fields since MyScrumBudget v0.42.0 (nine
+ *                      before it) and contains NONE of the five. This is the
+ *                      ordinary save, and it is the only write path an editor
+ *                      exercises against a shared project.
  *   createProject      full setDoc writing all five — but it also writes
  *                      `owner: uid` / `members: {uid: 'owner'}`, so on an
  *                      existing document owned by someone else the PREVIOUS
  *                      guard already denied it.
  *   importAll          full setDoc, likewise claims owner/members, likewise
  *                      already denied to a non-owner.
- *   reorderProjects    batch.update of `order` only — see the `order` cases at
- *                      the bottom of this file, which exist to keep it that way.
+ *   reorderProjects    writes NO project document since v0.42.0 — dashboard
+ *                      order is per-user now, in the reader's own settings
+ *                      document. Up to v0.41.0 it was a batch.update of `order`
+ *                      only, which a pre-release tab still sends — see the
+ *                      `order` cases at the bottom of this file.
  *   removeCollaborator tx.update of `members.<uid>`, owner-gated in code and in
  *                      rules already.
  *
- * The app's own comment at `firestoreRepo.ts:115-122` states the same thing
- * from the other side: these fields are excluded from the merge set ON PURPOSE
- * so existing Firestore values survive a save.
+ * The app's own comment on `SAVE_PROJECT_MERGE_SET` in `firestoreRepo.ts`
+ * states the same thing from the other side: these fields are excluded from
+ * the merge set ON PURPOSE so existing Firestore values survive a save. (Named
+ * by symbol since 2.5.40. This cited a line range in that file, which had
+ * already drifted - a line number aimed into another repository cannot be
+ * checked from here.)
  *
  * THE SHAPE OF THE FIX IS NOT NEW
  * -------------------------------
@@ -77,20 +84,46 @@
  *   ALLOWED — the OWNER writing each of the five. The guard is about role, not
  *             about the values, and a fix that locked the fields outright would
  *             pass the denials while breaking migration and import.
- *   ALLOWED — an editor's ordinary content write (the nine merge-set fields).
- *             Asserting only denials is how a rule that blocks everyone goes
- *             green.
+ *   ALLOWED — a pre-release editor save: the nine fields SAVE_PROJECT_MERGE_SET
+ *             held up to MyScrumBudget v0.41.0, with `color` and `archived`
+ *             CHANGED. Asserting only denials is how a rule that blocks
+ *             everyone goes green — and this one also guards KEEP (below).
  *   ALLOWED — an editor's `order` write, and a reorder-shaped batch. DELIBERATE
- *             AND LOAD-BEARING: `order` is editor-writable and must stay that
- *             way. `reorderProjects` writes `{order}` to EVERY project on the
- *             user's dashboard in one atomic `writeBatch`, so adding `order` to
- *             the owner-only set would reject the whole batch for any editor
- *             who has a single shared project on their dashboard — they could
- *             no longer reorder their own dashboard at all, and that rejection
- *             is unhandled. `order` is a per-user preference stored on a shared
- *             document; fixing that needs a client or data-model change, not a
- *             rules change. These two cases exist so a later reader cannot
- *             quietly "complete" the fix and break dashboard reorder.
+ *             AND LOAD-BEARING while KEEP holds. MyScrumBudget v0.42.0 writes
+ *             no `order`: dashboard order became per-user, the data-model fix
+ *             this paragraph used to call for. But a pre-release tab, v0.41.0
+ *             or earlier, still sends `reorderProjects`' one-batch `{order}`
+ *             write over EVERY project on its dashboard, so adding `order` to
+ *             the owner-only set would refuse that batch whole for any editor
+ *             holding one shared project. These two cases exist so a later
+ *             reader cannot quietly "complete" the fix and break that tab.
+ *             CORRECTED 2.5.40 (2026-09-17): this said the rejection was
+ *             "unhandled". It was not — MyScrumBudget has reported a failed
+ *             reorder since v0.38.0, and v0.41.0 made the message
+ *             permission-aware.
+ *
+ * KEEP (since 2.5.40)
+ * -------------------
+ * MyScrumBudget v0.42.0 moved `color`, `archived` and `order` off the shared
+ * project document into each reader's own settings document, and writes none
+ * of the three to a project. They stay on the allowlist ON PURPOSE: documents
+ * written by earlier versions still store them, and a removed key is an
+ * affected key — drop the three before those documents are cleaned and every
+ * full replace of such a document is denied, and the fields become undeletable
+ * by clients. Guarded in both directions:
+ *
+ *   TIGHTENING — the pre-release editor save above CHANGES `color` and
+ *             `archived`, so it fails if the two join the owner-only set, which
+ *             would break pre-release editor tabs; the two `order` cases do the
+ *             same for `order`. Until 2.5.40 that save wrote the seed's own
+ *             values with only `name` changed, so it could not see it: measured
+ *             on 2026-09-17, adding the two to the owner-only set failed ZERO
+ *             cases (178 passed, 21 skipped).
+ *   DROP     — the OWNER replacing a document that still stores all three with
+ *             the fourteen fields v0.42.0 writes. It reds on ANY removal of
+ *             the three from the allowlist, cleaned or not, because its own
+ *             pre-image stores them. WI-E4 (planned) cleans the stored
+ *             documents first, then changes these cases on purpose.
  */
 
 import { readFileSync } from 'node:fs';
@@ -179,11 +212,14 @@ const OWNER_WRITE: Record<(typeof PROVENANCE_FIELDS)[number], unknown> = {
 };
 
 /**
- * `SAVE_PROJECT_MERGE_SET` from
- * `MyScrumBudget/src/lib/storage/firestoreRepo.ts:124-133`, read from that
- * repository rather than restated from a brief. Nine fields, none of them
- * provenance. This is what an ordinary editor save writes, and it must keep
- * working.
+ * `SAVE_PROJECT_MERGE_SET` as MyScrumBudget wrote it up to v0.41.0 — the
+ * symbol of that name in `MyScrumBudget/src/lib/storage/firestoreRepo.ts`,
+ * read from that repository rather than restated from a brief. Nine fields,
+ * none of them provenance. v0.42.0 dropped `color` and `archived` from it
+ * (seven since), so this is now what a PRE-RELEASE editor save sends, and it
+ * must keep working while KEEP holds. It also seeds both projects below.
+ * (Named by symbol since 2.5.40. This cited a line range in that file, which
+ * had already drifted.)
  */
 function ordinaryContentWrite(): Record<string, unknown> {
   return {
@@ -377,28 +413,46 @@ describe('myscrumbudget_projects — provenance fields are owner-only', () => {
 });
 
 describe('myscrumbudget_projects — negative controls, the fix must not overreach', () => {
-  it("ALLOWED: an editor's ordinary content write (the nine merge-set fields)", async () => {
-    const content = { ...ordinaryContentWrite(), name: 'Q4 delivery' };
+  it('ALLOWED (KEEP): a pre-release editor save that CHANGES color and archived', async () => {
+    // What a tab opened before MyScrumBudget v0.42.0 still sends: the nine
+    // fields SAVE_PROJECT_MERGE_SET held up to v0.41.0. `color` and `archived`
+    // are CHANGED, to values the seed does not hold — without that their diff
+    // is empty, and this case cannot notice the two joining the owner-only set.
+    // Until 2.5.40 it wrote the seed's own values with only `name` changed,
+    // and that mutation failed zero cases. It must fail this one.
+    const save = {
+      ...ordinaryContentWrite(),
+      name: 'Q4 delivery',
+      color: 'purple',
+      archived: true,
+    };
+    expect(await storedField(SHARED_PROJECT, 'color'), 'the seed holds another color')
+      .not.toBe(save.color);
+    expect(await storedField(SHARED_PROJECT, 'archived'), 'the seed holds another archived')
+      .not.toBe(save.archived);
     await assertSucceeds(
-      setDoc(projectRef(dbAs(BOB), SHARED_PROJECT), content, {
-        mergeFields: Object.keys(content),
+      setDoc(projectRef(dbAs(BOB), SHARED_PROJECT), save, {
+        mergeFields: Object.keys(save),
       }),
     );
     expect(await storedField(SHARED_PROJECT, 'name')).toBe('Q4 delivery');
+    expect(await storedField(SHARED_PROJECT, 'color'), 'color persisted').toBe('purple');
+    expect(await storedField(SHARED_PROJECT, 'archived'), 'archived persisted').toBe(true);
   });
 
-  it("ALLOWED: an editor's `order` write — `order` is OUT OF SCOPE on purpose", async () => {
+  it("ALLOWED (KEEP): an editor's `order` write — a pre-release tab still sends one", async () => {
     await assertSucceeds(
       updateDoc(projectRef(dbAs(BOB), SHARED_PROJECT), { order: 3 }),
     );
     expect(await storedField(SHARED_PROJECT, 'order')).toBe(3);
   });
 
-  it("ALLOWED: reorderProjects' atomic batch spanning a shared and an owned project", async () => {
-    // The exact shape of firestoreRepo.ts reorderProjects: `{order: index}` to
-    // every project on the dashboard in ONE writeBatch. If `order` were ever
-    // added to the owner-only set, this whole batch would be rejected and the
-    // editor could not reorder their own dashboard.
+  it("ALLOWED (KEEP): a pre-release reorderProjects batch spanning a shared and an owned project", async () => {
+    // The exact shape of reorderProjects up to MyScrumBudget v0.41.0:
+    // `{order: index}` to every project on the dashboard in ONE writeBatch.
+    // v0.42.0 writes no project document to reorder, but a pre-release tab
+    // still sends this batch. If `order` joined the owner-only set, the whole
+    // batch would be refused for any editor holding one shared project.
     const db = dbAs(BOB);
     const batch = writeBatch(db);
     [SHARED_PROJECT, BOB_PROJECT].forEach((id, index) => {
@@ -424,5 +478,57 @@ describe('myscrumbudget_projects — negative controls, the fix must not overrea
     await assertFails(
       updateDoc(projectRef(dbAs(ALICE), SHARED_PROJECT), { bogusField: 'nope' }),
     );
+  });
+});
+
+/** The three fields MyScrumBudget v0.42.0 stopped writing, and KEEP allowlists. */
+const KEPT_FIELDS: readonly string[] = ['color', 'archived', 'order'];
+
+describe('myscrumbudget_projects — KEEP: color, archived and order stay allowlisted', () => {
+  it('ALLOWED (KEEP): the owner replaces a document that stores all three, writing none of them', async () => {
+    // The v0.42.0 write shape: `importAll` keeping an id replaces the whole
+    // document, with no merge, carrying the fourteen fields v0.42.0 writes.
+    // `color`, `archived` and `order` are not among them. A removed key is an
+    // AFFECTED key, so the update rule's affectedKeys().hasOnly() sees all
+    // three leave, and allows it only because they are still allowlisted.
+    //
+    // ⚠️ THIS REDS ON ANY REMOVAL OF THE THREE FROM THE ALLOWLIST, CLEANED OR
+    // NOT, because its own pre-image stores them — which is exactly right
+    // while real documents still do. WI-E4 (planned) cleans the stored
+    // documents first, then changes this case on purpose.
+    const seeded = seededProject(
+      ALICE,
+      { [ALICE]: 'owner', [BOB]: 'editor' },
+      SEEDED_ORDER[SHARED_PROJECT],
+    );
+    const replacement: Record<string, unknown> = {
+      ...Object.fromEntries(Object.entries(seeded).filter(([key]) => !KEPT_FIELDS.includes(key))),
+      updatedAt: '2026-09-17T12:00:00.000Z',
+    };
+    expect(Object.keys(replacement), 'the v0.42.0 document shape: fourteen fields')
+      .toHaveLength(14);
+    for (const field of KEPT_FIELDS) {
+      // `archived` is seeded as an explicit null, which is a PRESENT key.
+      expect(await storedField(SHARED_PROJECT, field), `${field} is stored in the pre-image`)
+        .not.toBeUndefined();
+    }
+
+    await assertSucceeds(setDoc(projectRef(dbAs(ALICE), SHARED_PROJECT), replacement)).catch(
+      (err: unknown) => {
+        throw new Error(
+          'KEEP BROKEN: the owner\'s full replace of a document that still stores ' +
+            'color/archived/order, writing none of them, was DENIED. The three have been ' +
+            'dropped from myScrumBudgetProjectFields() while documents still store them - ' +
+            'every such document is now un-replaceable and its fields undeletable by ' +
+            'clients. Clean the documents first (WI-E4), then change this case on ' +
+            `purpose. Cause: ${String(err)}`,
+        );
+      },
+    );
+    for (const field of KEPT_FIELDS) {
+      expect(await storedField(SHARED_PROJECT, field), `${field} removed by the replace`)
+        .toBeUndefined();
+    }
+    expect(await storedField(SHARED_PROJECT, 'updatedAt')).toBe('2026-09-17T12:00:00.000Z');
   });
 });
