@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.40',
+    date: 'September 17, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'MyScrumBudget projects: no change to what the rules allow. MyScrumBudget 0.42.0 made tile colour, archiving and dashboard order personal \u2014 each person\u2019s choice is now saved in their own settings rather than on the shared project \u2014 so the app no longer writes those three fields to a project. The rules keep accepting them on purpose: projects saved by earlier versions still carry them, and removing them from the rules first would stop those projects from being replaced by an import and leave the old values impossible to clear. A planned cleanup will remove the stored values first, and only then retire the three fields from the rules.',
+          'Two new checks in the rules test suite hold that in place. One fails if the three fields are removed from the rules while projects still store them; the other fails if an editor still running an earlier version of MyScrumBudget could no longer change a shared project\u2019s colour or archived state.',
+          'The only changes to the deployed ruleset are comments. Those that described what MyScrumBudget writes now say which versions they describe, and five references to line numbers in the ruleset now name the rule they point at instead, because nothing checked them and three had already drifted.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.39',
     date: 'September 14, 2026',
     sections: [
