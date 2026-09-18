@@ -104,8 +104,12 @@ export type AllowlistOp = 'create' | 'update' | 'write';
  *  - `project`       top-level `*_projects` doc with a members map. Needs an
  *                    owner/editor/viewer caller; `owner` and `members` are
  *                    themselves allowlisted, so a maximal write touches them
- *                    and must run as OWNER (see the escalation guard at
- *                    firestore.rules:295-298).
+ *                    and must run as OWNER (see the escalation guard: the
+ *                    `hasAny(['owner', 'members'])` clause every project
+ *                    update rule carries, first in `ganttapp_projects`).
+ *                    Named, not numbered, since 2.5.40: this cited
+ *                    firestore.rules:295-298, right when written (2.5.16)
+ *                    and moved off the guard by lines added above it.
  *  - `subcollection` doc under a project. Gates on `canWriteGet(projectId)`,
  *                    which `get()`s the PARENT - the parent must be seeded or
  *                    every write is denied for the wrong reason.
@@ -547,7 +551,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'ganttapp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [309, 320],
+    lines: [319, 330],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members', 'finishDate', 'order',
@@ -583,7 +587,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'ganttapp_projects',
     sub: 'releases',
     ops: ['create', 'update'],
-    lines: [330, 332],
+    lines: [340, 342],
     shape: 'subcollection',
     allowlist: [
       'name', 'startDate', 'earlyFinishDate', 'lateFinishDate',
@@ -612,7 +616,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertstorymap_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [436, 443],
+    lines: [446, 453],
     shape: 'project',
     allowlist: [
       'name', 'description', 'createdAt', 'updatedAt', 'schemaVersion',
@@ -696,7 +700,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     sourceVersion: 'spert-story-map v0.53.7',
     sourceCommit: '395ecbc',
     notes:
-      'CREATE + UPDATE since landing 2.5.39 (firestore.rules:433-443). This entry ' +
+      'CREATE + UPDATE since landing 2.5.39 (the create and update rules in the ' +
+      'spertstorymap_projects match block - named, not numbered, since 2.5.40). This entry ' +
       'read "UPDATE-only by design" until then, because createProduct stripped only ' +
       '`id` and a keys().hasOnly() on create would have rejected a legitimate create ' +
       'still carrying an _owner/_members alias. THE CLIENT WAS FIXED FIRST: Story Map ' +
@@ -711,7 +716,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [502, 513],
+    lines: [512, 523],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -756,7 +761,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'myscrumbudget_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [668, 723],
+    lines: [690, 752],
     shape: 'project',
     allowlist: [
       'name', 'startDate', 'endDate',
@@ -823,7 +828,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [789, 804],
+    lines: [818, 833],
     shape: 'project',
     allowlist: [
       'name', 'owner', 'members',
@@ -860,7 +865,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertforecaster_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [597, 604],
+    lines: [607, 614],
     shape: 'project',
     // Exactly `keyof FirestoreProjectDoc` (types.ts). Every full write routes
     // through projectToFirestoreDoc, which emits these sixteen and nothing else;
@@ -940,7 +945,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [910, 924],
+    lines: [939, 953],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -1005,7 +1010,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertscheduler_settings',
     sub: null,
     ops: ['write'],
-    lines: [536],
+    lines: [546],
     shape: 'selfOwned',
     allowlist: [
       'defaultTrialCount', 'defaultDistributionType', 'defaultConfidenceLevel',
@@ -1061,7 +1066,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [834],
+    lines: [863],
     shape: 'selfOwned',
     allowlist: ['projectOrder'],
     appMax: ['projectOrder'],
@@ -1089,7 +1094,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [1016],
+    lines: [1045],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -1123,7 +1128,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [1055],
+    lines: [1084],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -1168,7 +1173,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [1073],
+    lines: [1102],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',

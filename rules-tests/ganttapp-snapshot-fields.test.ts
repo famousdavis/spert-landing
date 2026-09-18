@@ -256,9 +256,11 @@ describe('ganttapp_projects/{id}/snapshots — field allowlist', () => {
  * ---------------------------------------------------------------
  * They add no engine information. `allowlist-coverage.test.ts` already pins
  * transform visibility across both predicate families and all three transform
- * classes, and this site gates `keys()` on create (firestore.rules:317) and
- * `diff().affectedKeys()` on update (:319) — both families, both already
- * covered there.
+ * classes, and this site gates `keys()` on create and `diff().affectedKeys()`
+ * on update - the two rules in the `snapshots` match block nested under
+ * `ganttapp_projects` - both families, both already covered there. (Named,
+ * not numbered, since 2.5.40: this cited firestore.rules lines 317 and 319,
+ * right when written in 2.5.22 and moved off this site by lines added above.)
  *
  * Their value is COMPLETENESS, not coverage. `ALLOWLIST_CONTRACTS` holds
  * thirteen entries and the ruleset has fourteen `hasOnly()` allowlist sites;
