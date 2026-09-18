@@ -105,11 +105,13 @@ export type AllowlistOp = 'create' | 'update' | 'write';
  *                    owner/editor/viewer caller; `owner` and `members` are
  *                    themselves allowlisted, so a maximal write touches them
  *                    and must run as OWNER (see the escalation guard: the
- *                    `hasAny(['owner', 'members'])` clause every project
- *                    update rule carries, first in `ganttapp_projects`).
- *                    Named, not numbered, since 2.5.40: this cited
- *                    firestore.rules:295-298, right when written (2.5.16)
- *                    and moved off the guard by lines added above it.
+ *                    owner-only `hasAny([...])` clause every project update
+ *                    rule carries, which always includes `owner` and
+ *                    `members` - exactly those two in five of the seven -
+ *                    first in `ganttapp_projects`). Named, not numbered,
+ *                    since 2.5.40: this cited firestore.rules:295-298,
+ *                    right when written (2.5.16) and moved off the guard
+ *                    by lines added above it.
  *  - `subcollection` doc under a project. Gates on `canWriteGet(projectId)`,
  *                    which `get()`s the PARENT - the parent must be seeded or
  *                    every write is denied for the wrong reason.
