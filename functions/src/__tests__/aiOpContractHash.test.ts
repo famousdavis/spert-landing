@@ -42,7 +42,7 @@ import {join} from "path";
  * whitespace, UTF-8.
  */
 const CANONICAL_CONTRACT_SHA256 =
-  "25dabe86334f7599f4bf7daef2fdae1c2e51e7d70a714851b9b50096cd7e33f1";
+  "11b86271b314f2baf2c372b2da50325f8dabc4b6b0cfa28a1ecb81dd8ca38529";
 
 type Json = string | number | boolean | null | Json[] | {[key: string]: Json};
 

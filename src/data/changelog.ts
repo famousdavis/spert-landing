@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.41',
+    date: 'September 25, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'An AI chatbot connected to SPERT\u00ae Scheduler can now create and update activities that use Beta-PERT, the distribution Scheduler 0.72.0 added. Every Scheduler tool that takes a distribution accepts it \u2014 creating or updating one activity, or many at once. The chatbot still never picks Beta-PERT on its own: it uses it when you ask for it. Before this release the service refused a request naming Beta-PERT, cleanly, without changing anything.',
+          'The shared definition that this site\u2019s AI service and SPERT Scheduler are both built against now lists Beta-PERT, and the two copies were checked identical. A new test confirms each of the five Scheduler tools accepts Beta-PERT and still refuses a value no version knows. The AI service now reports its version as 1.13.0.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.40',
     date: 'September 17, 2026',
     sections: [
