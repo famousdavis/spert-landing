@@ -32,7 +32,7 @@
         "distributionType": {
           "required": false,
           "type": "string",
-          "enum": ["normal", "logNormal", "triangular", "uniform"]
+          "enum": ["normal", "logNormal", "betaPert", "triangular", "uniform"]
         },
         "description": { "required": false, "type": "string", "maxLen": 2000 },
         "note": { "required": false, "type": "string", "minLen": 1, "maxLen": 2000 }
@@ -97,7 +97,7 @@
         "distributionType": {
           "required": false,
           "type": "string",
-          "enum": ["normal", "logNormal", "triangular", "uniform"]
+          "enum": ["normal", "logNormal", "betaPert", "triangular", "uniform"]
         },
         "description": { "required": false, "type": "string", "maxLen": 2000 }
       }
@@ -132,7 +132,7 @@
             "distributionType": {
               "required": false,
               "type": "string",
-              "enum": ["normal", "logNormal", "triangular", "uniform"]
+              "enum": ["normal", "logNormal", "betaPert", "triangular", "uniform"]
             },
             "description": { "required": false, "type": "string", "maxLen": 2000 },
             "note": { "required": false, "type": "string", "minLen": 1, "maxLen": 2000 }

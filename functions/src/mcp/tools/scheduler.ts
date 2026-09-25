@@ -23,7 +23,16 @@ import {
 import type {Envelope} from "./shared";
 
 const SESSIONS = "anonymous_sessions";
-const DISTRIBUTIONS = ["normal", "logNormal", "triangular", "uniform"] as const;
+// The scheduler client's DISTRIBUTION_TYPES (src/domain/models/types.ts), in its
+// order; "betaPert" since Scheduler v0.72.0. Used by all four distributionType
+// enums below, and carried in the contract fixture ai-op-contract.json.
+const DISTRIBUTIONS = [
+  "normal",
+  "logNormal",
+  "betaPert",
+  "triangular",
+  "uniform",
+] as const;
 const DEP_TYPES = ["FS", "SS", "FF"] as const;
 // RSM confidence levels, duplicated from the scheduler client
 // (src/domain/models/types.ts RSM_LEVELS). Declared `as const` so Zod 3's
