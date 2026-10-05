@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.42',
+    date: 'October 5, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'New editions of three legal documents are published: Terms of Service 1.3, Privacy Policy 1.3 and AI Privacy Notice 2.2, all effective October 5, 2026. The AI Connectivity Consent Notice is unchanged and stays at version 2.1.',
+          'The Privacy Policy now spells out several things the service already did: the database backups (daily backups kept for up to 98 days and point-in-time recovery data kept for up to 7 days, both in the United States), the request information our web host receives whenever a page loads, operational logs kept for 30 days, project sharing and invitation emails, and messages sent through this site’s contact form. It names the service providers behind those — Vercel, Resend and Formspree — and notes that a record is kept of which edition of the Terms and Privacy Policy you accepted.',
+          'Cloud Storage and Connect AI data are stored at rest in the United States. The Terms and the Privacy Policy now say so, and commit to giving notice by updating them before that location changes.',
+          'The AI Privacy Notice now states exactly how long Connect AI relay data lasts: it expires seven days after your last activity, is deleted sooner when you disconnect or sign out, and copies may remain in database backups until those expire. It also states that the Read Mode snapshot can be read only by the relay server, never from a web browser.',
+          'The Terms now let you enter the email address of someone you are inviting to collaborate, an exception the earlier wording did not make, and say that any backups the Operator keeps are for its own disaster recovery and give you no right to have data restored. The AI Privacy Notice is now incorporated into the Terms by reference, alongside the Privacy Policy.',
+          'Unlike the September editions, these need your agreement again: each app that offers sign-in will ask you to accept the new Terms and Privacy Policy once that app is updated.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.41',
     date: 'September 25, 2026',
     sections: [
