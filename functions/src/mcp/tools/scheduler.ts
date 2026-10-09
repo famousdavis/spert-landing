@@ -175,6 +175,54 @@ interface SnapshotScenario {
   activityIds: string[];
 }
 
+// No tool can turn a scenario's dependency mode on, so the refusal tells the
+// AI where the switch is (compare SPERT Scheduler's Connect AI prompt,
+// buildCopyPrompt). One wording for all three dependency gates.
+const DEPENDENCY_MODE_OFF = (scenarioId: string): string =>
+  "In the project SPERT Scheduler last sent, scenario " +
+  `'${scenarioId}' does not have dependency mode on. Ask the user to make ` +
+  "this change in the browser tab where they connected the AI. If this " +
+  "project is also open in another tab of that browser, they close that tab " +
+  "and then reload this one, so that it holds the latest copy (every tab " +
+  "connected to the AI sends its own copy of the project, and whichever " +
+  "sends last wins, even an older copy). If that tab is gone, or its header " +
+  "shows a \"Connect AI\" button — as it does after a reload — they open the " +
+  "project in that browser and press \"Connect AI\" (if a " +
+  "\"Connect an AI assistant\" window opens instead, that browser no longer " +
+  "holds this connection: they make sure \"Read Mode\" is ticked, press " +
+  "\"Connect\", and read out the session code the panel then shows — the AI " +
+  "must connect again with that code before it retries); once the Connect AI " +
+  "panel opens, they close it by pressing Esc or clicking outside it — not " +
+  "\"Disconnect\", which ends the AI's connection. There, they select that " +
+  "scenario by its name, not its id, and turn on its \"Dependencies\" " +
+  "switch, in the summary panel above the activity list, on the same row as " +
+  "\"Parkinson's Law\". It is not the Dependencies panel further down the " +
+  "page, which shows only while the selected scenario's switch is on and has " +
+  "no switch of its own. If that scenario's tab shows an amber lock icon, " +
+  "whose tooltip reads \"Unlock scenario\", the scenario is locked: they " +
+  "press that icon to unlock it first. Once they confirm, wait a few " +
+  "seconds, then retry. If the switch was already on and the retry is " +
+  "refused again, ask them to look in that browser's console for a message " +
+  "beginning \"[AI] Snapshot\".";
+
+// Both no_snapshot refusals sit BEHIND the Read Mode check, so Read Mode is
+// on whenever this is sent: what is missing is the project. The browser
+// sends it only while the project is open in a tab whose Connect AI session
+// is active, two seconds after changes stop, and logs a message beginning
+// "[AI] Snapshot" when it skips an oversized one or a write fails.
+const NO_SNAPSHOT =
+  "No snapshot yet. Read Mode is on, but no project from SPERT Scheduler is " +
+  "available. Ask the user to keep the project open in the browser tab where " +
+  "they connected the AI. If that tab is gone, or its header shows a " +
+  "\"Connect AI\" button, they open the project in that browser and press " +
+  "\"Connect AI\" (if a \"Connect an AI assistant\" window opens instead, " +
+  "that browser no longer holds this connection: they make sure " +
+  "\"Read Mode\" is ticked, press \"Connect\", and read out the session code " +
+  "the panel then shows — the AI must connect again with that code before it " +
+  "retries). Then retry in a few seconds. If this keeps happening, ask them " +
+  "to look in that browser's console for a message beginning " +
+  "\"[AI] Snapshot\".";
+
 /**
  * Read Mode + snapshot gate, split out (decision 15 / P0.3) so callers can act
  * on the returned scenario. Confirms consent, that a snapshot exists, and that
@@ -204,8 +252,7 @@ async function fetchSnapshotScenario(
       return {error: ok({
         status: "error",
         error: "no_snapshot",
-        message: "No snapshot yet. Ask the user to open SPERT Scheduler " +
-          "with Read Mode enabled, then retry.",
+        message: NO_SNAPSHOT,
       })};
     }
     data = snap.data();
@@ -265,8 +312,7 @@ async function runDependencyWrite(
     return ok({
       status: "error",
       error: "dependency_mode_off",
-      message: `Scenario '${scenarioId}' does not have dependency mode on. ` +
-        "Ask the user to enable it for that scenario, then retry.",
+      message: DEPENDENCY_MODE_OFF(scenarioId),
     });
   }
   return writeAndRespond(db, sessionId, session, ops, describe);
@@ -408,8 +454,7 @@ async function runBulkDependencyWrite(
     return ok({
       status: "error",
       error: "dependency_mode_off",
-      message: `Scenario '${scenarioId}' does not have dependency mode on. ` +
-        "Ask the user to enable it for that scenario, then retry.",
+      message: DEPENDENCY_MODE_OFF(scenarioId),
     });
   }
   return writeBulkAndRespond(db, sessionId, session, op, count, describe);
@@ -529,8 +574,7 @@ async function runBulkImportWrite(
       return ok({
         status: "error",
         error: "dependency_mode_off",
-        message: `Scenario '${payload.scenarioId}' does not have dependency ` +
-          "mode on. Ask the user to enable it for that scenario, then retry.",
+        message: DEPENDENCY_MODE_OFF(payload.scenarioId as string),
       });
     }
   }
@@ -898,8 +942,7 @@ console.`,
         if (!snap.exists) {
           return ok({
             status: "no_snapshot",
-            message: "No snapshot yet. Ask the user to open SPERT " +
-              "Scheduler with Read Mode enabled, then retry.",
+            message: NO_SNAPSHOT,
           });
         }
         return ok({status: "ok", project: snap.data()?.project ?? null});
