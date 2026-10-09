@@ -144,7 +144,13 @@ describe('legal documents the rest of the suite links to', () => {
    */
   it('resolves every rewrite destination in next.config.ts', () => {
     const config = readFileSync(join(process.cwd(), 'next.config.ts'), 'utf-8');
-    const rewrites = [...config.matchAll(/destination:\s*["']([^"']+)["']/g)]
+    const body = configMethodBody(config, 'rewrites');
+    expect(
+      body,
+      'could not find the body of `async rewrites()` in next.config.ts — the parser has drifted',
+    ).toBeDefined();
+
+    const rewrites = [...(body ?? '').matchAll(DESTINATION)]
       .map((m) => m[1])
       .filter((d): d is string => d !== undefined)
       .filter((d) => d.startsWith('/'));
@@ -161,7 +167,88 @@ describe('legal documents the rest of the suite links to', () => {
       `these rewrite destinations do not exist in public/: ${broken.join(', ')}`,
     ).toEqual([]);
   });
+
+  /**
+   * Redirects are the same kind of configuration, and fail the same silent way:
+   * a redirect into a route that no longer exists lands its visitors on a 404.
+   * `/bug-report` → `/contact` (2.6.0) is permanent, and `/contact` is itself a
+   * contract — SPERT Forecaster, the ToS and the Privacy Policy all cite it.
+   *
+   * Unlike the rewrite check, nothing here is filtered out: a destination that
+   * is not an app path fails by name rather than escaping the check.
+   */
+  it('resolves every redirect destination in next.config.ts to an app route', () => {
+    const config = readFileSync(join(process.cwd(), 'next.config.ts'), 'utf-8');
+    const body = configMethodBody(config, 'redirects');
+    expect(
+      body,
+      'could not find the body of `async redirects()` in next.config.ts — the parser has drifted',
+    ).toBeDefined();
+
+    const redirects = [...(body ?? '').matchAll(DESTINATION)]
+      .map((m) => m[1])
+      .filter((d): d is string => d !== undefined);
+
+    expect(
+      redirects.length,
+      'no redirect destinations found — the parser has drifted from next.config.ts',
+    ).toBeGreaterThan(0);
+
+    const notAppPaths = redirects.filter((d) => !d.startsWith('/'));
+    expect(
+      notAppPaths,
+      `these redirect destinations are not app paths (no leading "/"): ${notAppPaths.join(', ')}`,
+    ).toEqual([]);
+
+    const broken = redirects
+      .filter((d) => d.startsWith('/'))
+      .filter((d) => !existsSync(join(process.cwd(), 'src', 'app', d, 'page.tsx')));
+    expect(
+      broken,
+      `these redirect destinations have no src/app<dest>/page.tsx: ${broken.join(', ')}`,
+    ).toEqual([]);
+  });
 });
+
+const DESTINATION = /destination:\s*["']([^"']+)["']/g;
+
+/**
+ * The body of `async <name>() { … }` in next.config.ts, or `undefined` if it
+ * cannot be found. Matches braces, skipping string literals and comments, so
+ * each check reads only its own method — before 2.6.0 the rewrite check read
+ * every `destination:` in the file, and the first redirect turned it red.
+ */
+function configMethodBody(source: string, name: string): string | undefined {
+  const open = new RegExp(`async\\s+${name}\\s*\\(\\)\\s*\\{`).exec(source);
+  if (open === null) return undefined;
+
+  const start = open.index + open[0].length;
+  let depth = 1;
+  let i = start;
+  while (i < source.length) {
+    const ch = source[i];
+    if (ch === '/' && source[i + 1] === '/') {
+      const eol = source.indexOf('\n', i);
+      if (eol === -1) return undefined;
+      i = eol;
+    } else if (ch === '/' && source[i + 1] === '*') {
+      const close = source.indexOf('*/', i + 2);
+      if (close === -1) return undefined;
+      i = close + 2;
+      continue;
+    } else if (ch === '"' || ch === "'" || ch === '`') {
+      i += 1;
+      while (i < source.length && source[i] !== ch) i += source[i] === '\\' ? 2 : 1;
+    } else if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i);
+    }
+    i += 1;
+  }
+  return undefined;
+}
 
 // ---------------------------------------------------------------------------
 // Assets referenced from source

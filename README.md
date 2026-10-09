@@ -15,7 +15,7 @@ Hub page linking to the SPERT® Suite ecosystem of free, browser-based project m
 
 - **Contact Me** — General questions, suggestions, or feedback
 - **I Have a Request** — Feature ideas and improvement suggestions
-- **I Found a Bug** — Bug reports for any SPERT web app
+- **I Want Training** — Live virtual training on any SPERT® Suite tool, for individuals and teams
 
 ## Development
 

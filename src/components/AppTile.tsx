@@ -43,8 +43,11 @@ function TileContent({ app }: { app: AppInfo }) {
           {app.description}
         </p>
         <span
-          className="inline-flex items-center gap-1 text-sm font-medium transition-colors"
-          style={{ color: app.color }}
+          className="inline-flex items-center gap-1 text-sm font-medium transition-colors text-(--tile-label) dark:text-(--tile-label-dark)"
+          style={{
+            '--tile-label': app.labelColor ?? app.color,
+            '--tile-label-dark': app.labelColorDark ?? app.color,
+          } as React.CSSProperties}
         >
           {label}
           <span className="transition-transform duration-200 group-hover:translate-x-1">

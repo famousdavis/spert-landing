@@ -26,8 +26,8 @@ spert-landing-page/
 │   │   │   └── page.tsx       # Contact form (Formspree)
 │   │   ├── request/
 │   │   │   └── page.tsx       # Feature request form (Formspree)
-│   │   ├── bug-report/
-│   │   │   └── page.tsx       # Bug report form (Formspree)
+│   │   ├── training/
+│   │   │   └── page.tsx       # Training inquiry form (Formspree)
 │   │   └── changelog/
 │   │       └── page.tsx       # Version history
 │   ├── components/
@@ -39,7 +39,7 @@ spert-landing-page/
 │   │   └── ThemeToggle.tsx    # Light/Dark/System segmented toggle
 │   ├── config.ts              # App-wide constants (APP_VERSION)
 │   ├── data/
-│   │   ├── apps.ts           # App definitions array (add new apps here)
+│   │   ├── apps.tsx          # App definitions array (add new apps here)
 │   │   └── changelog.ts      # Version history entries
 │   └── hooks/
 │       └── useTheme.ts       # Three-state theme hook with SSR safety
@@ -59,10 +59,10 @@ spert-landing-page/
 `public/TOS.pdf` and `public/PRIVACY.pdf` are the canonical versions of the Terms of Service and Privacy Policy shared across all six SPERT® web apps. Other apps link directly to these URLs — do not rename or relocate.
 
 ### Five-Page App
-The site has five pages: homepage (`page.tsx`), contact form (`contact/page.tsx`), feature request form (`request/page.tsx`), bug report form (`bug-report/page.tsx`), and changelog (`changelog/page.tsx`). All share `Header` and `Footer` components. The three form pages use a shared `FormPageShell` component for layout and Formspree submission logic.
+The site has five pages: homepage (`page.tsx`), contact form (`contact/page.tsx`), feature request form (`request/page.tsx`), training form (`training/page.tsx`), and changelog (`changelog/page.tsx`). All share `Header` and `Footer` components. The three form pages use a shared `FormPageShell` component for layout and Formspree submission logic. The bug report form was retired in 2.6.0; `/bug-report` permanently redirects to `/contact` (`redirects()` in `next.config.ts`).
 
 ### Data-Driven Tiles
-App tiles are driven by a simple array in `src/data/apps.ts`. Each tile has an optional `category` field (`'app'` or `'support'`). The homepage filters by category to render the main app grid and a separate Support section. Adding a new app or support tile means adding one object to the array — no component changes needed.
+App tiles are driven by a simple array in `src/data/apps.tsx`. Each tile has an optional `category` field (`'app'` or `'support'`). The homepage filters by category to render the main app grid and a separate Support section. Adding a new app or support tile means adding one object to the array — no component changes needed. A tile may also set `labelColor` and `labelColorDark`, used for its link label only when its brand color is under 4.5:1 against the light or dark tile background; `src/guards/tile-contrast.test.ts` holds every tile to WCAG AA in both themes.
 
 ### Theme System
 Three-state (Light/Dark/System) toggle matching the pattern used across all SPERT ecosystem apps:

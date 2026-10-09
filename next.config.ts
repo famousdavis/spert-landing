@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
       { source: "/aiprivacy", destination: "/AI-PRIVACY.pdf" },
     ];
   },
+  async redirects() {
+    return [
+      // "I Found a Bug" was retired in 2.6.0. Bug reports now go through the
+      // contact form, so the old address lands there.
+      { source: "/bug-report", destination: "/contact", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {
