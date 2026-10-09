@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.5.43',
+    date: 'October 9, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'When an AI chatbot connected to SPERT® Scheduler tries to add, change or remove dependencies in a scenario whose dependency mode is off, it is now told where that setting is, so it can tell you: in the browser tab where you connected the AI, select the scenario by its name, then turn on its “Dependencies” switch, in the summary panel above the activity list, on the same row as “Parkinson’s Law”. It is also told to have you close any other tab of the project in that browser and reload this one, how to reconnect the tab if it shows a “Connect AI” button, to ask you for a new session code if the browser no longer holds the connection, that a locked scenario must be unlocked first, and to wait a few seconds after you confirm before trying again. Until now it was told only to ask you to turn the setting on, without saying where.',
+          'When the chatbot needs your project but none is available from SPERT Scheduler, it is now told what is missing: Read Mode is on, but no project is available. It is told to ask you to keep the project open in the browser tab where you connected the AI — pressing “Connect AI” there if the tab shows that button, and giving it a new session code if the browser no longer holds the connection — then to try again a few seconds later, and, if that keeps happening, to ask you to look in that browser’s console for a message beginning “[AI] Snapshot”. Until now it asked you to open SPERT Scheduler with Read Mode enabled, although Read Mode was already on whenever this happened.',
+          'Only the explanations change: the same requests are refused as before, with the same error codes. New tests check the full wording of every refusal changed here. The AI service now reports its version as 1.13.1.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.42',
     date: 'October 5, 2026',
     sections: [
