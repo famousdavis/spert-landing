@@ -13,6 +13,30 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.0',
+    date: 'October 9, 2026',
+    sections: [
+      {
+        heading: 'New Features',
+        items: [
+          'A new “I Want Training” tile in the Support section leads to a short form for requesting training. William W. Davis offers affordable live virtual training on the SPERT® Suite for individuals and teams, starting with a free consultation about your training needs, objectives, and any scheduling or budget constraints.',
+        ],
+      },
+      {
+        heading: 'Accessibility',
+        items: [
+          'Every tile’s link text, such as “Map Your Releases”, now meets the WCAG AA contrast minimum in both light and dark mode. Where a tile’s color fell short, its link text is now slightly darker in light mode or slightly lighter in dark mode; the colored bar at the top of each tile is unchanged. A new test checks every tile, including any added later.',
+        ],
+      },
+      {
+        heading: 'Changed',
+        items: [
+          'The “I Found a Bug” tile and form are retired. Please report problems through Contact Me; the old /bug-report address now takes you there.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.5.43',
     date: 'October 9, 2026',
     sections: [

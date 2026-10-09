@@ -7,11 +7,15 @@ import { externalAppNames } from '@/data/apps';
 const CHECKBOX_CLASS =
   'rounded border-zinc-300 text-spert-blue focus:ring-spert-blue dark:border-zinc-600 dark:bg-zinc-800 dark:focus:ring-blue-400';
 
-export function AppCheckboxGroup() {
+export function AppCheckboxGroup({
+  legend = 'Which app(s) does this relate to?',
+}: {
+  legend?: string;
+}) {
   return (
     <fieldset>
       <legend className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        Which app(s) does this relate to?
+        {legend}
       </legend>
       <div className="space-y-2 rounded-lg border border-zinc-300 bg-white p-3 dark:border-zinc-600 dark:bg-zinc-800">
         {externalAppNames.map((name) => (

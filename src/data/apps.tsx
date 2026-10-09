@@ -11,6 +11,8 @@ export interface AppInfo {
   icon: string;
   iconNode?: ReactNode;
   color: string;
+  labelColor?: string; // light-theme link label; defaults to color. Set only when color is under 4.5:1 on white
+  labelColorDark?: string; // dark-theme link label; defaults to color. Set only when color is under 4.5:1 on zinc-900
   external?: boolean; // defaults to true; set false for internal pages
   linkLabel?: string; // defaults to "Open App"
   category?: 'app' | 'support'; // defaults to 'app'
@@ -40,6 +42,7 @@ export const apps: AppInfo[] = [
     url: 'https://storymap.spertsuite.com/',
     icon: '\uD83D\uDDFA\uFE0F',
     color: '#4f46e5',
+    labelColorDark: '#7771eb',
     linkLabel: 'Map Your Releases',
   },
   {
@@ -48,6 +51,7 @@ export const apps: AppInfo[] = [
     url: 'https://forecaster.spertsuite.com/',
     icon: '\uD83C\uDFAF',
     color: '#0070f3',
+    labelColorDark: '#1a7ef4',
     linkLabel: 'Forecast Your Releases',
   },
   {
@@ -57,6 +61,7 @@ export const apps: AppInfo[] = [
     icon: '\uD83D\uDCCA',
     iconNode: <GanttIcon />,
     color: '#0891b2',
+    labelColor: '#07819e',
     linkLabel: 'Build Your Timeline',
   },
   {
@@ -65,6 +70,7 @@ export const apps: AppInfo[] = [
     url: 'https://scheduler.spertsuite.com/',
     icon: '\uD83D\uDCC5',
     color: '#f75b2b',
+    labelColor: '#cd4c24',
     linkLabel: 'Schedule Your Project',
   },
   {
@@ -73,6 +79,7 @@ export const apps: AppInfo[] = [
     url: 'https://cfd.spertsuite.com/',
     icon: '\uD83D\uDCC8',
     color: '#7c3aed',
+    labelColorDark: '#9863f1',
     linkLabel: 'Analyze Your Flow',
   },
   {
@@ -81,6 +88,7 @@ export const apps: AppInfo[] = [
     url: 'https://myscrumbudget.spertsuite.com/',
     icon: '\uD83D\uDCB0',
     color: '#16a34a',
+    labelColor: '#12873d',
     linkLabel: 'Plan Your Budget',
   },
   {
@@ -89,6 +97,8 @@ export const apps: AppInfo[] = [
     url: '/contact',
     icon: '\u2709\uFE0F',
     color: '#8b5cf6',
+    labelColor: '#8558ec',
+    labelColorDark: '#9164f6',
     external: false,
     linkLabel: 'Send Message',
     category: 'support',
@@ -99,18 +109,20 @@ export const apps: AppInfo[] = [
     url: '/request',
     icon: '\uD83D\uDCA1',
     color: '#ea580c',
+    labelColor: '#cc4d0a',
     external: false,
     linkLabel: 'Make a Request',
     category: 'support',
   },
   {
-    name: 'I Found a Bug',
-    description: 'Found something that isn\u2019t working right? Please let me know',
-    url: '/bug-report',
-    icon: '\uD83D\uDC1B',
-    color: '#dc2626',
+    name: 'I Want Training',
+    description: 'Want hands-on training for you or your team? Let\u2019s talk',
+    url: '/training',
+    icon: '\uD83C\uDF93',
+    color: '#db2777',
+    labelColorDark: '#e0458a',
     external: false,
-    linkLabel: 'Report Bug',
+    linkLabel: 'Request Training',
     category: 'support',
   },
 ];
