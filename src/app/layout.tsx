@@ -44,7 +44,7 @@ export default function RootLayout({
       >
         <a
           href="#main-content"
-          className="fixed left-2 top-2 z-[100] -translate-y-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
+          className="fixed left-2 top-2 z-[100] -translate-y-[calc(100%_+_0.5rem)] rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
         >
           Skip to main content
         </a>

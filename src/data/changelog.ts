@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.1',
+    date: 'October 9, 2026',
+    sections: [
+      {
+        heading: 'Fixed',
+        items: [
+          'The “Skip to main content” link no longer peeks out as a thin blue strip at the top left of every page. It stays hidden until you press Tab, as intended.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.0',
     date: 'October 9, 2026',
     sections: [
