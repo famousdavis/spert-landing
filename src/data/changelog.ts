@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.5',
+    date: 'October 24, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'A new SPERT® Scheduler cloud project can list only its creator as a member, so a project can no longer be placed on someone else’s dashboard without being shared with them properly.',
+          'The cloud service now lets a member of a shared SPERT® Scheduler project remove themselves from it. The option to leave a project arrives in a SPERT® Scheduler update.',
+          'Connect AI now refuses activity estimates that are infinite or longer than 3,650 days, matching what SPERT® Scheduler itself accepts.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.4',
     date: 'October 24, 2026',
     sections: [

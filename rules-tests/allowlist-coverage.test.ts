@@ -274,6 +274,7 @@ beforeEach(async () => {
 /** Read a document back with rules disabled and assert every field landed. */
 async function expectPersisted(
   c: AllowlistContract,
+  op: 'create' | 'update' | 'write',
   docId: string,
   fields: string[],
   uid: string,
@@ -284,7 +285,7 @@ async function expectPersisted(
     expect(stored.exists(), `${c.key}/${docId} exists after write`).toBe(true);
     for (const field of fields) {
       expect(stored.data()?.[field], `${c.key}.${field} persisted`).toStrictEqual(
-        targetValue(field, uid),
+        writtenValue(c, op, field, uid),
       );
     }
   });
@@ -308,10 +309,36 @@ function write(
 ): Promise<void> {
   const client = db(uid);
   const payload = { ...buildDoc(fields, uid ?? ALICE), ...extra };
+  if ('members' in payload) payload.members = writtenValue(c, op, 'members', uid ?? ALICE);
   if (op === 'update') {
     return updateDoc(refFor(client, c, docIdFor(c, EXISTING)), payload);
   }
   return setDoc(refFor(client, c, docIdFor(c, FRESH)), payload);
+}
+
+/**
+ * Collections whose create rule requires `members` to name only the creator
+ * (CI-2, 2026-10-24: `members.size() == 1`). Their own suite is
+ * rules-tests/spertscheduler-membership.test.ts.
+ */
+const SELF_ONLY_MEMBERS_ON_CREATE: ReadonlySet<string> = new Set(['spertscheduler_projects']);
+
+/**
+ * The value `write()` sends for a field, and so the value `expectPersisted()`
+ * must find. targetValue() everywhere, except `members` on a create at a
+ * SELF_ONLY_MEMBERS_ON_CREATE collection: targetValue()'s map carries a second
+ * entry so that UPDATES genuinely change it, which those creates refuse.
+ */
+function writtenValue(
+  c: AllowlistContract,
+  op: 'create' | 'update' | 'write',
+  field: string,
+  uid: string,
+): unknown {
+  if (field === 'members' && op === 'create' && SELF_ONLY_MEMBERS_ON_CREATE.has(c.collection)) {
+    return { [uid]: 'owner' };
+  }
+  return targetValue(field, uid);
 }
 
 /** Ops that write a whole document (`create`, and `write` which subsumes it). */
@@ -521,6 +548,7 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
       await assertSucceeds(write(c, op, c.allowlist, uid));
       await expectPersisted(
         c,
+        op,
         docIdFor(c, isFullDocOp(op) ? FRESH : EXISTING),
         c.allowlist,
         uid ?? ALICE,
@@ -531,6 +559,7 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
       await assertSucceeds(write(c, op, c.appMin, uid));
       await expectPersisted(
         c,
+        op,
         docIdFor(c, isFullDocOp(op) ? FRESH : EXISTING),
         c.appMin,
         uid ?? ALICE,
@@ -554,6 +583,7 @@ describe.each(ALLOWLIST_CONTRACTS)('$key ($path)', (c) => {
         await assertSucceeds(write(c, op, c.appMax, uid));
         await expectPersisted(
           c,
+          op,
           docIdFor(c, isFullDocOp(op) ? FRESH : EXISTING),
           c.appMax,
           uid ?? ALICE,

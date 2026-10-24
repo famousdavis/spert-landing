@@ -780,6 +780,15 @@ async function runReorderWrite(
 const sid = z.string().uuid();
 const scenarioIdOpt = z.string().min(1).max(64).optional();
 const entityId = z.string().min(1).max(64);
+// AI-8 (2026-10-24 audit): an estimate in days. Zod's number() accepts
+// Infinity, so finite() and the cap are explicit. ESTIMATE_MAX mirrors the
+// scheduler client's ESTIMATE_MAX (src/app/api/ai-op-handlers.ts), which already
+// refuses larger values, so this rejects them before they reach the op log.
+// ai-op-contract.json still declares only `nonnegative` for these fields;
+// adding the cap there is a two-repo change, because Scheduler validates its
+// own schema against its copy of that file.
+const ESTIMATE_MAX = 3650;
+const estimate = z.number().nonnegative().finite().max(ESTIMATE_MAX);
 const items = z.array(
   z.object({id: entityId, text: z.string().min(1).max(200)}),
 ).min(1).max(50);
@@ -791,9 +800,9 @@ const items = z.array(
 const bulkActivityItem = z.object({
   id: entityId,
   name: z.string().min(1).max(200),
-  min: z.number().nonnegative(),
-  mostLikely: z.number().nonnegative(),
-  max: z.number().nonnegative(),
+  min: estimate,
+  mostLikely: estimate,
+  max: estimate,
   confidenceLevel: z.enum(RSM_LEVELS).optional(),
   distributionType: z.enum(DISTRIBUTIONS).optional(),
   description: z.string().max(2000).optional(),
@@ -819,9 +828,9 @@ const bulkAssignmentItem = z.object({
 const bulkUpdateItem = z.object({
   id: entityId,
   name: z.string().min(1).max(200).optional(),
-  min: z.number().nonnegative().optional(),
-  mostLikely: z.number().nonnegative().optional(),
-  max: z.number().nonnegative().optional(),
+  min: estimate.optional(),
+  mostLikely: estimate.optional(),
+  max: estimate.optional(),
   confidenceLevel: z.enum(RSM_LEVELS).optional(),
   distributionType: z.enum(DISTRIBUTIONS).optional(),
   description: z.string().max(2000).optional(),
@@ -968,9 +977,9 @@ scenario's setting.`,
       scenarioId: scenarioIdOpt,
       id: entityId,
       name: z.string().min(1).max(200),
-      min: z.number().nonnegative(),
-      mostLikely: z.number().nonnegative(),
-      max: z.number().nonnegative(),
+      min: estimate,
+      mostLikely: estimate,
+      max: estimate,
       confidenceLevel: z.enum(RSM_LEVELS).optional(),
       distributionType: z.enum(DISTRIBUTIONS).optional(),
       description: z.string().max(2000).optional(),
@@ -989,9 +998,9 @@ estimate must keep min <= mostLikely <= max. Invalidates simulation results.`,
       sessionId: sid,
       scenarioId: scenarioIdOpt,
       id: entityId,
-      min: z.number().nonnegative().optional(),
-      mostLikely: z.number().nonnegative().optional(),
-      max: z.number().nonnegative().optional(),
+      min: estimate.optional(),
+      mostLikely: estimate.optional(),
+      max: estimate.optional(),
       confidenceLevel: z.enum(RSM_LEVELS).optional(),
       distributionType: z.enum(DISTRIBUTIONS).optional(),
     },
