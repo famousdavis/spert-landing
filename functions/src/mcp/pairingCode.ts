@@ -10,15 +10,14 @@ import {WORD_LIST} from "./wordList";
  * so the minter and the resolver cannot drift apart: a test asserts every
  * minted code matches this pattern.
  *
- * AI-1 (2026-10-24 audit): TRANSITIONAL. It accepts the new WORD-10-digit
- * shape AND the old WORD-4-digit shape. generatePairingCode (which mints) and
- * mcpSpertSuite (which resolves) deploy separately, so a new-only pattern
- * would reject every code minted before the minter's deploy, or after it if
- * the resolver deployed second. Deploy mcpSpertSuite first. Drop the \d{4}
- * branch in a later release, once no old-format code can be alive (15 minutes
- * after generatePairingCode's deploy).
+ * AI-1 (2026-10-24 audit): WORD-10-digit only. v2.6.3 also accepted the
+ * old WORD-4-digit shape while generatePairingCode and mcpSpertSuite deployed
+ * separately. v2.6.4 retired it once no old-format code was unexpired
+ * (measured: 0 of 3 old-format pairing_codes docs). A future format change
+ * needs the same two-step: widen this pattern and deploy mcpSpertSuite
+ * first, change mintCode, then narrow it in a later release.
  */
-export const RESOLVABLE_CODE = /^[A-Za-z]+-(?:\d{4}|\d{10})$/;
+export const RESOLVABLE_CODE = /^[A-Za-z]+-\d{10}$/;
 
 /**
  * Mint one candidate WORD-NNNNNNNNNN pairing code (uppercase word, 10 digits).

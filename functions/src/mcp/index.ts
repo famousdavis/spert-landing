@@ -46,7 +46,7 @@ export const mcpSpertSuite = onRequest(
       return;
     }
     const db = getFirestore();
-    const server = new McpServer({name: "spert-suite", version: "1.14.0"});
+    const server = new McpServer({name: "spert-suite", version: "1.14.1"});
     // Shared session tools (resolve_session_code, get_session_info) register
     // exactly once; each app's register*Tools adds only its own tools.
     registerSharedSessionTools(server, db);

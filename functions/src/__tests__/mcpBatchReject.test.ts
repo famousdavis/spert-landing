@@ -71,7 +71,7 @@ const CALL = {
   jsonrpc: "2.0",
   id: 1,
   method: "tools/call",
-  params: {name: "resolve_session_code", arguments: {code: "CRANE-7842"}},
+  params: {name: "resolve_session_code", arguments: {code: "CRANE-0384216791"}},
 };
 
 beforeEach(() => {
