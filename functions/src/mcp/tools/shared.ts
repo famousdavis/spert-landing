@@ -5,8 +5,10 @@
 import {z} from "zod";
 import type {McpServer} from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {DocumentData, Firestore} from "firebase-admin/firestore";
+import {Timestamp} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {getSession, touchSession, isBrowserConnected} from "../session";
+import {RESOLVABLE_CODE} from "../pairingCode";
 
 // ── Shared response-envelope helpers ─────────────────────────────────────────
 // Every SPERT Suite MCP tool wraps its JSON body in this envelope. Extracted so
@@ -116,11 +118,13 @@ export function registerSharedSessionTools(
 ): void {
   server.tool(
     "resolve_session_code",
-    `Resolve a human-readable pairing code (e.g. CRANE-7842) into a session
-id. CALL THIS FIRST when the user gives you a pairing code. Codes are
-case-insensitive, single-use, and expire in 15 minutes. After resolving,
-call get_session_info.`,
-    {code: z.string().regex(/^[A-Za-z]+-\d{4}$/)},
+    `Resolve a human-readable pairing code (e.g. CRANE-0384216791) into a
+session id. CALL THIS FIRST when the user gives you a pairing code. Codes are
+case-insensitive and single-use: an unused code expires in 15 minutes, and a
+used one stops working about a minute after it is first resolved. After
+resolving, call get_session_info.`,
+    // TRANSITIONAL during AI-1: see RESOLVABLE_CODE in ../pairingCode.
+    {code: z.string().regex(RESOLVABLE_CODE)},
     async ({code}) => {
       const normalized = code.toUpperCase();
       const ref = db.collection("pairing_codes").doc(normalized);
@@ -192,8 +196,18 @@ call get_session_info.`,
           if (fd.used) {
             return {kind: "raceLoser", sessionId: fd.sessionId} as const;
           }
-          // 4d: win the claim.
-          tx.update(ref, {used: true});
+          // 4d: win the claim. AI-1 (2026-10-24 audit): also collapse the
+          // code's remaining life to a 60s grace window. A used code
+          // previously stayed resolvable for its full 15 minutes (branch 3
+          // re-returns the session id to ANY caller), so a leaked or
+          // shoulder-surfed code was a 15-minute bearer token. 60s still lets
+          // a legitimate client retry resolve once; after that branch 2
+          // (expired) closes it. (True zero-window single-use is stronger but
+          // would fail a network-retry — see the audit's AI-1 note.)
+          tx.update(ref, {
+            used: true,
+            expiresAt: Timestamp.fromMillis(Date.now() + 60_000),
+          });
           return {kind: "claimed", sessionId: fd.sessionId} as const;
         });
 

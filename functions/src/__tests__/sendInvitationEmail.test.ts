@@ -54,6 +54,33 @@ const profilesQuery = {
   get: profilesQueryGet,
 };
 
+// SH-1: the invitee is resolved through Firebase Auth, never through the
+// self-written spertsuite_profiles doc. The profiles mock above stays wired so
+// tests can assert it is never consulted.
+const getUserByEmail = jest.fn();
+
+/**
+ * A Firebase Auth UserRecord-shaped value for getUserByEmail.
+ * @param {string} uid The record's uid.
+ * @param {boolean} emailVerified Whether Firebase reports the email verified.
+ * @param {string} providerId The record's linked sign-in provider.
+ * @return {unknown} The fake record.
+ */
+function authUser(
+  uid: string,
+  emailVerified = true,
+  providerId = "google.com",
+): unknown {
+  return {uid, emailVerified, providerData: [{providerId}]};
+}
+
+/** The error getUserByEmail throws when no account owns the email. */
+function userNotFound(): Error {
+  return Object.assign(new Error("no user record"), {
+    code: "auth/user-not-found",
+  });
+}
+
 const rateLimitDocRef = {id: "rate-uid"};
 const rateLimitDoc = jest.fn(() => rateLimitDocRef);
 
@@ -105,6 +132,10 @@ jest.mock("firebase-admin/firestore", () => {
     getFirestore: jest.fn(() => fakeDb),
   };
 });
+
+jest.mock("firebase-admin/auth", () => ({
+  getAuth: jest.fn(() => ({getUserByEmail})),
+}));
 
 import {render as mockedRender} from "@react-email/render";
 import {sendInvitationEmail} from "../sendInvitationEmail";
@@ -165,6 +196,7 @@ beforeEach(() => {
   invitationsQueryGet.mockReset();
   invitationsDocSet.mockClear();
   profilesQueryGet.mockReset();
+  getUserByEmail.mockReset();
   lastProjectsCollection = null;
 
   // Default model doc — owner is caller, name "MyModel".
@@ -182,6 +214,8 @@ beforeEach(() => {
   // Default: no pending dedup hits, no profile hits.
   invitationsQueryGet.mockResolvedValue({docs: []});
   profilesQueryGet.mockResolvedValue({empty: true, docs: []});
+  // Default: no Auth account owns the email, so Branch B (pending invite).
+  getUserByEmail.mockRejectedValue(userNotFound());
 
   // Default rate-limit transaction: doc doesn't exist → fresh.
   // First fakeTx.get call comes from rateLimiter; later calls vary.
@@ -506,11 +540,8 @@ describe("sendInvitationEmail happy paths", () => {
         get: () => undefined,
       });
 
-      // Profile found.
-      profilesQueryGet.mockResolvedValueOnce({
-        empty: false,
-        docs: [{id: "uid-existing", data: () => ({})}],
-      });
+      // Verified Auth record found.
+      getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
 
       // Branch A transaction: re-read model — owner OK, member absent.
       fakeTx.get.mockResolvedValueOnce({
@@ -570,10 +601,7 @@ describe("sendInvitationEmail happy paths", () => {
         name: "MyCfdProject",
       }),
     });
-    profilesQueryGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{id: "uid-existing", data: () => ({})}],
-    });
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
     // Branch A re-read — also no collaborators.
     fakeTx.get.mockResolvedValueOnce({
       exists: true,
@@ -628,10 +656,7 @@ describe("sendInvitationEmail happy paths", () => {
         name: "MyForecasterProject",
       }),
     });
-    profilesQueryGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{id: "uid-existing", data: () => ({})}],
-    });
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
     // Branch A re-read — also no collaborators.
     fakeTx.get.mockResolvedValueOnce({
       exists: true,
@@ -684,10 +709,7 @@ describe("sendInvitationEmail happy paths", () => {
         schemaVersion: 2,
       }),
     });
-    profilesQueryGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{id: "uid-existing", data: () => ({})}],
-    });
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
     // Branch A re-read — also no collaborators.
     fakeTx.get.mockResolvedValueOnce({
       exists: true,
@@ -742,10 +764,7 @@ describe("sendInvitationEmail happy paths", () => {
       exists: true,
       data: () => schedulerProjectFixture,
     });
-    profilesQueryGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{id: "uid-existing", data: () => ({})}],
-    });
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
     // Branch A re-read — also no collaborators.
     fakeTx.get.mockResolvedValueOnce({
       exists: true,
@@ -796,10 +815,7 @@ describe("sendInvitationEmail happy paths", () => {
         name: "MyGanttProject",
       }),
     });
-    profilesQueryGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{id: "uid-existing", data: () => ({})}],
-    });
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
     // Branch A re-read — also no collaborators.
     fakeTx.get.mockResolvedValueOnce({
       exists: true,
@@ -868,10 +884,7 @@ describe("sendInvitationEmail notification throttle", () => {
         exists: false, get: () => undefined,
       }); // rate limit fresh
 
-      profilesQueryGet.mockResolvedValueOnce({
-        empty: false,
-        docs: [{id: "uid-existing", data: () => ({})}],
-      });
+      getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
 
       fakeTx.get.mockResolvedValueOnce({
         // model re-read for branch A
@@ -908,10 +921,7 @@ describe("sendInvitationEmail notification throttle", () => {
         exists: false, get: () => undefined,
       });
 
-      profilesQueryGet.mockResolvedValueOnce({
-        empty: false,
-        docs: [{id: "uid-existing", data: () => ({})}],
-      });
+      getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
 
       fakeTx.get.mockResolvedValueOnce({
         exists: true,
@@ -1084,10 +1094,7 @@ describe("sendInvitationEmail urlBase resolution", () => {
         exists: false, get: () => undefined,
       });
 
-      profilesQueryGet.mockResolvedValueOnce({
-        empty: false,
-        docs: [{id: "uid-existing", data: () => ({})}],
-      });
+      getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
 
       fakeTx.get.mockResolvedValueOnce({
         exists: true,
@@ -1301,10 +1308,7 @@ describe("sendInvitationEmail body quoting (v0.29 double-quote regression)",
           responses: {},
         }),
       });
-      profilesQueryGet.mockResolvedValueOnce({
-        empty: false,
-        docs: [{id: "uid-existing", data: () => ({})}],
-      });
+      getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
       fakeTx.get.mockResolvedValueOnce({
         exists: true,
         data: () => ({
@@ -1371,10 +1375,7 @@ const ISO_8601_MS_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 describe("sendInvitationEmail updatedAt convergence (PC-2)", () => {
   it("writes updatedAt to the project doc as an ISO 8601 string", async () => {
     fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
-    profilesQueryGet.mockResolvedValueOnce({
-      empty: false,
-      docs: [{id: "uid-existing", data: () => ({})}],
-    });
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
     // Branch A re-read of the model doc.
     fakeTx.get.mockResolvedValueOnce({
       exists: true,
@@ -1414,5 +1415,114 @@ describe("sendInvitationEmail updatedAt convergence (PC-2)", () => {
       expect(invitationsDocSet).toHaveBeenCalledWith(
         expect.objectContaining({updatedAt: "<serverTimestamp>"}),
       );
+    });
+});
+
+describe("sendInvitationEmail SH-1 invitee resolution", () => {
+  /** Queue the three transactions a Branch A auto-add reads. */
+  function queueBranchATransactions(): void {
+    // Rate-limit tx: fresh.
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+    // Branch A tx: re-read model — owner OK, invitee not yet a member.
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({
+        owner: "uid-owner",
+        members: {"uid-owner": "owner"},
+        collaborators: [],
+        responses: {},
+      }),
+    });
+    // Throttle tx: absent → notification goes out.
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+  }
+
+  it("ignores a self-written profile claiming the invitee's email",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+      // An impostor wrote the invitee's address into their own profile. The
+      // old lookup would have auto-added uid-impostor; Auth owns no account
+      // for the address, so the invitee gets a pending invite instead.
+      profilesQueryGet.mockResolvedValue({
+        empty: false,
+        docs: [{id: "uid-impostor", data: () => ({})}],
+      });
+
+      const out = await handler(makeReq());
+
+      expect(out.invited).toEqual(["new@example.com"]);
+      expect(out.added).toEqual([]);
+      expect(profilesQuery.where).not.toHaveBeenCalled();
+      expect(fakeTx.update).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({"members.uid-impostor": expect.anything()}),
+      );
+      expect(getUserByEmail).toHaveBeenCalledWith("new@example.com");
+    });
+
+  it("unverified non-Microsoft Auth record → pending invite, not auto-add",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+      getUserByEmail.mockResolvedValueOnce(
+        authUser("uid-unverified", false, "google.com"));
+
+      const out = await handler(makeReq());
+
+      expect(out.invited).toEqual(["new@example.com"]);
+      expect(out.added).toEqual([]);
+      expect(invitationsDocSet).toHaveBeenCalledTimes(1);
+      expect(fakeTx.update).not.toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({"members.uid-unverified": expect.anything()}),
+      );
+    });
+
+  it("unverified Microsoft Auth record → auto-added, matching the claim gate",
+    async () => {
+      queueBranchATransactions();
+      getUserByEmail.mockResolvedValueOnce(
+        authUser("uid-msft", false, "microsoft.com"));
+
+      const out = await handler(makeReq({
+        dataOverrides: {emails: ["student@example.edu"]},
+      }));
+
+      expect(out.added).toEqual(["student@example.edu"]);
+      expect(out.invited).toEqual([]);
+      expect(fakeTx.update).toHaveBeenCalledWith(
+        expect.objectContaining({id: "model-X"}),
+        expect.objectContaining({"members.uid-msft": "editor"}),
+      );
+    });
+
+  it("verified Auth record → auto-added", async () => {
+    queueBranchATransactions();
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-verified"));
+
+    const out = await handler(makeReq({
+      dataOverrides: {emails: ["colleague@example.com"]},
+    }));
+
+    expect(out.added).toEqual(["colleague@example.com"]);
+    expect(fakeTx.update).toHaveBeenCalledWith(
+      expect.objectContaining({id: "model-X"}),
+      expect.objectContaining({"members.uid-verified": "editor"}),
+    );
+  });
+
+  it("Auth lookup error other than not-found → send-failed, nothing written",
+    async () => {
+      fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+      getUserByEmail.mockRejectedValueOnce(
+        Object.assign(new Error("backend down"), {code: "auth/internal-error"}));
+
+      const out = await handler(makeReq());
+
+      expect(out.failed).toEqual([
+        {email: "new@example.com", reason: "send-failed"},
+      ]);
+      expect(out.added).toEqual([]);
+      expect(out.invited).toEqual([]);
+      expect(invitationsDocSet).not.toHaveBeenCalled();
     });
 });

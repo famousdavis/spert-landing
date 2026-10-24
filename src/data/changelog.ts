@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.3',
+    date: 'October 24, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Sharing a project by email is safer. When the address already belongs to a SPERT® account, that account is added directly only if its sign-in confirms it owns the address; otherwise the person receives an emailed invitation to accept instead.',
+          'Connect AI pairing codes are now much harder to guess: a word followed by 10 digits instead of 4. A code also stops working about a minute after your AI first uses it, instead of staying valid for its full 15 minutes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.2',
     date: 'October 24, 2026',
     sections: [
