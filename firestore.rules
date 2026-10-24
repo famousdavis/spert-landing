@@ -516,6 +516,16 @@ service cloud.firestore {
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
                     && request.resource.data.members[request.auth.uid] == 'owner'
+                    // CI-2 (2026-10-24 audit): the creator may name only
+                    // themselves. Otherwise a create could list another user
+                    // and push the project onto their dashboard. Sharing goes
+                    // through an owner update or the invitation Cloud Functions.
+                    // With the line above, size() == 1 means exactly
+                    // {uid: 'owner'}. Not written as hasOnly(): that operator is
+                    // reserved for field allowlists, which the register guard
+                    // (src/guards/allowlist-vs-rules.test.ts) resolves one site
+                    // per collection and operation.
+                    && request.resource.data.members.size() == 1
                     && request.resource.data.schemaVersion is int
                     && request.resource.data.schemaVersion >= 1
                     && request.resource.data.keys().hasOnly(spertSchedulerProjectFields());
@@ -535,6 +545,22 @@ service cloud.firestore {
                     && request.resource.data.schemaVersion is int
                     && request.resource.data.schemaVersion >= 1
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertSchedulerProjectFields());
+      // CI-2 (2026-10-24 audit): Leave project. A member may delete ONLY their
+      // own entry. Viewers have no other update right, so this is its own
+      // statement. It never applies to the owner. The owner's own entry stays
+      // under the owner update rule above, which can rewrite `members`, so
+      // keeping the owner from orphaning the project is the app's job.
+      // Client write, and nothing else in it:
+      //   updateDoc(ref, {[`members.${uid}`]: deleteField()})
+      // Set equality rather than hasOnly() (see create above): a leave always
+      // changes exactly these keys. Covered by its own suite,
+      // rules-tests/spertscheduler-membership.test.ts.
+      allow update: if isAuth()
+                    && request.auth.uid in resource.data.members
+                    && resource.data.members[request.auth.uid] != 'owner'
+                    && request.resource.data.diff(resource.data).affectedKeys() == ['members'].toSet()
+                    && request.resource.data.members.diff(resource.data.members).affectedKeys() == [request.auth.uid].toSet()
+                    && !(request.auth.uid in request.resource.data.members);
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }
     // v0.42.6 (H3): replaced `allow read: if isAuth()` with get +
