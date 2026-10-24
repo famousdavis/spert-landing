@@ -8,12 +8,14 @@ import {
   getFirestore,
   Timestamp,
 } from "firebase-admin/firestore";
+import {getAuth} from "firebase-admin/auth";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
 import {defineSecret} from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import {render} from "@react-email/render";
 import {Resend} from "resend";
 
+import {UNVERIFIED_EMAIL_PROVIDERS} from "./emailTrust";
 import {checkAndIncrement} from "./rateLimiter";
 import {
   denormalizeLastFirst,
@@ -337,17 +339,34 @@ export const sendInvitationEmail = onCall(
           continue;
         }
 
-        // Profile lookup.
-        const profileSnap = await db
-          .collection("spertsuite_profiles")
-          .where("email", "==", email)
-          .limit(1)
-          .get();
+        // SH-1 (2026-10-24 audit): resolve the invitee's uid from the Firebase
+        // Auth record, never from a self-written spertsuite_profiles doc — any
+        // signed-in user can write ANY email into their own profile, so the old
+        // lookup let an attacker claim a colleague's address and be auto-added
+        // in their place. getUserByEmail is the authority on who owns an email.
+        // It returns a record whether or not that email is verified, so the
+        // record must also pass the same gate as claimPendingInvitations:
+        // verified, or a provider in UNVERIFIED_EMAIL_PROVIDERS. A record that
+        // fails it falls through to Branch B, a pending invite only a
+        // gate-passing sign-in can claim. Firebase has one account per email
+        // here, so the direct add is no weaker than the claim path.
+        let resolvedUid: string | null = null;
+        try {
+          const user = await getAuth().getUserByEmail(email);
+          const trusted = user.emailVerified ||
+            user.providerData.some((p) =>
+              UNVERIFIED_EMAIL_PROVIDERS.has(p.providerId));
+          if (trusted) resolvedUid = user.uid;
+        } catch (lookupErr) {
+          if ((lookupErr as {code?: string}).code !== "auth/user-not-found") {
+            throw lookupErr; // real error → per-email send-failed (outer catch)
+          }
+          // auth/user-not-found → no existing user → fall through to Branch B.
+        }
 
-        if (!profileSnap.empty) {
+        if (resolvedUid) {
           // Branch A — existing user, auto-add inside a transaction.
-          const profileDoc = profileSnap.docs[0];
-          const inviteeUid = profileDoc.id;
+          const inviteeUid = resolvedUid;
 
           type AddOutcome = "already-member" | "added";
           const outcome: AddOutcome = await db.runTransaction(async (tx) => {

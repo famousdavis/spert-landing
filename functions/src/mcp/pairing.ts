@@ -5,26 +5,11 @@
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {initializeApp, getApps} from "firebase-admin/app";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
-import {randomInt} from "node:crypto";
 import * as logger from "firebase-functions/logger";
 import {WORD_LIST} from "./wordList";
+import {mintCode} from "./pairingCode";
 
 if (getApps().length === 0) initializeApp();
-
-/**
- * Mint one candidate WORD-NNNN pairing code (uppercase word, 4 digits).
- * Uses node:crypto randomInt (not Math.random) for unbiased selection.
- *
- * @return {string} A candidate code, e.g. "CRANE-7842".
- */
-function mintCode(): string {
-  if (WORD_LIST.length === 0) throw new Error("WORD_LIST is empty");
-  const idx = randomInt(0, WORD_LIST.length);
-  const word = WORD_LIST[idx];
-  if (word === undefined) throw new Error("word list internal error");
-  const digits = String(randomInt(0, 10000)).padStart(4, "0");
-  return `${word}-${digits}`;
-}
 
 export const generatePairingCode = onCall(
   {region: "us-central1", cors: true},

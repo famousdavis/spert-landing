@@ -35,8 +35,18 @@ export const mcpSpertSuite = onRequest(
       res.status(429).json({error: "Too many requests"});
       return;
     }
+    // AI-1 (2026-10-24 audit): reject JSON-RPC batch arrays. The MCP SDK
+    // transport executes every call in a batch, but checkIpRateLimit above
+    // counts one HTTP request — so a single POST carrying hundreds of
+    // resolve_session_code calls was hundreds of pairing-code guesses for one
+    // rate-limit tick. No SPERT client batches; one request per call is the
+    // normal MCP shape.
+    if (Array.isArray(req.body)) {
+      res.status(400).json({error: "Batch requests are not supported"});
+      return;
+    }
     const db = getFirestore();
-    const server = new McpServer({name: "spert-suite", version: "1.13.1"});
+    const server = new McpServer({name: "spert-suite", version: "1.14.0"});
     // Shared session tools (resolve_session_code, get_session_info) register
     // exactly once; each app's register*Tools adds only its own tools.
     registerSharedSessionTools(server, db);

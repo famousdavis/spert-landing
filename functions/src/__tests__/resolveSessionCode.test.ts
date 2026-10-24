@@ -28,6 +28,8 @@ jest.mock("firebase-functions/logger", () => ({
 
 import {getSession} from "../mcp/session";
 import {registerSharedSessionTools} from "../mcp/tools/shared";
+import {Timestamp} from "firebase-admin/firestore";
+import {mintCode} from "../mcp/pairingCode";
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 
@@ -159,15 +161,26 @@ describe("resolve_session_code idempotency", () => {
     expect(mockGetSession).not.toHaveBeenCalled();
   });
 
-  test("4: valid unused code is claimed and writes used:true", async () => {
-    const {db, txUpdate} = makeDb({
-      getSnap: snap({expiresAt: FUTURE, used: false, sessionId: SID}),
+  test("4: valid unused code is claimed: used:true and a 60s grace expiry",
+    async () => {
+      const {db, txUpdate} = makeDb({
+        getSnap: snap({expiresAt: FUTURE, used: false, sessionId: SID}),
+      });
+      const before = Date.now();
+      const body = await call(db, "CRANE-0003");
+      expect(body.status).toBe("ok");
+      expect(body.sessionId).toBe(SID);
+      // AI-1: a claimed code no longer stays resolvable for its full 15
+      // minutes; its expiry collapses to about a minute from the claim.
+      expect(txUpdate).toHaveBeenCalledWith(expect.anything(), {
+        used: true,
+        expiresAt: expect.any(Timestamp),
+      });
+      const expiry = (txUpdate.mock.calls[0][1].expiresAt as Timestamp)
+        .toMillis();
+      expect(expiry).toBeGreaterThanOrEqual(before + 60_000);
+      expect(expiry).toBeLessThanOrEqual(Date.now() + 60_000);
     });
-    const body = await call(db, "CRANE-0003");
-    expect(body.status).toBe("ok");
-    expect(body.sessionId).toBe(SID);
-    expect(txUpdate).toHaveBeenCalledWith(expect.anything(), {used: true});
-  });
 
   test("5: valid used code with a live session re-confirms with no write",
     async () => {
@@ -240,5 +253,56 @@ describe("resolve_session_code idempotency", () => {
     const body = await call(db, "CRANE-0010");
     expect(body.status).toBe("error");
     expect(body.error).toBe("internal");
+  });
+});
+
+describe("pairing-code format (AI-1)", () => {
+  /** The zod schema resolve_session_code registers for its `code` input. */
+  function codeSchema(): {safeParse: (v: unknown) => {success: boolean}} {
+    let schema: {code: {safeParse: (v: unknown) => {success: boolean}}} |
+      undefined;
+    const fakeServer = {
+      tool: (...toolArgs: unknown[]) => {
+        if (toolArgs[0] === "resolve_session_code") {
+          schema = toolArgs[2] as typeof schema;
+        }
+      },
+    };
+    registerSharedSessionTools(
+      fakeServer as unknown as Parameters<typeof registerSharedSessionTools>[0],
+      {} as Parameters<typeof registerSharedSessionTools>[1],
+    );
+    if (!schema) throw new Error("resolve_session_code not registered");
+    return schema.code;
+  }
+
+  test("every minted code is WORD-10-digit and passes the resolver", () => {
+    const schema = codeSchema();
+    for (let i = 0; i < 500; i++) {
+      const code = mintCode();
+      expect(code).toMatch(/^[A-Z]+-\d{10}$/);
+      expect(schema.safeParse(code).success).toBe(true);
+    }
+  });
+
+  test("resolver accepts the new shape, case-insensitively", () => {
+    const schema = codeSchema();
+    expect(schema.safeParse("CRANE-0384216791").success).toBe(true);
+    expect(schema.safeParse("crane-0384216791").success).toBe(true);
+  });
+
+  test("resolver still accepts the old WORD-4-digit shape (transition)",
+    () => {
+      expect(codeSchema().safeParse("CRANE-7842").success).toBe(true);
+    });
+
+  test("resolver rejects every other shape", () => {
+    const schema = codeSchema();
+    for (const bad of [
+      "CRANE-038421", "CRANE-12345678901", "CRANE-MAPLE-038421",
+      "CRANE 0384216791", "CRANE-", "-0384216791", "", "CRANE-78a2",
+    ]) {
+      expect(schema.safeParse(bad).success).toBe(false);
+    }
   });
 });
