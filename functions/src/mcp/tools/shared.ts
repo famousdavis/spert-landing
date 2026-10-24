@@ -123,7 +123,7 @@ session id. CALL THIS FIRST when the user gives you a pairing code. Codes are
 case-insensitive and single-use: an unused code expires in 15 minutes, and a
 used one stops working about a minute after it is first resolved. After
 resolving, call get_session_info.`,
-    // TRANSITIONAL during AI-1: see RESOLVABLE_CODE in ../pairingCode.
+    // Shape lives with mintCode: see RESOLVABLE_CODE in ../pairingCode.
     {code: z.string().regex(RESOLVABLE_CODE)},
     async ({code}) => {
       const normalized = code.toUpperCase();

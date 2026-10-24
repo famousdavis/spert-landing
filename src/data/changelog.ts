@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.4',
+    date: 'October 24, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Connect AI now accepts only the new, longer pairing codes introduced in 2.6.3. The older, shorter format had stayed valid briefly while the change rolled out, and is now retired.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.3',
     date: 'October 24, 2026',
     sections: [

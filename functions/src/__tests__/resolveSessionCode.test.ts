@@ -291,10 +291,10 @@ describe("pairing-code format (AI-1)", () => {
     expect(schema.safeParse("crane-0384216791").success).toBe(true);
   });
 
-  test("resolver still accepts the old WORD-4-digit shape (transition)",
-    () => {
-      expect(codeSchema().safeParse("CRANE-7842").success).toBe(true);
-    });
+  test("resolver rejects the retired WORD-4-digit shape (v2.6.4)", () => {
+    expect(codeSchema().safeParse("CRANE-7842").success).toBe(false);
+    expect(codeSchema().safeParse("crane-7842").success).toBe(false);
+  });
 
   test("resolver rejects every other shape", () => {
     const schema = codeSchema();
