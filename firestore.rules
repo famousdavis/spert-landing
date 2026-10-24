@@ -506,9 +506,18 @@ service cloud.firestore {
       allow get: if isAuth() && request.auth.uid in resource.data.members;
       // v0.42.6 (H1): bind top-level `owner` field to caller's UID.
       // v0.42.6 (H2): keys().hasOnly() allowlist on create.
+      // CI-1 (2026-10-24 audit): schemaVersion must be a positive integer. A
+      // non-integer or large-magnitude value (e.g. -1e20) drove the Scheduler
+      // client's migration loop (applyMigrations) non-terminating during
+      // loadAll, freezing every member's browser with no in-app escape. `is int
+      // && >= 1` closes it at the write boundary; no upper bound, so a future
+      // schema bump still writes without a rules change (the client's own
+      // future-version guard handles too-new docs).
       allow create: if isAuth()
                     && request.resource.data.owner == request.auth.uid
                     && request.resource.data.members[request.auth.uid] == 'owner'
+                    && request.resource.data.schemaVersion is int
+                    && request.resource.data.schemaVersion >= 1
                     && request.resource.data.keys().hasOnly(spertSchedulerProjectFields());
       // v0.42.6 (H2): affectedKeys().hasOnly() allowlist on update. Uses
       // affectedKeys() not keys() so legacy docs with stale unknown fields
@@ -520,6 +529,11 @@ service cloud.firestore {
                       (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'members']))
                       || resource.data.members[request.auth.uid] == 'owner'
                     )
+                    // CI-1 (2026-10-24 audit): see create. The post-write doc
+                    // always carries schemaVersion, so this also rejects an
+                    // edit that rewrites it to a loop-inducing value.
+                    && request.resource.data.schemaVersion is int
+                    && request.resource.data.schemaVersion >= 1
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(spertSchedulerProjectFields());
       allow delete: if isAuth() && resource.data.members[request.auth.uid] == 'owner';
     }

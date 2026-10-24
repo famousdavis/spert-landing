@@ -140,14 +140,19 @@ type Doc = Record<string, unknown>;
  * Everything else may be any type - `hasOnly()` and `affectedKeys()` look at
  * keys only - so the default below is a readable string.
  *
- *   lastSeq       pinned `== 0` on anonymous_sessions create
- *   consentWrite  `is bool` on create
- *   consentRead   `is bool` on create and on update
+ *   lastSeq        pinned `== 0` on anonymous_sessions create
+ *   consentWrite   `is bool` on create
+ *   consentRead    `is bool` on create and on update
+ *   schemaVersion  `is int && >= 1` on spertscheduler_projects create and
+ *                  update (CI-1, 2026-10-24). Other collections leave it
+ *                  untyped, so an integer is harmless there. Seed and target
+ *                  differ so an update still registers in affectedKeys().
  */
 const TYPED_VALUES: Record<string, { target: unknown; seed: unknown }> = {
   lastSeq: { target: 0, seed: 0 },
   consentWrite: { target: true, seed: true },
   consentRead: { target: true, seed: false },
+  schemaVersion: { target: 25, seed: 24 },
 };
 
 /**
