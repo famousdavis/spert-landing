@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.2',
+    date: 'October 24, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'SPERT® Scheduler cloud projects are better protected. The cloud service now refuses to save a project with a malformed internal version number, which could otherwise have stopped a shared project from opening for everyone it was shared with.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.1',
     date: 'October 9, 2026',
     sections: [
