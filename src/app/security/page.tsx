@@ -79,7 +79,7 @@ export default function SecurityPage() {
                 {app}
               </a>
               {' — '}
-              <code className="font-mono text-xs break-all">{repo}</code>
+              <code className="font-mono text-xs whitespace-nowrap">{repo}</code>
             </li>
           ))}
         </ul>
