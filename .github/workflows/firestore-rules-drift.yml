@@ -39,8 +39,10 @@ on:
     - cron: "30 */6 * * *"
   workflow_dispatch:
   pull_request:
-    # Self-test: any PR touching this workflow or its script proves the check
-    # still runs green. Same convention as external-health.yml.
+    # Self-test: a PR touching this workflow or its script syntax-checks the
+    # script below, credential-free. The real, credentialed drift check runs
+    # only on schedule / workflow_dispatch (see the Compare step) — a deploy
+    # credential must not be reachable from PR-triggered code.
     paths:
       - ".github/workflows/firestore-rules-drift.yml"
       - "scripts/check-deployed-rules.mjs"
@@ -66,10 +68,22 @@ jobs:
       # No `npm ci`. The script uses only Node built-ins (crypto, fs, fetch),
       # so installing the dependency tree would be pure latency.
 
+      # The credentialed drift check does not run on pull_request events: a PR
+      # can edit this workflow or the script it runs, so exposing the deploy
+      # credential to PR-triggered code is an avoidable risk (security review
+      # A-10, 2026-10-25). Scheduled and manual runs are unchanged.
       - name: Compare the deployed ruleset with the repo
+        if: github.event_name != 'pull_request'
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
         run: npm run rules:drift
+
+      # Credential-free self-test for pull requests: prove the script still
+      # parses without handing a PR the deploy credential. `node --check`
+      # validates syntax and does not execute the module, so no secret is read.
+      - name: Syntax-check the drift script (pull_request self-test)
+        if: github.event_name == 'pull_request'
+        run: node --check scripts/check-deployed-rules.mjs
 
       - name: Summarise
         if: always()
@@ -77,7 +91,9 @@ jobs:
           {
             echo "### Firestore rules drift"
             echo
-            if [ "${{ job.status }}" = "success" ]; then
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              echo "PR self-test only: the credentialed drift check runs on schedule and workflow_dispatch, not on pull_request events. The script was syntax-checked without the deploy credential."
+            elif [ "${{ job.status }}" = "success" ]; then
               echo "Deployed ruleset is byte-identical to \`firestore.rules\`."
             else
               echo "**Drift detected, or the check could not run.** See the job log."

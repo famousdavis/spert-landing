@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.6',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'The automated checks that run on every proposed change now state that they only need to read the repository, not write to it. The permission was already read-only in practice; declaring it keeps it so even if the repository default were ever changed, and clears a routine security-scanner advisory. This check configuration is shared, byte-for-byte, across the suite’s repositories.',
+          'The scheduled check that confirms the live database rules still match this repository no longer makes its deployment credential available to runs triggered by a proposed change (a pull request). Those runs now only confirm the check’s own script is well-formed, without the credential; the real comparison continues to run on its schedule and when started by hand, unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.5',
     date: 'October 24, 2026',
     sections: [
