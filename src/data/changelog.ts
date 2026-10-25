@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.8',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Added an automated test confirming that once a Connect AI session is ended, the paired AI assistant can no longer read from or write to it. This is a test-only backend change with no effect on the site itself.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.7',
     date: 'October 25, 2026',
     sections: [
