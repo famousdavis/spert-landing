@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.7.2',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'The Privacy Policy (1.4, effective October 26, 2026) now also names Nager.Date, the public-holiday service SPERT® Scheduler’s Calendar page calls from your browser.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.7.1',
     date: 'October 25, 2026',
     sections: [
