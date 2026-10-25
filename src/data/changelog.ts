@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.7.1',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'Published new editions of the Terms of Service (1.4), Privacy Policy (1.4), AI Privacy Notice (2.3) and AI Connectivity Consent Notice (2.2), effective October 26, 2026. They replace a personal contact address with the SPERT® Suite’s own addresses, name Microsoft as the email provider, and correct and clarify several disclosures.',
+        ],
+      },
+      {
+        heading: 'Security',
+        items: [
+          'The Security page now lists SPERT® AHP’s repository, and notes that the spertsuite.com repository also holds the Connect AI server.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.7.0',
     date: 'October 25, 2026',
     sections: [

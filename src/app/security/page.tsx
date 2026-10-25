@@ -24,13 +24,14 @@ const LIST_CLASS = 'list-disc pl-6 space-y-1 text-sm leading-relaxed text-zinc-6
 
 /** Each repository has GitHub's private vulnerability reporting enabled. */
 const REPOSITORIES = [
-  { app: 'spertsuite.com', repo: 'famousdavis/spert-landing' },
+  { app: 'spertsuite.com and the Connect AI server', repo: 'famousdavis/spert-landing' },
   { app: 'SPERT® Scheduler', repo: 'famousdavis/spert-scheduler' },
   { app: 'SPERT® Story Map', repo: 'famousdavis/spert-story-map' },
   { app: 'SPERT® Forecaster', repo: 'famousdavis/spert-forecaster' },
   { app: 'GanttApp™', repo: 'famousdavis/GanttApp' },
   { app: 'SPERT® CFD', repo: 'famousdavis/spert-cfd' },
   { app: 'MyScrumBudget™', repo: 'famousdavis/myscrumbudget-web' },
+  { app: 'SPERT® AHP', repo: 'spert-suite/spert-ahp' },
 ];
 
 export default function SecurityPage() {
