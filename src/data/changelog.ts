@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.6.7',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'A server-side dependency was updated to address a security advisory. This is a backend change with no effect on the site itself.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.6',
     date: 'October 25, 2026',
     sections: [
