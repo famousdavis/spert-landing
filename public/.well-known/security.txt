@@ -1,0 +1,9 @@
+# Security contact for the SPERT Suite (https://spertsuite.com), operated by famousdavis, LLC.
+# Please report vulnerabilities privately. Do not open a public issue.
+
+Contact: mailto:security@spertsuite.com
+Contact: https://spertsuite.com/security
+Expires: 2027-09-25T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://spertsuite.com/.well-known/security.txt
+Policy: https://spertsuite.com/security

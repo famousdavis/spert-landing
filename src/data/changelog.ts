@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.7.0',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Added a Security page explaining how to report a vulnerability privately, with a machine-readable security.txt file. The footer links to it, and the contact page now names the security and privacy email addresses.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.6.8',
     date: 'October 25, 2026',
     sections: [

@@ -18,6 +18,8 @@ interface FormPageShellProps {
   formspreeId: string;
   title: string;
   subtitle: string;
+  /** An extra line under the subtitle. Pages without one render as before. */
+  note?: React.ReactNode;
   submitLabel?: string;
   successMessage?: string;
   successDetail?: string;
@@ -28,6 +30,7 @@ export function FormPageShell({
   formspreeId,
   title,
   subtitle,
+  note,
   submitLabel = 'Send Message',
   successMessage = 'Message sent!',
   successDetail = "Thank you for reaching out. I'll get back to you soon.",
@@ -74,9 +77,14 @@ export function FormPageShell({
         <h2 className="mb-2 text-xl font-bold text-zinc-900 dark:text-zinc-100">
           {title}
         </h2>
-        <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className={`${note ? 'mb-2' : 'mb-6'} text-sm text-zinc-500 dark:text-zinc-400`}>
           {subtitle}
         </p>
+        {note && (
+          <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
+            {note}
+          </p>
+        )}
 
         {status === 'success' ? (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-6 text-center dark:border-emerald-800 dark:bg-emerald-950">

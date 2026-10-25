@@ -64,6 +64,13 @@ export function Footer({ linkVersion = true }: FooterProps) {
         >
           License
         </a>
+        {' | '}
+        <Link
+          href="/security"
+          className="text-blue-500 hover:text-blue-600 transition-colors"
+        >
+          Security
+        </Link>
       </div>
       <div className="mt-2">Operated by famousdavis, LLC</div>
     </footer>
