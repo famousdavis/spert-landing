@@ -26,7 +26,7 @@ const LIST_CLASS = 'list-disc pl-6 space-y-1 text-sm leading-relaxed text-zinc-6
 const USE_LABEL: Record<KitDocument['use'], string> = {
   template: 'Yes: a template to fill in, then save as PDF',
   forward: 'Placeholders only, then forward it',
-  read: 'No: read it yourself',
+  read: 'No. Start here: your plan to get approval',
 };
 
 const ZIP_MEGABYTES = (APPROVAL_KIT.zip.bytes / 1_000_000).toFixed(1);
