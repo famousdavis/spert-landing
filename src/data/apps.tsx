@@ -104,14 +104,14 @@ export const apps: AppInfo[] = [
     category: 'support',
   },
   {
-    name: 'Approval Kit',
-    description: 'Documents to help you get SPERT® Suite approved at work',
+    name: 'Approver\u2019s Kit',
+    description: 'PDF and Word documents to secure approval for using SPERT® Suite.',
     url: '/approval-kit',
     icon: '\uD83D\uDCCB',
     color: '#ea580c',
     labelColor: '#cc4d0a',
     external: false,
-    linkLabel: 'Get the Kit',
+    linkLabel: 'Get Approval Materials',
     category: 'support',
   },
   {
