@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.8.1',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Approval Kit',
+        items: [
+          'The Approval Kit’s PDFs and checksums.txt now open in a new tab, like the other PDFs on the site, so closing one no longer closes the site.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.8.0',
     date: 'October 25, 2026',
     sections: [

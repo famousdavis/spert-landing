@@ -98,10 +98,14 @@ export default function ApprovalKitPage() {
                 <dt className="font-medium text-zinc-700 dark:text-zinc-300">Fill it in?</dt>
                 <dd>{USE_LABEL[doc.use]}</dd>
               </dl>
-              {/* Static files, not routes, so plain links rather than next/link. */}
+              {/* Static files, not routes, so plain links rather than next/link. Files the
+                  browser displays open in a new tab, like the footer's PDFs; Word files and
+                  the zip download, so they need none. */}
               <p className="mt-2 flex gap-4 text-sm">
                 <a
                   href={`${APPROVAL_KIT_BASE}/${doc.file}.pdf`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   aria-label={`${doc.name}, PDF`}
                   className={`${LINK_CLASS} font-semibold`}
                 >
@@ -134,7 +138,12 @@ export default function ApprovalKitPage() {
           Its SHA-256 checksum is{' '}
           <code className="font-mono text-xs break-all">{APPROVAL_KIT.zip.sha256}</code>. The
           checksums of the individual files are in{' '}
-          <a href={`${APPROVAL_KIT_BASE}/checksums.txt`} className={LINK_CLASS}>
+          <a
+            href={`${APPROVAL_KIT_BASE}/checksums.txt`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={LINK_CLASS}
+          >
             checksums.txt
           </a>
           .
