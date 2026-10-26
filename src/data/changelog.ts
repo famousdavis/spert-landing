@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.8.2',
+    date: 'October 26, 2026',
+    sections: [
+      {
+        heading: 'Approval Kit',
+        items: [
+          'The Approval Kit tile’s description now starts with an action, like the app tiles: “Secure approval to use SPERT® Suite with these PDF and Word documents.”',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.8.1',
     date: 'October 25, 2026',
     sections: [
