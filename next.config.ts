@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
       // "I Found a Bug" was retired in 2.6.0. Bug reports now go through the
       // contact form, so the old address lands there.
       { source: "/bug-report", destination: "/contact", permanent: true },
+      // "I Have a Request" was retired in 2.8.0, when its tile became the
+      // Approval Kit. Ideas now go through the contact form too.
+      { source: "/request", destination: "/contact", permanent: true },
     ];
   },
   async headers() {

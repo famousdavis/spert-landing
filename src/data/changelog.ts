@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.8.0',
+    date: 'October 25, 2026',
+    sections: [
+      {
+        heading: 'Approval Kit',
+        items: [
+          'New Approval Kit page at spertsuite.com/approval-kit: ten documents, each as PDF and Word, that help a project manager get the SPERT® Suite approved at work, plus the whole kit as one zip with its SHA-256 checksum.',
+          'The “Approval Kit” tile replaces “I Have a Request” on the home page.',
+        ],
+      },
+      {
+        heading: 'Retired',
+        items: [
+          'The “I Have a Request” page is retired. /request now goes to the contact page, where ideas and suggestions are welcome.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.7.2',
     date: 'October 25, 2026',
     sections: [

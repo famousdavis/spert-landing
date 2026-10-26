@@ -14,7 +14,7 @@ Hub page linking to the SPERT® Suite ecosystem of free, browser-based project m
 ## Support
 
 - **Contact Me** — General questions, suggestions, or feedback
-- **I Have a Request** — Feature ideas and improvement suggestions
+- **Approval Kit** — Documents to help a project manager get SPERT® Suite approved at work ([spertsuite.com/approval-kit](https://spertsuite.com/approval-kit))
 - **I Want Training** — Live virtual training on any SPERT® Suite tool, for individuals and teams
 
 ## Development
