@@ -104,7 +104,7 @@ export const apps: AppInfo[] = [
     category: 'support',
   },
   {
-    name: 'Approver\u2019s Kit',
+    name: 'Approval Kit',
     description: 'PDF and Word documents to secure approval for using SPERT® Suite.',
     url: '/approval-kit',
     icon: '\uD83D\uDCCB',

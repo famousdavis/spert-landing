@@ -20,7 +20,7 @@ export const changelog: ChangelogEntry[] = [
         heading: 'Approval Kit',
         items: [
           'New Approval Kit page at spertsuite.com/approval-kit: ten documents, each as PDF and Word, that help a project manager get the SPERT® Suite approved at work, plus the whole kit as one zip with its SHA-256 checksum.',
-          'The “Approver’s Kit” tile replaces “I Have a Request” on the home page.',
+          'The “Approval Kit” tile replaces “I Have a Request” on the home page.',
         ],
       },
       {
