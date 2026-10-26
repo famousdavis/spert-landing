@@ -174,6 +174,9 @@ describe('legal documents the rest of the suite links to', () => {
    * `/bug-report` → `/contact` (2.6.0) is permanent, and `/contact` is itself a
    * contract — SPERT Forecaster, the ToS and the Privacy Policy all cite it.
    *
+   * `/request` → `/contact` (2.8.0) joined it when that page became the
+   * Approval Kit.
+   *
    * Unlike the rewrite check, nothing here is filtered out: a destination that
    * is not an app path fails by name rather than escaping the check.
    */
@@ -207,6 +210,25 @@ describe('legal documents the rest of the suite links to', () => {
       broken,
       `these redirect destinations have no src/app<dest>/page.tsx: ${broken.join(', ')}`,
     ).toEqual([]);
+  });
+
+  /**
+   * The check above proves every redirect lands somewhere; it cannot notice a
+   * redirect that was deleted. These two addresses are retired pages that
+   * people have bookmarked, so each is pinned by name: still redirected,
+   * permanently, to the contact page, and its old page gone.
+   */
+  it.each(['/bug-report', '/request'])('keeps the retired %s redirecting to /contact', (source) => {
+    const config = readFileSync(join(process.cwd(), 'next.config.ts'), 'utf-8');
+    const body = configMethodBody(config, 'redirects') ?? '';
+    const entry = new RegExp(
+      `\\{\\s*source:\\s*["']${source}["'],\\s*destination:\\s*["']/contact["'],\\s*permanent:\\s*true\\s*\\}`,
+    );
+    expect(body, `next.config.ts no longer redirects ${source} permanently to /contact`).toMatch(entry);
+    expect(
+      existsSync(join(process.cwd(), 'src', 'app', source.slice(1))),
+      `src/app${source} exists again, but the redirect runs first, so it could never be reached`,
+    ).toBe(false);
   });
 });
 
