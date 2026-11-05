@@ -181,6 +181,7 @@ const EXTRA_ARGS: Record<string, Record<string, unknown>> = {
   scheduler_bulk_update_activities: {updates: []},
   scheduler_bulk_append_notes: {notes: []},
   scheduler_reorder_activities: {scenarioId: "s1", orderedActivityIds: []},
+  scheduler_bulk_set_progress: {scenarioId: "s1", updates: []},
 };
 
 /**
@@ -280,13 +281,15 @@ describe("MCP tool registration collision", () => {
       expect(names.has("scheduler_bulk_import")).toBe(true);
       expect(names.has("scheduler_reorder_activities")).toBe(true);
       expect(names.has("scheduler_bulk_append_notes")).toBe(true);
+      expect(names.has("scheduler_bulk_set_progress")).toBe(true);
       expect(names.has("resolve_session_code")).toBe(true);
     });
 });
 
 describe("manifest census", () => {
-  test("the server advertises exactly 51 tools", () => {
-    // 21 Story Map + 25 Scheduler + 3 Forecaster + 2 shared. A cached MCP
+  test("the server advertises exactly 52 tools", () => {
+    // 21 Story Map + 26 Scheduler + 3 Forecaster + 2 shared (the 26th
+    // Scheduler tool, scheduler_bulk_set_progress, since MCP 1.15.0). A cached MCP
     // client keys off this count and serverInfo.version, so a silent change
     // here is a change to what every paired AI believes is available.
     const {tools, server} = capturingServer();
@@ -308,9 +311,9 @@ describe("manifest census", () => {
     );
 
     const names = [...tools.keys()];
-    expect(names).toHaveLength(51);
+    expect(names).toHaveLength(52);
     expect(names.filter((n) => n.startsWith("storymap_"))).toHaveLength(21);
-    expect(names.filter((n) => n.startsWith("scheduler_"))).toHaveLength(25);
+    expect(names.filter((n) => n.startsWith("scheduler_"))).toHaveLength(26);
     expect(names.filter((n) => n.startsWith("forecaster_"))).toHaveLength(3);
 
     // Forecaster is read-only by construction: no write tool, and no entry in
@@ -330,7 +333,7 @@ describe("manifest census", () => {
 });
 
 describe("appId guard (§3.4) — behaviour, not just presence", () => {
-  test("all 46 app-prefixed tools refuse a foreign session", async () => {
+  test("all 47 app-prefixed tools refuse a foreign session", async () => {
     const {tools, opWrites} = registerBothApps({
       appId: "some-other-app",
       // consentRead: false is deliberate. With true, a guard misplaced AFTER
@@ -345,7 +348,7 @@ describe("appId guard (§3.4) — behaviour, not just presence", () => {
     });
 
     const names = [...tools.keys()];
-    expect(names).toHaveLength(46);
+    expect(names).toHaveLength(47);
 
     for (const name of names) {
       const body = await callTool(tools, name, SID_A);

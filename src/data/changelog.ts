@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.9.0',
+    date: 'November 5, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'The MCP server adds scheduler_bulk_set_progress (Read Mode): Connect AI records an activity’s Status, Actual Start and Actual Finish in SPERT® Scheduler v0.84.0 and later.',
+          'The AI service now reports its version as 1.15.0, and the definition it shares with SPERT Scheduler is at version 5, checked identical in both.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.8.2',
     date: 'October 26, 2026',
     sections: [
