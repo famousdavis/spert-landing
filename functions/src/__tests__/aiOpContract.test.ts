@@ -14,6 +14,7 @@ import {
   bulkImportScheduleShape,
   reorderActivitiesShape,
   bulkAppendNotesShape,
+  bulkSetActivityProgressShape,
 } from "../mcp/tools/scheduler";
 
 // Contract test (landing half, P0.2 / F3-7). Drives the EXPORTED raw shapes —
@@ -79,6 +80,7 @@ const SHAPES: {[op: string]: z.ZodRawShape} = {
   bulk_import_schedule: bulkImportScheduleShape,
   reorder_activities: reorderActivitiesShape,
   bulk_append_notes: bulkAppendNotesShape,
+  bulk_set_activity_progress: bulkSetActivityProgressShape,
 };
 
 // Partition by shape. `array`+`item` → single-array; `array`+`element` →
@@ -100,6 +102,30 @@ const sectionOps = Object.entries(contract.ops).filter(([, s]) =>
 ) as [string, MultiSectionOpSpec][];
 
 const SID = "00000000-0000-4000-8000-000000000000";
+
+// W3 (WI-150 release C, Review 37): the enum check runs BOTH ways. Parsing
+// proves every contract value is accepted; only the schema's own option list
+// proves nothing else is, so a server enum wider than the contract (a Status
+// the client does not have) fails. Read through Zod 3's public accessors —
+// `unwrap()`, `element`, `shape`, `options` — never `_def`. Sorted: the
+// contract names a set of values, not an order.
+const unwrapOptional = (t: z.ZodTypeAny): z.ZodTypeAny =>
+  t instanceof z.ZodOptional ? t.unwrap() : t;
+const itemFields = (
+  shape: z.ZodRawShape,
+  arrayField: string,
+): z.ZodRawShape => {
+  const array = unwrapOptional(shape[arrayField]);
+  if (!(array instanceof z.ZodArray)) throw new Error(`${arrayField}: no array`);
+  const item = array.element;
+  if (!(item instanceof z.ZodObject)) throw new Error(`${arrayField}: no item`);
+  return item.shape;
+};
+const enumOptions = (t: z.ZodTypeAny): string[] => {
+  const inner = unwrapOptional(t);
+  if (!(inner instanceof z.ZodEnum)) throw new Error("not an enum field");
+  return [...(inner.options as string[])].sort();
+};
 
 const sampleFor = (spec: FieldSpec): unknown => {
   if (spec.type === "number") return spec.nonnegative ? 1 : 0;
@@ -186,6 +212,15 @@ describe.each(singleArrayOps)(
           expect(withField(field, value)).toBe(true);
         }
         expect(withField(field, "__not_in_enum__")).toBe(false);
+      }
+    });
+
+    test("enum domains equal the contract's, both ways (W3)", () => {
+      const fields = itemFields(SHAPES[op], spec.array);
+      for (const field of Object.keys(spec.item)) {
+        const fspec = spec.item[field];
+        if (!fspec.enum) continue;
+        expect(enumOptions(fields[field])).toEqual([...fspec.enum].sort());
       }
     });
 
@@ -278,6 +313,15 @@ describe.each(sectionOps)(
           }
         });
 
+        test("enum domains equal the contract's, both ways (W3)", () => {
+          const fields = itemFields(SHAPES[op], section);
+          for (const field of Object.keys(sspec.item)) {
+            const fspec = sspec.item[field];
+            if (!fspec.enum) continue;
+            expect(enumOptions(fields[field])).toEqual([...fspec.enum].sort());
+          }
+        });
+
         test("enforces declared bounds", () => {
           for (const field of Object.keys(sspec.item)) {
             const fspec = sspec.item[field];
@@ -363,16 +407,22 @@ describe("landing contract — envelope", () => {
     }
   });
 
-  test("scenarioId is required for bulk_create_dependencies + reorder", () => {
+  test("scenarioId is required for dependencies, reorder and progress", () => {
+    // bulk_set_activity_progress (Phase 5): read-gated like reorder, so it
+    // names its one scenario.
+    const required = new Set([
+      "bulk_create_dependencies",
+      "reorder_activities",
+      "bulk_set_activity_progress",
+    ]);
     for (const [op, spec] of Object.entries(contract.ops)) {
       const schema = z.object(SHAPES[op]);
       const args = minimalArgs(spec);
       delete args.scenarioId;
-      // bulk_create_dependencies and reorder_activities hard-require scenarioId
-      // in their schemas; bulk_import makes it conditional in the handler, and
-      // the rest fall back to the open scenario (optional).
-      const expected =
-        op !== "bulk_create_dependencies" && op !== "reorder_activities";
+      // These hard-require scenarioId in their schemas; bulk_import makes it
+      // conditional in the handler, and the rest fall back to the open
+      // scenario (optional).
+      const expected = !required.has(op);
       expect(schema.safeParse(args).success).toBe(expected);
     }
   });
