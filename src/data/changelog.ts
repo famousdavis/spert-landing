@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.10.0',
+    date: 'November 6, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'The MCP server adds three tools, scheduler_bulk_create_sections, scheduler_bulk_update_sections and scheduler_delete_sections: Connect AI reads and changes Sections in SPERT® Scheduler v0.85.0 and later.',
+          'The AI service now reports its version as 1.16.0, and the definition it shares with SPERT Scheduler is at version 6, checked identical in both.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.9.1',
     date: 'November 5, 2026',
     sections: [
