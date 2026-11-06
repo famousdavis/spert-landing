@@ -15,6 +15,9 @@ import {
   reorderActivitiesShape,
   bulkAppendNotesShape,
   bulkSetActivityProgressShape,
+  bulkCreateSectionsShape,
+  bulkUpdateSectionsShape,
+  deleteSectionsShape,
 } from "../mcp/tools/scheduler";
 
 // Contract test (landing half, P0.2 / F3-7). Drives the EXPORTED raw shapes —
@@ -26,6 +29,7 @@ import {
 interface FieldSpec {
   required: boolean;
   type: "string" | "number";
+  nullable?: boolean;
   enum?: string[];
   minLen?: number;
   maxLen?: number;
@@ -81,6 +85,9 @@ const SHAPES: {[op: string]: z.ZodRawShape} = {
   reorder_activities: reorderActivitiesShape,
   bulk_append_notes: bulkAppendNotesShape,
   bulk_set_activity_progress: bulkSetActivityProgressShape,
+  bulk_create_sections: bulkCreateSectionsShape,
+  bulk_update_sections: bulkUpdateSectionsShape,
+  delete_sections: deleteSectionsShape,
 };
 
 // Partition by shape. `array`+`item` → single-array; `array`+`element` →
@@ -212,6 +219,14 @@ describe.each(singleArrayOps)(
           expect(withField(field, value)).toBe(true);
         }
         expect(withField(field, "__not_in_enum__")).toBe(false);
+      }
+    });
+
+    // WI-162: `nullable` both ways. A field the contract marks takes null, and
+    // every other field refuses it.
+    test("takes null exactly where the contract says", () => {
+      for (const field of Object.keys(spec.item)) {
+        expect(withField(field, null)).toBe(spec.item[field].nullable === true);
       }
     });
 
