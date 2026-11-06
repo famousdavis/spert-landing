@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.9.1',
+    date: 'November 5, 2026',
+    sections: [
+      {
+        heading: 'Legal',
+        items: [
+          'Published a new edition of the AI Connectivity Consent Notice (2.3), effective November 6, 2026. It records SPERT® Scheduler’s consent dialog as of v0.84.0: new Write Mode and Read Mode wording, and a Write Mode checkbox that starts unchecked. It also corrects what Disconnect does: the local consent record is cleared, not retained.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.9.0',
     date: 'November 5, 2026',
     sections: [
