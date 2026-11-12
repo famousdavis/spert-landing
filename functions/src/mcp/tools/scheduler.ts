@@ -19,6 +19,7 @@ import {
   rateLimited,
   writeNotPermitted,
   checkSessionAppId,
+  checkPayloadSize,
 } from "./shared";
 import type {Envelope} from "./shared";
 
@@ -59,10 +60,8 @@ const RSM_LEVELS = [
   "guesstimate",
 ] as const;
 
-// Bulk op payload byte ceiling (P0.3 step 0). Measured on a JSON proxy of
-// {op, payload}; the ~248 KB headroom to Firestore's 1 MiB covers the envelope
-// fields writeOpBatch adds and JSON-vs-Firestore accounting (Spike V1 checks).
-const BULK_BYTE_LIMIT = 800_000;
+// Bulk op payload byte ceiling (P0.3 step 0): BULK_BYTE_LIMIT and
+// checkPayloadSize live in ./shared, which Story Map's bulk tools also use.
 
 type Op = {op: string; payload: object};
 // The composite import payload as the server inspects it — only section lengths
@@ -324,26 +323,6 @@ async function runDependencyWrite(
     });
   }
   return writeAndRespond(db, sessionId, session, ops, describe);
-}
-
-/**
- * Byte guard for bulk ops (P0.3 step 0 — before loadSession, a pure payload
- * computation, so an oversized call costs zero Firestore reads and no rate
- * token). F3-11: an oversized call that also has a bad session or a failing
- * gate reports payload_too_large first. Returns a refusal envelope, else null.
- * @param {string} op Op name.
- * @param {object} payload Op payload.
- * @return {Envelope | null} Refusal envelope when too large, else null.
- */
-function checkPayloadSize(op: string, payload: object): Envelope | null {
-  if (Buffer.byteLength(JSON.stringify({op, payload})) > BULK_BYTE_LIMIT) {
-    return ok({
-      status: "error",
-      error: "payload_too_large",
-      message: "Split this call into smaller batches.",
-    });
-  }
-  return null;
 }
 
 /**

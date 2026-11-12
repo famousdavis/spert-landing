@@ -19,7 +19,33 @@ import {
   rateLimited,
   writeNotPermitted,
   checkSessionAppId,
+  checkPayloadSize,
+  BULK_BYTE_LIMIT,
 } from "./shared";
+
+// One op is one Firestore document (1 MiB). Two tools' caps admit a call far
+// larger than that, measured with three-byte text (2026-11-12): 500
+// bulk_update_ribs entries with a full description and notes are 6.2 MB, and
+// a full 5 x 10 x 10 bulk_import is 8.2 MB (2.8 MB in ASCII). Their entries
+// are usually short, so both keep their caps and are refused by size
+// (checkPayloadSize, before the session is read) rather than given a cap that
+// fits the longest possible entry: that cap would be 84 rib updates (85 failed
+// on the emulator), or about 60 ribs in a whole import once its theme and
+// backbone text is counted.
+const LIMIT_TEXT = BULK_BYTE_LIMIT.toLocaleString("en-US");
+
+/**
+ * The refusal text for an oversized bulk call.
+ * @param {number} bytes The call's measured size.
+ * @param {string} advice How to split this tool's call.
+ * @return {string} The message.
+ */
+function tooLarge(bytes: number, advice: string): string {
+  const calls = Math.ceil(bytes / BULK_BYTE_LIMIT);
+  return `This call is ${bytes.toLocaleString("en-US")} bytes; one call ` +
+    `carries at most ${LIMIT_TEXT}. Nothing was written. Split it into at ` +
+    `least ${calls} calls: ${advice}`;
+}
 
 // S1: ids relaxed from .uuid() to bounded strings (idempotency only needs
 // stable strings, not UUID format). String caps mirror the app's
@@ -226,6 +252,13 @@ Caps: 5 themes x 10 backbones x 10 ribs. Per theme and per backbone you
 may set a description; per rib you may set description, category
 ("core" | "non-core"), and notes. Keep names short (a few words);
 descriptions and notes may be a sentence or two.
+SIZE: one call carries at most ${LIMIT_TEXT} bytes of JSON. A full
+500-rib map fits when its text is a sentence or two per field; long
+descriptions or notes on many ribs do not, and Chinese, Japanese or
+Korean text takes three bytes per character. A larger call is refused
+with payload_too_large and writes nothing. Split it across calls: an id
+that already exists is left as it is and new children are added to it,
+so repeat a themeId and backboneId to add more backbones or ribs.
 DESCRIPTIONS: import only creates. A theme or backbone whose id already
 exists is left as it is, description included; to change an existing
 description, use storymap_update_theme, storymap_update_backbone or
@@ -238,6 +271,14 @@ ${DESCRIPTIONS_MARKER}`,
       }),
     },
     async ({sessionId, structure}) => {
+      // The guard measures the op exactly as it would be written.
+      const op = {op: "bulk_import", payload: structure};
+      const sizeErr = checkPayloadSize(op.op, op.payload, (bytes) =>
+        tooLarge(bytes, "repeat a themeId and backboneId that is already " +
+          "created to add more backbones or ribs to it (only new ids are " +
+          "added), or import short text now and add long descriptions and " +
+          "notes with storymap_bulk_update_ribs."));
+      if (sizeErr) return sizeErr;
       let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
@@ -253,9 +294,7 @@ ${DESCRIPTIONS_MARKER}`,
       if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
-        await writeOpBatch(db, sessionId, [
-          {op: "bulk_import", payload: structure},
-        ]);
+        await writeOpBatch(db, sessionId, [op]);
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
@@ -1298,7 +1337,11 @@ Locked (in-progress) ribs can still have their text fields updated.
 For sizing ribs, use storymap_bulk_size instead.
 For renaming ribs, use storymap_update_rib instead.
 Chain calls back-to-back within one response; do not yield between calls.
-Max 500 entries per call; split larger batches.
+Max 500 entries per call, and at most ${LIMIT_TEXT} bytes of JSON per call:
+500 short entries fit, but long text needs smaller calls. With both fields
+at the 2000-character maximum, about 190 entries fit in English and about
+60 in Chinese, Japanese or Korean (three bytes per character). A larger call
+is refused with payload_too_large and writes nothing; split it and resend.
 To ADD to a rib's notes without losing existing text, use
 storymap_bulk_append_rib_notes. This tool REPLACES notes wholesale — use it
 only to rewrite or clear. storymap_get_project now returns notes (when
@@ -1314,6 +1357,12 @@ follow-up call.`,
       })).min(1).max(500),
     },
     async ({sessionId, updates}) => {
+      // The guard measures the op exactly as it would be written.
+      const op = {op: "bulk_update_ribs", payload: {updates}};
+      const sizeErr = checkPayloadSize(op.op, op.payload, (bytes) =>
+        tooLarge(bytes, "send the updates across several " +
+          "storymap_bulk_update_ribs calls."));
+      if (sizeErr) return sizeErr;
       let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
@@ -1329,9 +1378,7 @@ follow-up call.`,
       if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
-        await writeOpBatch(db, sessionId, [
-          {op: "bulk_update_ribs", payload: {updates}},
-        ]);
+        await writeOpBatch(db, sessionId, [op]);
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();

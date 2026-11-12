@@ -99,6 +99,45 @@ export function checkSessionAppId(
   return actual === expectedAppId ? null : wrongApp(expectedAppId, actual);
 }
 
+// ── Op size ──────────────────────────────────────────────────────────────────
+// writeOpBatch writes each op as ONE Firestore document, and a document cannot
+// exceed 1 MiB (1,048,576 bytes): a larger op fails as "Op write failed" after
+// the call has passed every schema check. BULK_BYTE_LIMIT is measured on a JSON
+// proxy of {op, payload}. Measured on the Firestore emulator through the real
+// writeOpBatch (2026-11-12): the emulator refuses at 1,048,577 bytes, a payload
+// of exactly 800,000 JSON bytes is an 800,174-byte document (writeOpBatch adds
+// the document name, seq, two timestamps and source), and for text-heavy
+// payloads JSON over-counts (quotes, key syntax). That leaves about 248 KB.
+// The proxy counts numbers as their digits where Firestore counts 8 bytes, so
+// re-measure before guarding an op made mostly of numbers.
+export const BULK_BYTE_LIMIT = 800_000;
+
+/**
+ * Byte guard for an op. Pure: no Firestore read and no rate token, so tools
+ * run it before loading the session, and an oversized call reports
+ * payload_too_large ahead of any session or gate refusal (Scheduler F3-11).
+ * @param {string} op Op name.
+ * @param {object} payload Op payload, exactly as it would be written.
+ * @param {Function} message Builds the refusal text from the measured size.
+ * @return {Envelope | null} Refusal envelope when too large, else null.
+ */
+export function checkPayloadSize(
+  op: string,
+  payload: object,
+  message: (bytes: number) => string = () =>
+    "Split this call into smaller batches.",
+): Envelope | null {
+  const bytes = Buffer.byteLength(JSON.stringify({op, payload}), "utf8");
+  if (bytes > BULK_BYTE_LIMIT) {
+    return ok({
+      status: "error",
+      error: "payload_too_large",
+      message: message(bytes),
+    });
+  }
+  return null;
+}
+
 // ── Shared session tools ─────────────────────────────────────────────────────
 // resolve_session_code and get_session_info are app-agnostic and MUST be
 // registered exactly once per server (the MCP SDK throws on a duplicate tool
