@@ -168,11 +168,11 @@ const SID_D = "00000000-0000-4000-8000-000000000004";
 // argument list, and reorder passes orderedActivityIds through
 // checkPayloadSize, which runs ahead of loadSessionOrError.
 //
-// The three Story Map tools with an early "nothing to update" success return
-// (storymap_update_backbone, storymap_update_rib, storymap_move_rib)
-// deliberately get NO updatable fields: with fields supplied they would reach
-// that early return, and the check would pass without exercising the guard's
-// placement at all.
+// The four Story Map tools with an early "nothing to update" success return
+// (storymap_update_theme, storymap_update_backbone, storymap_update_rib,
+// storymap_move_rib) deliberately get NO updatable fields: with fields supplied
+// they would skip that early return, and the check would pass without
+// exercising the guard's placement relative to it.
 const EXTRA_ARGS: Record<string, Record<string, unknown>> = {
   scheduler_bulk_create_activities: {activities: []},
   scheduler_bulk_create_dependencies: {dependencies: [], scenarioId: "s1"},
@@ -243,6 +243,7 @@ describe("MCP tool registration collision", () => {
     expect(names.has("get_session_info")).toBe(true);
     expect(names.has("storymap_append_rib_note")).toBe(true);
     expect(names.has("storymap_bulk_append_rib_notes")).toBe(true);
+    expect(names.has("storymap_bulk_update_backbones")).toBe(true);
   });
 
   test("registerStorymapTools does not re-register the shared tools", () => {
@@ -290,11 +291,13 @@ describe("MCP tool registration collision", () => {
 });
 
 describe("manifest census", () => {
-  test("the server advertises exactly 55 tools", () => {
-    // 21 Story Map + 29 Scheduler + 3 Forecaster + 2 shared (the three Section
-    // tools, the 27th to 29th Scheduler tools, since MCP 1.16.0). A cached MCP
-    // client keys off this count and serverInfo.version, so a silent change
-    // here is a change to what every paired AI believes is available.
+  test("the server advertises exactly 56 tools", () => {
+    // 22 Story Map + 29 Scheduler + 3 Forecaster + 2 shared (the three Section
+    // tools, the 27th to 29th Scheduler tools, since MCP 1.16.0;
+    // storymap_bulk_update_backbones, the 22nd Story Map tool, since MCP
+    // 1.17.0). A cached MCP client keys off this count and
+    // serverInfo.version, so a silent change here is a change to what every
+    // paired AI believes is available.
     const {tools, server} = capturingServer();
     registerSharedSessionTools(
       server as unknown as SharedParams[0],
@@ -314,8 +317,8 @@ describe("manifest census", () => {
     );
 
     const names = [...tools.keys()];
-    expect(names).toHaveLength(55);
-    expect(names.filter((n) => n.startsWith("storymap_"))).toHaveLength(21);
+    expect(names).toHaveLength(56);
+    expect(names.filter((n) => n.startsWith("storymap_"))).toHaveLength(22);
     expect(names.filter((n) => n.startsWith("scheduler_"))).toHaveLength(29);
     expect(names.filter((n) => n.startsWith("forecaster_"))).toHaveLength(3);
 
@@ -336,7 +339,7 @@ describe("manifest census", () => {
 });
 
 describe("appId guard (§3.4) — behaviour, not just presence", () => {
-  test("all 50 app-prefixed tools refuse a foreign session", async () => {
+  test("all 51 app-prefixed tools refuse a foreign session", async () => {
     const {tools, opWrites} = registerBothApps({
       appId: "some-other-app",
       // consentRead: false is deliberate. With true, a guard misplaced AFTER
@@ -351,7 +354,7 @@ describe("appId guard (§3.4) — behaviour, not just presence", () => {
     });
 
     const names = [...tools.keys()];
-    expect(names).toHaveLength(50);
+    expect(names).toHaveLength(51);
 
     for (const name of names) {
       const body = await callTool(tools, name, SID_A);

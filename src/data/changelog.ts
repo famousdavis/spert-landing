@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.11.0',
+    date: 'November 12, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'Connect AI reads and writes theme and backbone descriptions in SPERT® Story Map v0.54.0 and later. storymap_create_theme and storymap_bulk_import take a theme description, storymap_update_theme changes a theme’s name, its description or both, and the new storymap_bulk_update_backbones sets up to 100 backbone descriptions in one call.',
+          'Every tool that writes one of these descriptions now says that an update replaces the text, to read it first, and what to do when the Story Map tab is older than v0.54.0. storymap_update_backbone also says that Story Map v0.54.0 finds a backbone that was moved to another theme.',
+          'The AI service now reports its version as 1.17.0, and the definition it shares with SPERT Scheduler gains the new operation, still at version 6, checked identical in both.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.10.0',
     date: 'November 6, 2026',
     sections: [
