@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.11.1',
+    date: 'November 12, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'storymap_bulk_update_ribs and storymap_bulk_import now refuse a call larger than 800,000 bytes before writing anything, and say how large the call was and how to split it. Before, a call inside their limits could still be too large to store and failed with “Op write failed”: 500 rib updates with long descriptions and notes, for example, or a full-size import with long text. Both keep their limits (500 updates; 5 themes, 10 backbones per theme, 10 ribs per backbone), and their descriptions now say how much text fits in one call.',
+          'The size check is the one SPERT® Scheduler’s bulk tools already used, now shared; nothing changes for Scheduler. The AI service now reports its version as 1.17.1.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.11.0',
     date: 'November 12, 2026',
     sections: [
