@@ -42,9 +42,13 @@ const backboneSchema = z.object({
   ribs: z.array(ribSchema).max(10),
 });
 
+// v0.54.0 (Phase 9): a theme carries an optional description. It must be in
+// the schema: the tool writes the Zod output, and zod 3 strips a key the
+// schema does not list, so an unlisted description would vanish silently.
 const themeSchema = z.object({
   themeId: z.string().min(1).max(100),
   name: z.string().min(1).max(1000),
+  description: z.string().max(2000).optional(),
   backbones: z.array(backboneSchema).max(10),
 });
 
@@ -53,6 +57,15 @@ const themeSchema = z.object({
 // the bulk_import id caps (stable strings, not enforced UUID format — quality
 // guidance to mint UUIDs lives in the tool descriptions).
 const entityIdSchema = z.string().min(1).max(100);
+
+// v0.54.0 (Phase 9): name and description both optional, as
+// updateBackboneShape; neither -> success with no op written.
+const updateThemeShape = {
+  sessionId: z.string().uuid(),
+  themeId: entityIdSchema,
+  name: z.string().min(1).max(1000).optional(),
+  description: z.string().max(2000).optional(),
+};
 
 const updateBackboneShape = {
   sessionId: z.string().uuid(),
@@ -118,6 +131,44 @@ const bulkAppendRibNotesShape = {
   })).min(1).max(100), // D9: 100 not 500 -- Firestore 1 MB doc limit
 };
 
+// Phase 9 (v0.54.0) bulk backbone descriptions. One op is one Firestore
+// document (1 MiB). At 100 entries of a 100-unit id and a 2000-unit
+// description, three-byte characters throughout, the payload is about 0.63
+// MB; at 500 it would be about 3.2 MB and the write would fail. The cap is
+// exported so the size test reads the same number the schema uses.
+export const BULK_UPDATE_BACKBONES_MAX = 100;
+
+export const bulkUpdateBackbonesShape = {
+  sessionId: z.string().uuid(),
+  updates: z.array(z.object({
+    backboneId: entityIdSchema,
+    description: z.string().max(2000),
+  })).min(1).max(BULK_UPDATE_BACKBONES_MAX),
+};
+
+// D13: what the snapshot marker themeBackboneDescriptionsIncluded means.
+// Stated in storymap_get_project and in every tool that writes a theme or
+// backbone description; one constant, so the wording cannot drift apart.
+const DESCRIPTIONS_MARKER =
+  `THEME AND BACKBONE DESCRIPTIONS: storymap_get_project (Read Mode
+required) returns themeBackboneDescriptionsIncluded with the project.
+- true: every theme and backbone carries its description.
+- false: descriptions exist but were left out of the snapshot for size.
+This is not a stale tab. Do not write a theme or backbone description
+unless the user explicitly asked: you cannot see the text you would
+replace, and there is no append tool to fall back on.
+- absent: the user's Story Map tab is older than 0.54.0. It does not apply
+theme descriptions or storymap_bulk_update_backbones, although each call
+reports success. Ask the user to reload the Story Map tab and reconnect
+Connect AI, then send the descriptions again with storymap_update_theme,
+storymap_update_backbone or storymap_bulk_update_backbones: create and
+import do not re-apply to an id that already exists.`;
+
+// The rule for every tool that changes an existing description.
+const REPLACES_DESCRIPTION =
+  `This replaces the description; read it with storymap_get_project first
+and do not overwrite a non-empty one unless the user asked.`;
+
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
  *
@@ -130,10 +181,10 @@ const bulkAppendRibNotesShape = {
  * storymap_allocate_rib, storymap_unassign_rib, storymap_size_rib,
  * storymap_move_rib, storymap_append_rib_note.
  *
- * Bulk operations (8): storymap_bulk_import, storymap_bulk_create_releases,
+ * Bulk operations (9): storymap_bulk_import, storymap_bulk_create_releases,
  * storymap_bulk_allocate, storymap_bulk_size, storymap_bulk_unassign,
  * storymap_bulk_update_ribs, storymap_bulk_move_ribs,
- * storymap_bulk_append_rib_notes.
+ * storymap_bulk_append_rib_notes, storymap_bulk_update_backbones.
  *
  * @param {McpServer} server MCP server to register tools on.
  * @param {Firestore} db Admin Firestore instance (bypasses rules).
@@ -171,9 +222,15 @@ WORKFLOW
 3. Generate all ids yourself (UUIDs are typical) before calling.
 4. Call this tool only after the approach is confirmed.
 
-Caps: 5 themes x 10 backbones x 10 ribs. Per rib you may set description,
-category ("core" | "non-core"), and notes. Keep names short (a few
-words); descriptions and notes may be a sentence or two.`,
+Caps: 5 themes x 10 backbones x 10 ribs. Per theme and per backbone you
+may set a description; per rib you may set description, category
+("core" | "non-core"), and notes. Keep names short (a few words);
+descriptions and notes may be a sentence or two.
+DESCRIPTIONS: import only creates. A theme or backbone whose id already
+exists is left as it is, description included; to change an existing
+description, use storymap_update_theme, storymap_update_backbone or
+storymap_bulk_update_backbones.
+${DESCRIPTIONS_MARKER}`,
     {
       sessionId: z.string().uuid(),
       structure: z.object({
@@ -232,7 +289,8 @@ words); descriptions and notes may be a sentence or two.`,
   server.tool(
     "storymap_get_project",
     `Read the current story map structure. Only available when the user
-has enabled Read Mode in the Connect AI panel.`,
+has enabled Read Mode in the Connect AI panel.
+${DESCRIPTIONS_MARKER}`,
     {sessionId: z.string().uuid()},
     async ({sessionId}) => {
       let session: DocumentData | null;
@@ -283,7 +341,7 @@ has enabled Read Mode in the Connect AI panel.`,
 
   server.tool(
     "storymap_create_theme",
-    `Add a new theme to the open story map.
+    `Add a new theme to the open story map, with an optional description.
 FOR TARGETED ADDITIONS to an existing map only. To build a new map
 from scratch, use storymap_bulk_import — faster and avoids mid-build
 failures from partial sequences.
@@ -292,13 +350,18 @@ storymap_get_project identify existing entities for UPDATE calls —
 do not reuse them for CREATE calls or the create will be a no-op.
 Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same themeId is a no-op (no
-duplicate created), but each call consumes a rate-limit token.`,
+duplicate created), but each call consumes a rate-limit token.
+DESCRIPTION: set only on a new theme. A themeId that already exists is
+left as it is, description included; to change an existing theme's
+description, use storymap_update_theme.
+${DESCRIPTIONS_MARKER}`,
     {
       sessionId: z.string().uuid(),
       themeId: entityIdSchema,
       name: z.string().min(1).max(1000),
+      description: z.string().max(2000).optional(),
     },
-    async ({sessionId, themeId, name}) => {
+    async ({sessionId, themeId, name, description}) => {
       let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
@@ -314,9 +377,16 @@ duplicate created), but each call consumes a rate-limit token.`,
       if (appErr) return appErr;
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
-        await writeOpBatch(db, sessionId, [
-          {op: "create_theme", payload: {themeId, name}},
-        ]);
+        // Conditional spread: the Admin SDK refuses a payload holding an
+        // undefined value (functions set no ignoreUndefinedProperties).
+        await writeOpBatch(db, sessionId, [{
+          op: "create_theme",
+          payload: {
+            themeId,
+            name,
+            ...(description !== undefined && {description}),
+          },
+        }]);
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
@@ -349,7 +419,12 @@ PREREQUISITES: the theme (themeId) must already exist. Call
 storymap_get_project (Read Mode required) to discover existing IDs.
 ID GENERATION: generate a UUID for the backboneId.
 Chain calls back-to-back within one response; do not yield between calls.
-IDEMPOTENCY: calling twice with the same backboneId is a no-op.`,
+IDEMPOTENCY: calling twice with the same backboneId is a no-op.
+DESCRIPTION: set only on a new backbone. A backboneId that already exists
+in the theme is left as it is, description included; to change an
+existing backbone's description, use storymap_update_backbone or
+storymap_bulk_update_backbones.
+${DESCRIPTIONS_MARKER}`,
     {
       sessionId: z.string().uuid(),
       themeId: entityIdSchema,
@@ -493,16 +568,17 @@ IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
 
   server.tool(
     "storymap_update_theme",
-    `Rename an existing theme.
-Only name is updatable — theme color is user-controlled. Call
+    `Update an existing theme's name and/or description.
+Both fields are optional — provide only those to change. Call
 storymap_get_project (Read Mode required) to discover the themeId.
-No-op on the browser if the themeId does not exist.`,
-    {
-      sessionId: z.string().uuid(),
-      themeId: entityIdSchema,
-      name: z.string().min(1).max(1000),
-    },
-    async ({sessionId, themeId, name}) => {
+To clear a description, set it to an empty string ("").
+${REPLACES_DESCRIPTION}
+Theme color is user-controlled and not exposed here.
+No-op on the browser if the themeId does not exist. Calling with no
+updateable fields returns success without writing an op.
+${DESCRIPTIONS_MARKER}`,
+    updateThemeShape,
+    async ({sessionId, themeId, name, description}) => {
       let session: DocumentData | null;
       try {
         session = await getSession(db, sessionId);
@@ -516,11 +592,24 @@ No-op on the browser if the themeId does not exist.`,
       if (!session) return sessionNotFound();
       const appErr = checkSessionAppId(session, "storymap", false);
       if (appErr) return appErr;
+      if (name === undefined && description === undefined) {
+        return ok({
+          status: "success",
+          themeId,
+          browserConnected: isBrowserConnected(session),
+          message: "No fields to update; nothing written.",
+        });
+      }
       if (!checkSessionWriteLimit(sessionId)) return rateLimited();
       try {
-        await writeOpBatch(db, sessionId, [
-          {op: "update_theme", payload: {themeId, name}},
-        ]);
+        await writeOpBatch(db, sessionId, [{
+          op: "update_theme",
+          payload: {
+            themeId,
+            ...(name !== undefined && {name}),
+            ...(description !== undefined && {description}),
+          },
+        }]);
       } catch (e: unknown) {
         const msg = (e as Error).message;
         if (msg === "session_not_found") return sessionNotFound();
@@ -550,8 +639,15 @@ No-op on the browser if the themeId does not exist.`,
 All fields are optional — provide only those to change. Call
 storymap_get_project (Read Mode required) to discover IDs.
 To clear a description, set it to an empty string ("").
+${REPLACES_DESCRIPTION}
+For many backbones' descriptions, use storymap_bulk_update_backbones.
+ID FALLBACK: if themeId does not hold backboneId (the backbone was moved
+to another theme, or your themeId is stale), every backbone with that
+backboneId, in any theme, is updated. When themeId does hold it, only
+that backbone is updated.
 No-op on the browser if the backboneId does not exist. Calling
-with no updateable fields returns success without writing an op.`,
+with no updateable fields returns success without writing an op.
+${DESCRIPTIONS_MARKER}`,
     updateBackboneShape,
     async ({sessionId, themeId, backboneId, name, description}) => {
       let session: DocumentData | null;
@@ -1528,6 +1624,74 @@ Chain calls back-to-back within one response; do not yield between calls.`,
             "preserved; over-cap appends are skipped per entry." :
           `Queued ${notes.length} note append(s) — no browser tab open; ` +
             "applies on reconnect.",
+      });
+    },
+  );
+
+  // --- Phase 9: bulk update backbone descriptions --------------------
+  server.tool(
+    "storymap_bulk_update_backbones",
+    `Sets the description of many backbones in one call. Provide an updates
+array of {backboneId, description} objects; an empty string ("") clears a
+description. Names are not changed here: to rename a backbone, use
+storymap_update_backbone.
+Each entry is matched by backboneId alone, across every theme: every
+backbone holding that id is updated. An unknown backboneId is skipped,
+and the rest of the call still applies.
+PREREQUISITES: call storymap_get_project first (Read Mode required) to
+obtain backboneIds and their current descriptions.
+${REPLACES_DESCRIPTION}
+Prefer this over many storymap_update_backbone calls: one call consumes
+one rate-limit token regardless of array size.
+Max ${BULK_UPDATE_BACKBONES_MAX} entries per call; split larger sets across
+multiple calls.
+Its array-of-objects payload is a shape Microsoft Copilot Chat cannot
+reliably construct — if you are Copilot, use storymap_update_backbone
+for each backbone instead.
+Chain calls back-to-back within one response; do not yield between calls.
+${DESCRIPTIONS_MARKER}`,
+    bulkUpdateBackbonesShape,
+    async ({sessionId, updates}) => {
+      // `updates` is read only after the appId guard: the registration test
+      // calls every tool with {sessionId} alone.
+      let session: DocumentData | null;
+      try {
+        session = await getSession(db, sessionId);
+      } catch {
+        return ok({
+          status: "error",
+          error: "internal",
+          message: "Temporary error; retry.",
+        });
+      }
+      if (!session) return sessionNotFound();
+      const appErr = checkSessionAppId(session, "storymap", false);
+      if (appErr) return appErr;
+      if (!checkSessionWriteLimit(sessionId)) return rateLimited();
+      try {
+        await writeOpBatch(db, sessionId, [
+          {op: "bulk_update_backbones", payload: {updates}},
+        ]);
+      } catch (e: unknown) {
+        const msg = (e as Error).message;
+        if (msg === "session_not_found") return sessionNotFound();
+        if (msg === "write_not_permitted") return writeNotPermitted();
+        return ok({
+          status: "error",
+          error: "internal",
+          message: `Op write failed: ${msg}`,
+        });
+      }
+      const connected = isBrowserConnected(session);
+      return ok({
+        status: "success",
+        count: updates.length,
+        browserConnected: connected,
+        message: connected ?
+          `Queued ${updates.length} backbone description update(s). ` +
+            "Unknown backboneIds are skipped." :
+          `Queued ${updates.length} backbone description update(s) — no ` +
+            "browser tab open; applies on reconnect.",
       });
     },
   );
