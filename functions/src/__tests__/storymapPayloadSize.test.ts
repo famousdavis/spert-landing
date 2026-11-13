@@ -401,7 +401,7 @@ describe("every Story Map tool", () => {
       let wrote = 0;
       for (const tool of tools) {
         // Reads only: it writes no op.
-        if (tool.name === "storymap_get_project") continue;
+        if (tool.name === "storymap_get_product") continue;
         mockWriteOpBatch.mockClear();
         mockGetSession.mockClear();
         const schema = tool.inputSchema as JsonSchema;

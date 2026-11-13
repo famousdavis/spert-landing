@@ -338,8 +338,8 @@ describe("what the tool descriptions tell an AI", () => {
 
   // D13: the three meanings of the snapshot marker.
   const MARKER = [
-    "storymap_get_project (Read Mode required) returns " +
-      "themeBackboneDescriptionsIncluded with the project.",
+    "storymap_get_product (Read Mode required) returns " +
+      "themeBackboneDescriptionsIncluded with the product.",
     "- true: every theme and backbone carries its description.",
     "- false: descriptions exist but were left out of the snapshot for " +
       "size. This is not a stale tab. Do not write a theme or backbone " +
@@ -354,11 +354,11 @@ describe("what the tool descriptions tell an AI", () => {
       "an id that already exists.",
   ];
   const REPLACES = "This replaces the description; read it with " +
-    "storymap_get_project first and do not overwrite a non-empty one unless " +
+    "storymap_get_product first and do not overwrite a non-empty one unless " +
     "the user asked.";
 
   test.each([
-    "storymap_get_project",
+    "storymap_get_product",
     "storymap_create_theme",
     "storymap_create_backbone",
     "storymap_update_theme",
