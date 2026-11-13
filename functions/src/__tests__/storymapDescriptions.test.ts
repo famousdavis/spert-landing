@@ -45,6 +45,9 @@ import {
   bulkUpdateBackbonesShape,
   BULK_UPDATE_BACKBONES_MAX,
 } from "../mcp/tools/storymap";
+import {registerSharedSessionTools} from "../mcp/tools/shared";
+import {registerSchedulerTools} from "../mcp/tools/scheduler";
+import {registerForecasterTools} from "../mcp/tools/forecaster";
 
 const mockGetSession =
   getSession as jest.MockedFunction<typeof getSession>;
@@ -495,4 +498,61 @@ describe("Story Map's AI text calls the work a product", () => {
       }
       expect(left).toEqual([]);
     });
+});
+
+// A tool name an AI is told to call. "\b" does not match after "spert" in
+// "spertstorymap", and "_" is a word character, so a name stays in one piece.
+const TOOL_NAME = /\b(?:storymap|scheduler|forecaster)_[a-z_]+/g;
+
+/**
+ * Each tool the four registrars register, with its rendered description,
+ * whitespace collapsed.
+ * @return {Map<string, string>} Descriptions by tool name.
+ */
+function registeredTools(): Map<string, string> {
+  const tools = new Map<string, string>();
+  const fakeServer = {
+    tool: (...toolArgs: unknown[]) => {
+      tools.set(toolArgs[0] as string,
+        (toolArgs[1] as string).replace(/\s+/g, " "));
+    },
+  } as never;
+  registerSharedSessionTools(fakeServer, {} as never);
+  registerStorymapTools(fakeServer, {} as never);
+  registerSchedulerTools(fakeServer, {} as never);
+  registerForecasterTools(fakeServer, {} as never);
+  return tools;
+}
+
+describe("a tool name in AI text is a registered tool", () => {
+  const tools = registeredTools();
+  const found = (texts: Iterable<string>): string[] =>
+    [...texts].flatMap((text) => text.match(TOOL_NAME) ?? []);
+  const unregistered = (texts: Iterable<string>): string[] =>
+    found(texts).filter((name) => !tools.has(name));
+  const strings = (file: string): string[] =>
+    sourceTexts(path.join(__dirname, "../mcp/tools", file));
+
+  test("control: the scan finds names, and reports one that is misspelt",
+    () => {
+      expect(found(tools.values())).toEqual(expect.arrayContaining([
+        "storymap_get_product",
+        "scheduler_get_project",
+        "forecaster_get_project",
+      ]));
+      expect(unregistered(["Read it with storymap_get_prodcut first."]))
+        .toEqual(["storymap_get_prodcut"]);
+    });
+
+  test("in the tool descriptions", () => {
+    expect(unregistered(tools.values())).toEqual([]);
+  });
+
+  test.each(["storymap.ts", "shared.ts"])("in the strings of %s", (file) => {
+    const texts = strings(file);
+    // Must-find control: the read tool's name is among this file's strings,
+    // so an empty or wrong read cannot pass.
+    expect(found(texts)).toContain("storymap_get_product");
+    expect(unregistered(texts)).toEqual([]);
+  });
 });
