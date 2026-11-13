@@ -21,7 +21,7 @@ export const changelog: ChangelogEntry[] = [
         items: [
           'SPERT® Story Map’s AI read tool is now storymap_get_product (it was storymap_get_project), and it returns the product under the key product. An AI app connected before this update needs its connector refreshed, or removed and added again, to see the new name.',
           'Story Map’s AI tools now call the work in Story Map a product.',
-          'The two session tools, resolve_session_code and get_session_info, now name the read tool of the app that is open, and say “product” for a Story Map session. For a SPERT Scheduler or SPERT Forecaster session they now name scheduler_get_project or forecaster_get_project; those apps’ own tools are unchanged.',
+          'get_session_info now names the read tool of the app that is open, and says “product” for a Story Map session. For a SPERT Scheduler or SPERT Forecaster session it names scheduler_get_project or forecaster_get_project, and its description names all three. resolve_session_code’s reply now says to call get_session_info “to learn what is open”. Scheduler’s and Forecaster’s own tools are unchanged.',
           'The AI service now reports its version as 1.18.0.',
         ],
       },
