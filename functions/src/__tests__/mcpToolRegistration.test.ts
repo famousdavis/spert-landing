@@ -343,7 +343,7 @@ describe("appId guard (§3.4) — behaviour, not just presence", () => {
     const {tools, opWrites} = registerBothApps({
       appId: "some-other-app",
       // consentRead: false is deliberate. With true, a guard misplaced AFTER
-      // the consentRead check in storymap_get_project / scheduler_get_project
+      // the consentRead check in storymap_get_product / scheduler_get_project
       // would still return wrong_app, and this test could not detect the one
       // placement error §3.4 warns about. With false, a correctly-placed
       // guard returns wrong_app and a misplaced one returns
