@@ -144,6 +144,18 @@ export function checkPayloadSize(
 // name, and the server is constructed fresh per request). Every app's
 // register*Tools registers only its own app-specific tools.
 
+// What get_session_info says for each app with MCP tools (index.ts registers
+// three): the word for the work that is open, and the tool that reads it.
+// Looked up as an own property, so an appId such as "__proto__" gets the
+// neutral reply that names all three read tools.
+const OPEN_WORK_BY_APP_ID: Record<string, {noun: string; readTool: string}> = {
+  storymap: {noun: "product", readTool: "storymap_get_product"},
+  scheduler: {noun: "project", readTool: "scheduler_get_project"},
+  forecaster: {noun: "project", readTool: "forecaster_get_project"},
+};
+const READ_TOOLS =
+  "storymap_get_product, scheduler_get_project or forecaster_get_project";
+
 /**
  * Register the shared, app-agnostic session tools on an MCP server.
  *
@@ -170,8 +182,7 @@ resolving, call get_session_info.`,
       const generateNewCodeMsg =
         "Ask the user to generate a new code from the Connect AI panel.";
       const successMsg =
-        "Session resolved. Call get_session_info to learn which " +
-        "project is open.";
+        "Session resolved. Call get_session_info to learn what is open.";
       try {
         const snap = await ref.get();
 
@@ -278,12 +289,13 @@ resolving, call get_session_info.`,
 
   server.tool(
     "get_session_info",
-    `Check session status and learn which project is currently open. Call this
-after resolve_session_code. The response includes an appId identifying which
-SPERT Suite app the session belongs to — use that app's tools. To add to or
-edit an existing project, first call that app's get_project tool to discover
-its structure and entity ids (requires Read Mode — if not enabled, ask the
-user to turn it on in the Connect AI panel). Then use the app's fine-grained
+    `Check session status and learn what is currently open: a product in SPERT
+Story Map, a project in SPERT Scheduler or SPERT Forecaster. Call this after
+resolve_session_code. The response includes an appId identifying which SPERT
+Suite app the session belongs to — use that app's tools. To add to or edit
+what is open, first call that app's read tool (${READ_TOOLS}) to discover its
+structure and entity ids (requires Read Mode — if not enabled, ask the user
+to turn it on in the Connect AI panel). Then use the app's fine-grained
 tools.`,
     {sessionId: z.string().uuid()},
     async ({sessionId}) => {
@@ -305,6 +317,28 @@ tools.`,
       }
       const appId = (session.appId as string | undefined) ?? null;
       const inApp = appId ? ` in ${appId}` : "";
+      const work = appId !== null &&
+        Object.prototype.hasOwnProperty.call(OPEN_WORK_BY_APP_ID, appId) ?
+        OPEN_WORK_BY_APP_ID[appId] : undefined;
+      const readMode = " to discover its entity ids (Read Mode required " +
+        "— if off, ask the user to enable it in the Connect AI panel), " +
+        "then use the app's fine-grained create/update tools.";
+      let message: string;
+      if (session.openProductId) {
+        message = work ?
+          `A ${work.noun} is open${inApp}. Use that app's tools to build or ` +
+            `edit. To add to or edit the existing ${work.noun}, first call ` +
+            `${work.readTool}${readMode}` :
+          `Something is open${inApp}. Use that app's tools to build or ` +
+            "edit. To add to or edit what is open, first call the app's " +
+            `read tool (${READ_TOOLS})${readMode}`;
+      } else {
+        message = work ?
+          `No ${work.noun} is open. Ask the user to open one in their SPERT ` +
+            "Suite app." :
+          "Nothing is open. Ask the user to open a product or project in " +
+            "their SPERT Suite app.";
+      }
       return ok({
         status: "ok",
         appId,
@@ -313,14 +347,7 @@ tools.`,
         consentRead: session.consentRead,
         browserConnected: isBrowserConnected(session),
         appVersion: session.appVersion,
-        message: session.openProductId ?
-          `A project is open${inApp}. Use that app's tools to build or edit. ` +
-            "To add to or edit the existing project, first call the app's " +
-            "get_project tool to discover its entity ids (Read Mode required " +
-            "— if off, ask the user to enable it in the Connect AI panel), " +
-            "then use the app's fine-grained create/update tools." :
-          "No project is open. Ask the user to open one in their SPERT " +
-            "Suite app.",
+        message,
       });
     },
   );
