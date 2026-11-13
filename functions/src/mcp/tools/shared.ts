@@ -336,8 +336,8 @@ tools.`,
         message = work ?
           `No ${work.noun} is open. Ask the user to open one in their SPERT ` +
             "Suite app." :
-          "Nothing is open. Ask the user to open a product or project in " +
-            "their SPERT Suite app.";
+          "Nothing is open. Ask the user to open their work in their SPERT " +
+            "Suite app.";
       }
       return ok({
         status: "ok",

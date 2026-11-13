@@ -98,7 +98,7 @@ describe("get_session_info names the open app's read tool", () => {
         "To add to or edit what is open, first call the app's read tool (" +
         READ_TOOLS + ")" + READ_MODE);
       expect(await message(appId, null)).toBe("Nothing is open. Ask the " +
-        "user to open a product or project in their SPERT Suite app.");
+        "user to open their work in their SPERT Suite app.");
     });
 });
 
