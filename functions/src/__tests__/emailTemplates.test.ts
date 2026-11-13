@@ -7,7 +7,12 @@ import {
   InvitationEmail,
 } from "../emailTemplates";
 import * as old from "./fixtures/emailTemplates.b6c9a14";
-import {APP_NAMES_BY_APP_ID, getHeadings} from "../invitationMailer";
+import {
+  APP_NAMES_BY_APP_ID,
+  HEADINGS_BY_APP_ID,
+  SUPPORTED_APP_IDS,
+  getHeadings,
+} from "../invitationMailer";
 
 // Story Map's appId, found by its brand name rather than retyped.
 const STORY_MAP = Object.keys(APP_NAMES_BY_APP_ID)
@@ -388,5 +393,24 @@ describe("other apps' emails are unchanged since b6c9a14 (v2.12.0)", () => {
       heading: "Alice, Q invited you to a SPERT AHP project"});
     expect(collectText(same)).toBe(collectText(old.InvitationEmail(p)));
     expect(same).not.toEqual(old.InvitationEmail(p));
+  });
+});
+
+describe("only Story Map's emails get their own heading (v2.12.0)", () => {
+  // The six-app trees above call the templates without the mailer, so they
+  // cannot see a heading the mailer gives another app. This reads the mailer.
+  test("the mailer gives a heading to Story Map and to no other app", () => {
+    expect(STORY_MAP).toBe("spertstorymap");
+    expect(Object.keys(HEADINGS_BY_APP_ID)).toEqual([STORY_MAP]);
+    // The real list of supported apps, not a copy. Must-find: it holds
+    // Story Map and other apps, so the filter below has something to check.
+    const ids = [...SUPPORTED_APP_IDS];
+    expect(ids).toContain(STORY_MAP);
+    expect(ids.length).toBeGreaterThan(1);
+    expect(ids.filter((id) => getHeadings(id) !== undefined))
+      .toEqual([STORY_MAP]);
+    // An inherited key is not a heading.
+    expect(getHeadings("toString")).toBeUndefined();
+    expect(getHeadings("__proto__")).toBeUndefined();
   });
 });
