@@ -564,10 +564,15 @@ describe("resendInvite name normalization", () => {
 describe("resendInvite Story Map heading (v2.12.0)", () => {
   const storyMap = Object.keys(APP_NAMES_BY_APP_ID)
     .find((id) => APP_NAMES_BY_APP_ID[id] === "SPERT Story Map") as string;
-  const props = () =>
-    ((mockedRender as jest.Mock).mock.calls[0][0] as {
-      props: Record<string, unknown>;
-    }).props;
+  // Every render's props, HTML first and then the plain-text part. Both must
+  // carry the heading, or the text part goes back to "a SPERT Story Map
+  // project" while the HTML is right.
+  const renders = () => {
+    const calls = (mockedRender as jest.Mock).mock.calls as Array<
+      [{props: Record<string, unknown>}, unknown?]>;
+    expect(calls.map((c) => c[1])).toEqual([undefined, {plainText: true}]);
+    return calls.map((c) => c[0].props);
+  };
 
   it("a resent Story Map invitation gets the new heading", async () => {
     expect(storyMap).toBe("spertstorymap");
@@ -575,8 +580,8 @@ describe("resendInvite Story Map heading (v2.12.0)", () => {
     fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: storyMap}));
     (mockedRender as jest.Mock).mockClear();
     await handler(makeReq());
-    expect(props().heading)
-      .toBe("Alice Owner invited you to collaborate in SPERT Story Map");
+    const heading = "Alice Owner invited you to collaborate in SPERT Story Map";
+    expect(renders().map((p) => p.heading)).toEqual([heading, heading]);
   });
 
   it("another app's resent invitation gets no heading key", async () => {
@@ -584,6 +589,6 @@ describe("resendInvite Story Map heading (v2.12.0)", () => {
     fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
     (mockedRender as jest.Mock).mockClear();
     await handler(makeReq());
-    expect("heading" in props()).toBe(false);
+    expect(renders().map((p) => "heading" in p)).toEqual([false, false]);
   });
 });
