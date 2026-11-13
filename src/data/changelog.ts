@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.12.0',
+    date: 'November 13, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'SPERT® Story Map’s AI read tool is now storymap_get_product (it was storymap_get_project), and it returns the product under the key product. An AI app connected before this update needs its connector refreshed, or removed and added again, to see the new name.',
+          'Story Map’s AI tools now call the work in Story Map a product.',
+          'get_session_info now names the read tool of the app that is open, and says “product” for a Story Map session. For a SPERT Scheduler or SPERT Forecaster session it names scheduler_get_project or forecaster_get_project, and its description names all three. resolve_session_code’s reply now says to call get_session_info “to learn what is open”. Scheduler’s and Forecaster’s own tools are unchanged.',
+          'The AI service now reports its version as 1.18.0.',
+        ],
+      },
+      {
+        heading: 'Invitation emails',
+        items: [
+          'Story Map’s two invitation emails now read “… invited you to collaborate in SPERT Story Map” and “You’ve been added as a collaborator in SPERT Story Map”. Other apps’ emails are unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.11.1',
     date: 'November 12, 2026',
     sections: [

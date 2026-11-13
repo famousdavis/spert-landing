@@ -58,6 +58,7 @@ jest.mock("firebase-admin/firestore", () => {
 
 import {render as mockedRender} from "@react-email/render";
 import {resendInvite} from "../resendInvite";
+import {APP_NAMES_BY_APP_ID} from "../invitationMailer";
 
 const handler = (
   resendInvite as unknown as {
@@ -558,4 +559,36 @@ describe("resendInvite name normalization", () => {
       expect(fromAddr).not.toContain("Davis,");
       expect(fromAddr).toContain("invitations@spertsuite.com");
     });
+});
+
+describe("resendInvite Story Map heading (v2.12.0)", () => {
+  const storyMap = Object.keys(APP_NAMES_BY_APP_ID)
+    .find((id) => APP_NAMES_BY_APP_ID[id] === "SPERT Story Map") as string;
+  // Every render's props, HTML first and then the plain-text part. Both must
+  // carry the heading, or the text part goes back to "a SPERT Story Map
+  // project" while the HTML is right.
+  const renders = () => {
+    const calls = (mockedRender as jest.Mock).mock.calls as Array<
+      [{props: Record<string, unknown>}, unknown?]>;
+    expect(calls.map((c) => c[1])).toEqual([undefined, {plainText: true}]);
+    return calls.map((c) => c[0].props);
+  };
+
+  it("a resent Story Map invitation gets the new heading", async () => {
+    expect(storyMap).toBe("spertstorymap");
+    invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: storyMap}));
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: storyMap}));
+    (mockedRender as jest.Mock).mockClear();
+    await handler(makeReq());
+    const heading = "Alice Owner invited you to collaborate in SPERT Story Map";
+    expect(renders().map((p) => p.heading)).toEqual([heading, heading]);
+  });
+
+  it("another app's resent invitation gets no heading key", async () => {
+    invitationsDocGet.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+    fakeTx.get.mockResolvedValueOnce(inviteSnap({appId: "spertcfd"}));
+    (mockedRender as jest.Mock).mockClear();
+    await handler(makeReq());
+    expect(renders().map((p) => "heading" in p)).toEqual([false, false]);
+  });
 });

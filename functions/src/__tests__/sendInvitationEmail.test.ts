@@ -139,6 +139,7 @@ jest.mock("firebase-admin/auth", () => ({
 
 import {render as mockedRender} from "@react-email/render";
 import {sendInvitationEmail} from "../sendInvitationEmail";
+import {APP_NAMES_BY_APP_ID} from "../invitationMailer";
 
 const handler = (
   sendInvitationEmail as unknown as {
@@ -1525,4 +1526,57 @@ describe("sendInvitationEmail SH-1 invitee resolution", () => {
       expect(out.invited).toEqual([]);
       expect(invitationsDocSet).not.toHaveBeenCalled();
     });
+});
+
+describe("sendInvitationEmail Story Map heading (v2.12.0)", () => {
+  const storyMap = Object.keys(APP_NAMES_BY_APP_ID)
+    .find((id) => APP_NAMES_BY_APP_ID[id] === "SPERT Story Map") as string;
+  // Every render's props, HTML first and then the plain-text part. Both must
+  // carry the heading, or the text part goes back to "a SPERT Story Map
+  // project" while the HTML is right.
+  const renders = () => {
+    const calls = (mockedRender as jest.Mock).mock.calls as Array<
+      [{props: Record<string, unknown>}, unknown?]>;
+    expect(calls.map((c) => c[1])).toEqual([undefined, {plainText: true}]);
+    return calls.map((c) => c[0].props);
+  };
+
+  const branchA = async (appId: string) => {
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+    getUserByEmail.mockResolvedValueOnce(authUser("uid-existing"));
+    fakeTx.get.mockResolvedValueOnce({
+      exists: true,
+      data: () => ({owner: "uid-owner", members: {"uid-owner": "owner"}}),
+    });
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+    const out = await handler(makeReq({
+      dataOverrides: {appId, emails: ["existing@example.com"]},
+    }));
+    expect(out.added).toEqual(["existing@example.com"]);
+  };
+  const branchB = async (appId: string) => {
+    fakeTx.get.mockResolvedValueOnce({exists: false, get: () => undefined});
+    const out = await handler(makeReq({dataOverrides: {appId}}));
+    expect(out.invited).toEqual(["new@example.com"]);
+  };
+
+  it("Branch A: Story Map's added email gets the new heading", async () => {
+    expect(storyMap).toBe("spertstorymap");
+    await branchA(storyMap);
+    const heading = "You've been added as a collaborator in SPERT Story Map";
+    expect(renders().map((p) => p.heading)).toEqual([heading, heading]);
+  });
+  it("Branch A: another app's added email gets no heading key", async () => {
+    await branchA("spertscheduler");
+    expect(renders().map((p) => "heading" in p)).toEqual([false, false]);
+  });
+  it("Branch B: Story Map's invitation gets the new heading", async () => {
+    await branchB(storyMap);
+    const heading = "Alice Owner invited you to collaborate in SPERT Story Map";
+    expect(renders().map((p) => p.heading)).toEqual([heading, heading]);
+  });
+  it("Branch B: another app's invitation gets no heading key", async () => {
+    await branchB("spertcfd");
+    expect(renders().map((p) => "heading" in p)).toEqual([false, false]);
+  });
 });

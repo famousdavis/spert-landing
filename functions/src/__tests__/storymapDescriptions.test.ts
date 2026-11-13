@@ -30,6 +30,9 @@ jest.mock("firebase-functions/logger", () => ({
   debug: jest.fn(),
 }));
 
+import * as fs from "fs";
+import * as path from "path";
+import * as ts from "typescript";
 import {z} from "zod";
 import type {DocumentData} from "firebase-admin/firestore";
 import {McpServer} from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -42,6 +45,9 @@ import {
   bulkUpdateBackbonesShape,
   BULK_UPDATE_BACKBONES_MAX,
 } from "../mcp/tools/storymap";
+import {registerSharedSessionTools} from "../mcp/tools/shared";
+import {registerSchedulerTools} from "../mcp/tools/scheduler";
+import {registerForecasterTools} from "../mcp/tools/forecaster";
 
 const mockGetSession =
   getSession as jest.MockedFunction<typeof getSession>;
@@ -338,8 +344,8 @@ describe("what the tool descriptions tell an AI", () => {
 
   // D13: the three meanings of the snapshot marker.
   const MARKER = [
-    "storymap_get_project (Read Mode required) returns " +
-      "themeBackboneDescriptionsIncluded with the project.",
+    "storymap_get_product (Read Mode required) returns " +
+      "themeBackboneDescriptionsIncluded with the product.",
     "- true: every theme and backbone carries its description.",
     "- false: descriptions exist but were left out of the snapshot for " +
       "size. This is not a stale tab. Do not write a theme or backbone " +
@@ -354,11 +360,11 @@ describe("what the tool descriptions tell an AI", () => {
       "an id that already exists.",
   ];
   const REPLACES = "This replaces the description; read it with " +
-    "storymap_get_project first and do not overwrite a non-empty one unless " +
+    "storymap_get_product first and do not overwrite a non-empty one unless " +
     "the user asked.";
 
   test.each([
-    "storymap_get_project",
+    "storymap_get_product",
     "storymap_create_theme",
     "storymap_create_backbone",
     "storymap_update_theme",
@@ -434,5 +440,119 @@ describe("what the tool descriptions tell an AI", () => {
     expect(words).toContain("Max 100 entries per call");
     expect(words).toContain("if you are Copilot, use " +
       "storymap_update_backbone for each backbone instead.");
+  });
+});
+
+/**
+ * Every string literal and template part in a source file, whitespace
+ * collapsed, read with the TypeScript parser. Comments and identifiers are
+ * left out: they are not text an AI reads.
+ * @param {string} file Path.
+ * @return {string[]} Texts.
+ */
+function sourceTexts(file: string): string[] {
+  const src = ts.createSourceFile(file, fs.readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest, true);
+  const out: string[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n) ||
+      ts.isTemplateHead(n) || ts.isTemplateMiddle(n) ||
+      ts.isTemplateTail(n)) {
+      out.push(n.text.replace(/\s+/g, " "));
+    }
+    ts.forEachChild(n, visit);
+  };
+  visit(src);
+  return out;
+}
+
+// Story Map calls the user's work a product (landing v2.12.0). "\b" does not
+// match inside storymap_get_product or scheduler_get_project ("_" is a word
+// character), so a tool name never counts as the word.
+const WORDS = /\bprojects?\b|product owner/gi;
+
+describe("Story Map's AI text calls the work a product", () => {
+  test("no Story Map tool description says \"project\" or " +
+    "\"product owner\"", () => {
+    const descriptions = descriptionsByTool();
+    expect(Object.keys(descriptions)).toHaveLength(22);
+    const left: string[] = [];
+    for (const [tool, text] of Object.entries(descriptions)) {
+      for (const m of text.match(WORDS) ?? []) left.push(`${tool}: ${m}`);
+    }
+    expect(left).toEqual([]);
+  });
+
+  test("no string in storymap.ts says \"project\" or \"product owner\"",
+    () => {
+      const texts = sourceTexts(
+        path.join(__dirname, "../mcp/tools/storymap.ts"));
+      // Must-find control: a returned message the scan has to see, present
+      // before and after this change, so an empty or wrong read cannot pass.
+      expect(texts).toContain("Temporary error; retry.");
+      const left: string[] = [];
+      for (const text of texts) {
+        for (const m of text.match(WORDS) ?? []) {
+          left.push(`${m}: ${text.slice(0, 70)}`);
+        }
+      }
+      expect(left).toEqual([]);
+    });
+});
+
+// A tool name an AI is told to call. "\b" does not match after "spert" in
+// "spertstorymap", and "_" is a word character, so a name stays in one piece.
+const TOOL_NAME = /\b(?:storymap|scheduler|forecaster)_[a-z_]+/g;
+
+/**
+ * Each tool the four registrars register, with its rendered description,
+ * whitespace collapsed.
+ * @return {Map<string, string>} Descriptions by tool name.
+ */
+function registeredTools(): Map<string, string> {
+  const tools = new Map<string, string>();
+  const fakeServer = {
+    tool: (...toolArgs: unknown[]) => {
+      tools.set(toolArgs[0] as string,
+        (toolArgs[1] as string).replace(/\s+/g, " "));
+    },
+  } as never;
+  registerSharedSessionTools(fakeServer, {} as never);
+  registerStorymapTools(fakeServer, {} as never);
+  registerSchedulerTools(fakeServer, {} as never);
+  registerForecasterTools(fakeServer, {} as never);
+  return tools;
+}
+
+describe("a tool name in AI text is a registered tool", () => {
+  const tools = registeredTools();
+  const found = (texts: Iterable<string>): string[] =>
+    [...texts].flatMap((text) => text.match(TOOL_NAME) ?? []);
+  const unregistered = (texts: Iterable<string>): string[] =>
+    found(texts).filter((name) => !tools.has(name));
+  const strings = (file: string): string[] =>
+    sourceTexts(path.join(__dirname, "../mcp/tools", file));
+
+  test("control: the scan finds names, and reports one that is misspelt",
+    () => {
+      expect(found(tools.values())).toEqual(expect.arrayContaining([
+        "storymap_get_product",
+        "scheduler_get_project",
+        "forecaster_get_project",
+      ]));
+      expect(unregistered(["Read it with storymap_get_prodcut first."]))
+        .toEqual(["storymap_get_prodcut"]);
+    });
+
+  test("in the tool descriptions", () => {
+    expect(unregistered(tools.values())).toEqual([]);
+  });
+
+  test.each(["storymap.ts", "shared.ts"])("in the strings of %s", (file) => {
+    const texts = strings(file);
+    // Must-find control: the read tool's name is among this file's strings,
+    // so an empty or wrong read cannot pass.
+    expect(found(texts)).toContain("storymap_get_product");
+    expect(unregistered(texts)).toEqual([]);
   });
 });

@@ -129,7 +129,7 @@ const FUTURE = {toDate: () => new Date(Date.now() + 60_000)};
 const PAST = {toDate: () => new Date(Date.now() - 60_000)};
 const SID = "11111111-1111-1111-1111-111111111111";
 const SUCCESS_MSG =
-  "Session resolved. Call get_session_info to learn which project is open.";
+  "Session resolved. Call get_session_info to learn what is open.";
 
 beforeEach(() => {
   mockGetSession.mockReset();

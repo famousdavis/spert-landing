@@ -43,6 +43,8 @@ export interface InvitationEmailProps {
   expirationDays: number;
   urlBase: string;
   appName: string;
+  /** Replaces the default heading (an app that names no noun). */
+  heading?: string;
 }
 
 export function InvitationEmail({
@@ -53,6 +55,7 @@ export function InvitationEmail({
   expirationDays,
   urlBase,
   appName,
+  heading,
 }: InvitationEmailProps) {
   const url = `${urlBase}/?invite=${tokenId}`;
   return (
@@ -60,7 +63,9 @@ export function InvitationEmail({
       <Head />
       <Body>
         <Container style={containerStyle}>
-          <Heading>{ownerName} invited you to a {appName} project</Heading>
+          {heading !== undefined ?
+            <Heading>{heading}</Heading> :
+            <Heading>{ownerName} invited you to a {appName} project</Heading>}
           <Text>
             {ownerName} ({ownerEmail}) added you as a collaborator on
             &quot;{modelName}&quot;.
@@ -87,6 +92,8 @@ export interface AddedNotificationEmailProps {
   role: "editor" | "viewer";
   urlBase: string;
   appName: string;
+  /** Replaces the default heading (an app that names no noun). */
+  heading?: string;
 }
 
 export function AddedNotificationEmail({
@@ -96,6 +103,7 @@ export function AddedNotificationEmail({
   role,
   urlBase,
   appName,
+  heading,
 }: AddedNotificationEmailProps) {
   const url = urlBase;
   // "editor" takes "an", "viewer" takes "a". Exhaustive over the role
@@ -106,7 +114,9 @@ export function AddedNotificationEmail({
       <Head />
       <Body>
         <Container style={containerStyle}>
-          <Heading>You&apos;ve been added to a {appName} project</Heading>
+          {heading !== undefined ?
+            <Heading>{heading}</Heading> :
+            <Heading>You&apos;ve been added to a {appName} project</Heading>}
           <Text>
             {ownerName} ({ownerEmail}) added you as {article} {role} on
             &quot;{modelName}&quot;. Open {appName} to participate.

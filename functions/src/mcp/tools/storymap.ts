@@ -173,11 +173,11 @@ export const bulkUpdateBackbonesShape = {
 };
 
 // D13: what the snapshot marker themeBackboneDescriptionsIncluded means.
-// Stated in storymap_get_project and in every tool that writes a theme or
+// Stated in storymap_get_product and in every tool that writes a theme or
 // backbone description; one constant, so the wording cannot drift apart.
 const DESCRIPTIONS_MARKER =
-  `THEME AND BACKBONE DESCRIPTIONS: storymap_get_project (Read Mode
-required) returns themeBackboneDescriptionsIncluded with the project.
+  `THEME AND BACKBONE DESCRIPTIONS: storymap_get_product (Read Mode
+required) returns themeBackboneDescriptionsIncluded with the product.
 - true: every theme and backbone carries its description.
 - false: descriptions exist but were left out of the snapshot for size.
 This is not a stale tab. Do not write a theme or backbone description
@@ -192,13 +192,13 @@ import do not re-apply to an id that already exists.`;
 
 // The rule for every tool that changes an existing description.
 const REPLACES_DESCRIPTION =
-  `This replaces the description; read it with storymap_get_project first
+  `This replaces the description; read it with storymap_get_product first
 and do not overwrite a non-empty one unless the user asked.`;
 
 /**
  * Register all SPERT Story Map MCP tools on the given server instance.
  *
- * Discovery (1): storymap_get_project. (The shared resolve_session_code and
+ * Discovery (1): storymap_get_product. (The shared resolve_session_code and
  * get_session_info now live in registerSharedSessionTools.)
  *
  * Fine-grained operations (12): storymap_create_theme,
@@ -326,7 +326,7 @@ ${DESCRIPTIONS_MARKER}`,
   );
 
   server.tool(
-    "storymap_get_project",
+    "storymap_get_product",
     `Read the current story map structure. Only available when the user
 has enabled Read Mode in the Connect AI panel.
 ${DESCRIPTIONS_MARKER}`,
@@ -367,7 +367,7 @@ ${DESCRIPTIONS_MARKER}`,
           });
         }
         const data = snap.data();
-        return ok({status: "ok", project: data?.product ?? null});
+        return ok({status: "ok", product: data?.product ?? null});
       } catch {
         return ok({
           status: "error",
@@ -385,7 +385,7 @@ FOR TARGETED ADDITIONS to an existing map only. To build a new map
 from scratch, use storymap_bulk_import — faster and avoids mid-build
 failures from partial sequences.
 ID GENERATION: generate a UUID for the themeId. The IDs returned by
-storymap_get_project identify existing entities for UPDATE calls —
+storymap_get_product identify existing entities for UPDATE calls —
 do not reuse them for CREATE calls or the create will be a no-op.
 Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same themeId is a no-op (no
@@ -443,7 +443,7 @@ ${DESCRIPTIONS_MARKER}`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -455,7 +455,7 @@ ${DESCRIPTIONS_MARKER}`,
 FOR TARGETED ADDITIONS to an existing map only. Prefer
 storymap_bulk_import when building from scratch.
 PREREQUISITES: the theme (themeId) must already exist. Call
-storymap_get_project (Read Mode required) to discover existing IDs.
+storymap_get_product (Read Mode required) to discover existing IDs.
 ID GENERATION: generate a UUID for the backboneId.
 Chain calls back-to-back within one response; do not yield between calls.
 IDEMPOTENCY: calling twice with the same backboneId is a no-op.
@@ -513,7 +513,7 @@ ${DESCRIPTIONS_MARKER}`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -525,7 +525,7 @@ ${DESCRIPTIONS_MARKER}`,
 FOR TARGETED ADDITIONS to an existing map only. Prefer
 storymap_bulk_import when building from scratch.
 PREREQUISITES: both the theme (themeId) and backbone (backboneId)
-must already exist. Call storymap_get_project (Read Mode required)
+must already exist. Call storymap_get_product (Read Mode required)
 to discover existing IDs.
 ID GENERATION: generate a UUID for the ribId.
 category defaults to "core" when omitted. An invalid category value
@@ -599,7 +599,7 @@ IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -609,7 +609,7 @@ IDEMPOTENCY: calling twice with the same ribId is a no-op.`,
     "storymap_update_theme",
     `Update an existing theme's name and/or description.
 Both fields are optional — provide only those to change. Call
-storymap_get_project (Read Mode required) to discover the themeId.
+storymap_get_product (Read Mode required) to discover the themeId.
 To clear a description, set it to an empty string ("").
 ${REPLACES_DESCRIPTION}
 Theme color is user-controlled and not exposed here.
@@ -666,7 +666,7 @@ ${DESCRIPTIONS_MARKER}`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -676,7 +676,7 @@ ${DESCRIPTIONS_MARKER}`,
     "storymap_update_backbone",
     `Update an existing backbone's name and/or description.
 All fields are optional — provide only those to change. Call
-storymap_get_project (Read Mode required) to discover IDs.
+storymap_get_product (Read Mode required) to discover IDs.
 To clear a description, set it to an empty string ("").
 ${REPLACES_DESCRIPTION}
 For many backbones' descriptions, use storymap_bulk_update_backbones.
@@ -738,7 +738,7 @@ ${DESCRIPTIONS_MARKER}`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -748,19 +748,19 @@ ${DESCRIPTIONS_MARKER}`,
     "storymap_update_rib",
     `Update one or more fields on an existing rib item.
 All fields are optional — provide only those to change. Call
-storymap_get_project (Read Mode required) to discover IDs.
+storymap_get_product (Read Mode required) to discover IDs.
 size: "XS"|"S"|"M"|"L"|"XL"|"XXL"|"XXXL"|null to clear.
 size is silently ignored for ribs with sprint progress recorded
 (in-progress size is locked to preserve historical analytics).
 For sizing, prefer storymap_size_rib — it validates against the
-project's actual sizeMapping and skips already-sized ribs. For many
+product's actual sizeMapping and skips already-sized ribs. For many
 ribs at once, use storymap_bulk_size. Use the size parameter here
 only to explicitly override or clear an existing size.
 cardColor is user-controlled and not exposed here.
 To ADD to notes rather than overwrite, use storymap_append_rib_note.
 No-op on the browser if the ribId does not exist — or if the rib was
 moved (storymap_move_rib) and your cached themeId/backboneId is
-stale; re-read IDs with storymap_get_project after any move. Calling
+stale; re-read IDs with storymap_get_product after any move. Calling
 with no updateable fields returns success without writing an op.`,
     updateRibShape,
     async ({
@@ -834,7 +834,7 @@ with no updateable fields returns success without writing an op.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -846,7 +846,7 @@ with no updateable fields returns success without writing an op.`,
     "storymap_create_release",
     `Create a named release in the open story map.
 Generate a fresh UUID for releaseId. Does NOT require reading the
-current project state first — no storymap_get_project needed.
+current product state first — no storymap_get_product needed.
 Create ALL releases before allocating any ribs: storymap_allocate_rib
 silently skips if the release does not exist yet.
 Chain calls back-to-back within one response; do not yield between calls.
@@ -894,7 +894,7 @@ rate-limit token.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -903,7 +903,7 @@ rate-limit token.`,
   server.tool(
     "storymap_allocate_rib",
     `Allocate a rib 100% to a release.
-PREREQUISITES: call storymap_get_project first (Read Mode required)
+PREREQUISITES: call storymap_get_product first (Read Mode required)
 to read the ribId, the rib's releaseIds, and its locked state. The
 release must already exist (storymap_create_release) — the browser
 silently skips a non-existent release.
@@ -953,7 +953,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -962,7 +962,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
   server.tool(
     "storymap_unassign_rib",
     `Remove ALL release allocations from a rib.
-PREREQUISITES: call storymap_get_project first (Read Mode required)
+PREREQUISITES: call storymap_get_product first (Read Mode required)
 to read the ribId and the rib's locked state.
 WARNING: this removes the rib from every release it belongs to, not
 just one. If the rib has more than one entry in releaseIds, warn the
@@ -1009,7 +1009,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -1020,7 +1020,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
   server.tool(
     "storymap_size_rib",
     `Assign a t-shirt size to an unsized rib.
-PREREQUISITES: call storymap_get_project first (Read Mode required)
+PREREQUISITES: call storymap_get_product first (Read Mode required)
 to read the product's sizeMapping (the valid labels and their point
 values), each rib's current size, and each rib's locked state.
 SIZE VALUE: pass a label taken from sizeMapping verbatim — not a
@@ -1076,7 +1076,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -1146,7 +1146,7 @@ Max 50 releases per call; split larger sets across multiple calls.`,
     "storymap_bulk_allocate",
     `Allocate many ribs to releases in one call. Each entry assigns one
 rib 100% to one release.
-PREREQUISITES: call storymap_get_project first (Read Mode required)
+PREREQUISITES: call storymap_get_product first (Read Mode required)
 to read ribIds, each rib's releaseIds, and locked state. Releases must
 already exist (storymap_bulk_create_releases or storymap_create_release).
 ADDITIVE: the browser skips ribs that are locked, already allocated, or
@@ -1205,14 +1205,14 @@ Max 500 allocations per call; split larger sets across multiple calls.`,
   server.tool(
     "storymap_bulk_size",
     `Assign t-shirt sizes to many ribs in one call.
-PREREQUISITES: call storymap_get_project first (Read Mode required)
+PREREQUISITES: call storymap_get_product first (Read Mode required)
 to read ribIds, each rib's current size and locked state, and the
-project's sizeMapping (the valid labels and their point values).
+product's sizeMapping (the valid labels and their point values).
 SIZE VALUES: pass labels taken from sizeMapping verbatim — not a fixed
 XS/S/M/L scale. An unknown label is silently skipped by the browser.
 ADDITIVE: the browser skips ribs that are locked or already validly
 sized. Re-running is safe. Prefer this over storymap_update_rib for
-sizing — it validates against the project's actual sizeMapping.
+sizing — it validates against the product's actual sizeMapping.
 Max 500 sizings per call; split larger sets across multiple calls.`,
     {
       sessionId: z.string().uuid(),
@@ -1268,7 +1268,7 @@ Max 500 sizings per call; split larger sets across multiple calls.`,
   server.tool(
     "storymap_bulk_unassign",
     `Removes all release allocations from multiple ribs in one call.
-Requires Read Mode — call storymap_get_project first to obtain ribIds
+Requires Read Mode — call storymap_get_product first to obtain ribIds
 and each rib's locked state. Locked ribs and already-unassigned ribs
 are silently skipped; only unlocked, allocated ribs are cleared.
 WARNING: unassign removes ALL of a rib's release allocations, not just
@@ -1328,7 +1328,7 @@ Max 500 ribIds per call; split larger batches.`,
     "storymap_bulk_update_ribs",
     `
 Update description, category, and/or notes on multiple rib items in one call.
-Read Mode required — call storymap_get_project first to obtain ribId values.
+Read Mode required — call storymap_get_product first to obtain ribId values.
 Provide an updates array; each entry must have a ribId plus at least one of:
 description (string), category ("core" or "non-core"), notes (string).
 Fields omitted from an entry are left unchanged.
@@ -1344,7 +1344,7 @@ at the 2000-character maximum, about 190 entries fit in English and about
 is refused with payload_too_large and writes nothing; split it and resend.
 To ADD to a rib's notes without losing existing text, use
 storymap_bulk_append_rib_notes. This tool REPLACES notes wholesale — use it
-only to rewrite or clear. storymap_get_project now returns notes (when
+only to rewrite or clear. storymap_get_product now returns notes (when
 notesIncluded is true), so verify description, category, and notes with a
 follow-up call.`,
     {
@@ -1410,7 +1410,7 @@ follow-up call.`,
 allocation, in one call. Provide targetBackboneId, targetReleaseId, or
 both — at least one is required. targetBackboneId may belong to any
 theme, not just the rib's current one.
-PREREQUISITES: call storymap_get_project first (Read Mode required) to
+PREREQUISITES: call storymap_get_product first (Read Mode required) to
 read entity IDs and each rib's releaseIds, locked, and partial fields.
 SKIP-THEN-REPLACE semantics — the browser silently skips a leg
 (applying the other if valid) when: the target backbone or release
@@ -1427,7 +1427,7 @@ this replaces the old unassign-then-allocate two-step; for a split or
 partial rib, call storymap_unassign_rib first, then this tool. To
 clear a rib's allocation without setting a new one, use
 storymap_unassign_rib alone.
-If Read Mode is enabled, verify the result with storymap_get_project.
+If Read Mode is enabled, verify the result with storymap_get_product.
 Chain calls back-to-back within one response; do not yield between calls.`,
     moveRibShape,
     async ({sessionId, ribId, targetBackboneId, targetReleaseId}) => {
@@ -1479,7 +1479,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
         browserConnected: connected,
         message: connected ?
           "Queued. If Read Mode is enabled, verify the result with " +
-            "storymap_get_project." :
+            "storymap_get_product." :
           "Queued — will apply when the browser reconnects.",
       });
     },
@@ -1491,7 +1491,7 @@ Chain calls back-to-back within one response; do not yield between calls.`,
 a different backbone and/or reassigns its release allocation. Provide
 targetBackboneId, targetReleaseId, or both per entry; an entry with
 neither is skipped. targetBackboneId may belong to any theme.
-PREREQUISITES: call storymap_get_project first (Read Mode required) to
+PREREQUISITES: call storymap_get_product first (Read Mode required) to
 read entity IDs and each rib's releaseIds, locked, and partial fields.
 Same SKIP-THEN-REPLACE semantics as storymap_move_rib, applied per
 entry: a leg is silently skipped when its target does not exist, the
@@ -1504,7 +1504,7 @@ first, then move. A skipped or invalid entry never affects the other
 entries in the same call.
 Prefer this over many sequential storymap_move_rib calls for
 reorg-sized work — one call consumes one rate-limit token regardless
-of array size. Verify results with storymap_get_project after.
+of array size. Verify results with storymap_get_product after.
 Max 500 moves per call; split larger sets across multiple calls.`,
     bulkMoveRibsShape,
     async ({sessionId, moves}) => {
@@ -1561,7 +1561,7 @@ separator: a long append to a rib that already has notes is skipped
 (nothing written). NOT idempotent — calling twice appends twice, so a
 retry duplicates the text.
 Read Mode is not required to apply, but you need it to obtain the ribId
-and to verify or recover a skip: storymap_get_project returns each
+and to verify or recover a skip: storymap_get_product returns each
 rib's notes when notesIncluded is true.
 Chain calls back-to-back within one response; do not yield between calls.`,
     appendRibNoteShape,
@@ -1614,17 +1614,17 @@ Chain calls back-to-back within one response; do not yield between calls.`,
 the rib's existing notes and adds your text after a blank line. Never
 overwrites. Provide a notes array of {ribId, text} objects.
 Read Mode obtains the ribIds and lets you verify results
-(storymap_get_project returns notes when notesIncluded is true).
+(storymap_get_product returns notes when notesIncluded is true).
 NOT idempotent — running the same call twice appends twice. If a call
 partially fails, resend ONLY the ribIds that skipped (diff via
-storymap_get_project), not the whole call. Repeated ribIds in one call
+storymap_get_product), not the whole call. Repeated ribIds in one call
 append cumulatively in array order.
 Eligible-but-skipped vs malformed: a rib whose result would exceed
 2000 chars is skipped per entry and the rest of the call still applies;
 but whitespace-only text fails validation and rejects the ENTIRE call.
 Max 100 per call (not 500); 25-40 is safer when each note carries real
 content — a truncated mid-call output makes the whole call fail.
-If notesIncluded is false or absent in storymap_get_project, notes are
+If notesIncluded is false or absent in storymap_get_product, notes are
 not in the snapshot: appends cannot be length-checked or verified, so
 keep them short and tell the user.
 Its array-of-objects payload is a shape Microsoft Copilot Chat cannot
@@ -1685,7 +1685,7 @@ storymap_update_backbone.
 Each entry is matched by backboneId alone, across every theme: every
 backbone holding that id is updated. An unknown backboneId is skipped,
 and the rest of the call still applies.
-PREREQUISITES: call storymap_get_project first (Read Mode required) to
+PREREQUISITES: call storymap_get_product first (Read Mode required) to
 obtain backboneIds and their current descriptions.
 ${REPLACES_DESCRIPTION}
 Prefer this over many storymap_update_backbone calls: one call consumes

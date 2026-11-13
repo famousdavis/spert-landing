@@ -144,6 +144,7 @@ export const resendInvite = onCall(
         tokenId,
         urlBase,
         appName,
+        inviteAppId,
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

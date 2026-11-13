@@ -160,7 +160,7 @@ beforeEach(() => {
 
 describe("an MCP tool call fails after teardownAiSession (B-04 server side)", () => {
   it("serves reads and writes while the session is live (control)", async () => {
-    const read = await call("storymap_get_project", {sessionId: SID});
+    const read = await call("storymap_get_product", {sessionId: SID});
     expect(read.status).toBe("ok");
 
     const write = await call("storymap_create_theme", {
@@ -173,7 +173,7 @@ describe("an MCP tool call fails after teardownAiSession (B-04 server side)", ()
 
   it("rejects every read AND write once teardownAiSession has run", async () => {
     // Precondition: the session resolves before teardown.
-    const before = await call("storymap_get_project", {sessionId: SID});
+    const before = await call("storymap_get_product", {sessionId: SID});
     expect(before.status).toBe("ok");
 
     // Run the REAL teardown Cloud Function against the shared Firestore.
@@ -185,7 +185,7 @@ describe("an MCP tool call fails after teardownAiSession (B-04 server side)", ()
     expect(mockState.snapshot).toBeUndefined();
 
     // A read now fails: getSession returns null → sessionNotFound().
-    const read = await call("storymap_get_project", {sessionId: SID});
+    const read = await call("storymap_get_product", {sessionId: SID});
     expect(read.status).toBe("error");
     expect(read.error).toBe("session_not_found");
 
