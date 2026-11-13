@@ -28,6 +28,7 @@ import {
   EXPIRATION_MS,
   SUPPORTED_APP_IDS,
   getAppName,
+  getHeadings,
   resolveUrlBase,
   sendInvitationToNewUser,
 } from "./invitationMailer";
@@ -112,6 +113,7 @@ function freshResponseSlot(uid: string): ResponseSlot {
  * @param {"editor"|"viewer"} role Granted role.
  * @param {string} urlBase Base URL for the "Open SPERT app" CTA.
  * @param {string} appName Human-readable app brand.
+ * @param {string} appId Caller's appId; picks the app's heading, if any.
  * @return {Promise<void>}
  */
 async function maybeSendAddedNotification(
@@ -126,7 +128,9 @@ async function maybeSendAddedNotification(
   role: "editor" | "viewer",
   urlBase: string,
   appName: string,
+  appId: string,
 ): Promise<void> {
+  const heading = getHeadings(appId)?.added;
   const db = getFirestore();
   const throttleRef = db
     .collection("spertsuite_notification_throttle")
@@ -162,6 +166,7 @@ async function maybeSendAddedNotification(
       role={role}
       urlBase={urlBase}
       appName={appName}
+      {...(heading !== undefined ? {heading} : {})}
     />,
   );
   const text = await render(
@@ -172,6 +177,7 @@ async function maybeSendAddedNotification(
       role={role}
       urlBase={urlBase}
       appName={appName}
+      {...(heading !== undefined ? {heading} : {})}
     />,
     {plainText: true},
   );
@@ -441,6 +447,7 @@ export const sendInvitationEmail = onCall(
             role,
             urlBase,
             appName,
+            appId,
           );
           result.added.push(email);
         } else {
@@ -479,6 +486,7 @@ export const sendInvitationEmail = onCall(
             tokenId,
             urlBase,
             appName,
+            appId,
           );
           result.invited.push(email);
         }

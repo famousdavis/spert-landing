@@ -137,6 +137,30 @@ export const APP_NAMES_BY_APP_ID: Record<string, string> = {
 
 export const DEFAULT_APP_NAME = "SPERT";
 
+// Per-app email headings, for an app whose emails name no noun (R46: Story
+// Map calls the work a product). An app not listed keeps the template's
+// default heading, byte for byte.
+export const HEADINGS_BY_APP_ID: Record<string, {
+  invited: (ownerName: string) => string;
+  added: string;
+}> = {
+  spertstorymap: {
+    invited: (ownerName) =>
+      `${ownerName} invited you to collaborate in SPERT Story Map`,
+    added: "You've been added as a collaborator in SPERT Story Map",
+  },
+};
+
+/**
+ * The heading for one app's email, or undefined for the default.
+ * @param {string} appId Caller's appId.
+ * @return {object | undefined} The app's headings.
+ */
+export function getHeadings(appId: string) {
+  return Object.prototype.hasOwnProperty.call(HEADINGS_BY_APP_ID, appId) ?
+    HEADINGS_BY_APP_ID[appId] : undefined;
+}
+
 /**
  * Resolve the email URL base from a request Origin header. Allowlist
  * hits for this appId pass through; anything else falls back to the
@@ -188,6 +212,7 @@ export function getAppName(appId: string): string {
  * @param {string} tokenId Invitation token id.
  * @param {string} urlBase Base URL for the claim link.
  * @param {string} appName Human-readable app brand (e.g. "SPERT CFD").
+ * @param {string} appId Caller's appId; picks the app's heading, if any.
  * @return {Promise<void>}
  */
 export async function sendInvitationToNewUser(
@@ -200,7 +225,9 @@ export async function sendInvitationToNewUser(
   tokenId: string,
   urlBase: string,
   appName: string,
+  appId: string,
 ): Promise<void> {
+  const heading = getHeadings(appId)?.invited(displayOwnerName);
   const subject = sanitizeSubject(
     `${displayOwnerName} invited you to "${displayModelName}" in ${appName}`,
   );
@@ -216,6 +243,7 @@ export async function sendInvitationToNewUser(
       expirationDays={EXPIRATION_DAYS}
       urlBase={urlBase}
       appName={appName}
+      {...(heading !== undefined ? {heading} : {})}
     />,
   );
   const text = await render(
@@ -227,6 +255,7 @@ export async function sendInvitationToNewUser(
       expirationDays={EXPIRATION_DAYS}
       urlBase={urlBase}
       appName={appName}
+      {...(heading !== undefined ? {heading} : {})}
     />,
     {plainText: true},
   );

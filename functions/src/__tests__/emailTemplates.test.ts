@@ -6,6 +6,12 @@ import {
   AddedNotificationEmail,
   InvitationEmail,
 } from "../emailTemplates";
+import * as old from "./fixtures/emailTemplates.b6c9a14";
+import {APP_NAMES_BY_APP_ID, getHeadings} from "../invitationMailer";
+
+// Story Map's appId, found by its brand name rather than retyped.
+const STORY_MAP = Object.keys(APP_NAMES_BY_APP_ID)
+  .find((id) => APP_NAMES_BY_APP_ID[id] === "SPERT Story Map") as string;
 
 /**
  * Walk a React element tree and collect every `href` prop value.
@@ -127,9 +133,12 @@ describe("InvitationEmail appName branding", () => {
         expirationDays: 30,
         urlBase: "https://storymap.spertsuite.com",
         appName: "SPERT Story Map",
+        heading: getHeadings(STORY_MAP)?.invited("William W Davis"),
       });
       const text = collectText(tree);
-      expect(text).toContain("invited you to a SPERT Story Map project");
+      expect(text).toContain(
+        "William W Davis invited you to collaborate in SPERT Story Map");
+      expect(text).not.toMatch(/project|product owner/i);
       expect(text).toContain("Open SPERT Story Map");
       // No leakage of any other app's brand string.
       expect(text).not.toContain("SPERT AHP");
@@ -220,10 +229,13 @@ describe("AddedNotificationEmail appName branding", () => {
       role: "editor",
       urlBase: "https://storymap.spertsuite.com",
       appName: "SPERT Story Map",
+      heading: getHeadings(STORY_MAP)?.added,
     });
     const text = collectText(tree);
     // Heading
-    expect(text).toContain("added to a SPERT Story Map project");
+    expect(text).toContain(
+      "You've been added as a collaborator in SPERT Story Map");
+    expect(text).not.toMatch(/project|product owner/i);
     // Body sentence
     expect(text).toContain("Open SPERT Story Map to participate");
     // Button label
@@ -349,4 +361,32 @@ describe("model name quoting (regression: v0.29 double-quote bug)", () => {
       expect(text).not.toContain(`""${name}""`);
     });
   }
+});
+
+describe("other apps' emails are unchanged since b6c9a14 (v2.12.0)", () => {
+  const others = Object.entries(APP_NAMES_BY_APP_ID)
+    .filter(([id]) => id !== STORY_MAP);
+  const invite = (appName: string) => ({ownerName: "Alice, Q",
+    ownerEmail: "a@x.com", modelName: "M", tokenId: "t", expirationDays: 30,
+    urlBase: "https://x.spertsuite.com", appName});
+  const added = (appName: string) => ({ownerName: "Alice, Q",
+    ownerEmail: "a@x.com", modelName: "M", role: "viewer" as const,
+    urlBase: "https://x.spertsuite.com", appName});
+
+  test("six apps are compared", () => {
+    expect(others).toHaveLength(6);
+  });
+  test.each(others)("%s: both element trees equal b6c9a14's", (_, appName) => {
+    expect(InvitationEmail(invite(appName)))
+      .toEqual(old.InvitationEmail(invite(appName)));
+    expect(AddedNotificationEmail(added(appName)))
+      .toEqual(old.AddedNotificationEmail(added(appName)));
+  });
+  test("control: one string with the same visible text is NOT equal", () => {
+    const p = invite("SPERT AHP");
+    const same = InvitationEmail({...p,
+      heading: "Alice, Q invited you to a SPERT AHP project"});
+    expect(collectText(same)).toBe(collectText(old.InvitationEmail(p)));
+    expect(same).not.toEqual(old.InvitationEmail(p));
+  });
 });

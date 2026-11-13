@@ -1,0 +1,126 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
+import {
+  Body,
+  Button,
+  Container,
+  Head,
+  Heading,
+  Hr,
+  Html,
+  Text,
+} from "@react-email/components";
+
+const buttonStyle = {
+  backgroundColor: "#0070f3",
+  color: "#ffffff",
+  padding: "12px 20px",
+  borderRadius: "6px",
+  textDecoration: "none",
+  fontWeight: "bold",
+  display: "inline-block",
+};
+
+const containerStyle = {
+  margin: "0 auto",
+  padding: "20px",
+  maxWidth: "560px",
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+};
+
+const linkStyle = {color: "#0070f3", wordBreak: "break-all" as const};
+
+const footerStyle = {fontSize: "12px", color: "#666666"};
+
+export interface InvitationEmailProps {
+  ownerName: string;
+  ownerEmail: string;
+  modelName: string;
+  tokenId: string;
+  expirationDays: number;
+  urlBase: string;
+  appName: string;
+}
+
+export function InvitationEmail({
+  ownerName,
+  ownerEmail,
+  modelName,
+  tokenId,
+  expirationDays,
+  urlBase,
+  appName,
+}: InvitationEmailProps) {
+  const url = `${urlBase}/?invite=${tokenId}`;
+  return (
+    <Html>
+      <Head />
+      <Body>
+        <Container style={containerStyle}>
+          <Heading>{ownerName} invited you to a {appName} project</Heading>
+          <Text>
+            {ownerName} ({ownerEmail}) added you as a collaborator on
+            &quot;{modelName}&quot;.
+          </Text>
+          <Button style={buttonStyle} href={url}>Open {appName}</Button>
+          <Text>
+            <a href={url} style={linkStyle}>{url}</a>
+          </Text>
+          <Hr />
+          <Text style={footerStyle}>
+            This invitation expires in {expirationDays} days. To ask{" "}
+            {ownerName} a question about it, just reply to this email.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+export interface AddedNotificationEmailProps {
+  ownerName: string;
+  ownerEmail: string;
+  modelName: string;
+  role: "editor" | "viewer";
+  urlBase: string;
+  appName: string;
+}
+
+export function AddedNotificationEmail({
+  ownerName,
+  ownerEmail,
+  modelName,
+  role,
+  urlBase,
+  appName,
+}: AddedNotificationEmailProps) {
+  const url = urlBase;
+  // "editor" takes "an", "viewer" takes "a". Exhaustive over the role
+  // union — sendInvitationEmail rejects anything that is not one of these.
+  const article = role === "editor" ? "an" : "a";
+  return (
+    <Html>
+      <Head />
+      <Body>
+        <Container style={containerStyle}>
+          <Heading>You&apos;ve been added to a {appName} project</Heading>
+          <Text>
+            {ownerName} ({ownerEmail}) added you as {article} {role} on
+            &quot;{modelName}&quot;. Open {appName} to participate.
+          </Text>
+          <Button style={buttonStyle} href={url}>Open {appName}</Button>
+          <Text>
+            <a href={url} style={linkStyle}>{url}</a>
+          </Text>
+          <Hr />
+          <Text style={footerStyle}>
+            Reply to this email to ask {ownerName} a question.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
