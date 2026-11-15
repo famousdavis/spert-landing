@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.12.5',
+    date: 'November 15, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Updated the framework the server functions run on to Firebase Functions 7.4.0. It no longer bundles an older web server and request parser that had published security advisories; the functions never used them.',
+          'Updated the network library the server uses to reach the database to gRPC 1.14.5, which fixes two published advisories. Both affect gRPC servers, and the functions use the library only as a client. This version has been public for 59 days rather than the usual 60, by decision.',
+          'Nothing changes in what the site, the invitation emails or the AI service do.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.12.4',
     date: 'November 15, 2026',
     sections: [
