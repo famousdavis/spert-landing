@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.12.2',
+    date: 'November 15, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'The AI service now refuses a tool call whose arguments hold more than 6,000 items, before checking them, so that checking one oversized call cannot exhaust the service’s memory. Every list entry and every field name counts as one item. The largest call any tool accepts, a full scheduler_bulk_import, holds 5,406, so no valid call is refused.',
+          'The AI service takes a security update to the MCP library it is built on.',
+          'The AI service now reports its version as 1.18.1.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.12.1',
     date: 'November 15, 2026',
     sections: [
