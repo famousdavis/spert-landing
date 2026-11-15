@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.12.1',
+    date: 'November 15, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Updated five server-side libraries to fix published security advisories: a URL parser and two web-server libraries that the AI service’s MCP library depends on, an IP-address parser, and a form-data parser that the Firebase library depends on. Each new version has been public for at least 60 days. Four of them have newer fixes that are not yet 60 days old; those will follow once they are.',
+          'Updated libraries used only to build and test the server code, for the same reason.',
+          'Nothing changes in what the site, the invitation emails or the AI service do.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.12.0',
     date: 'November 13, 2026',
     sections: [

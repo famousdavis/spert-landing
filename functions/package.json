@@ -41,7 +41,7 @@
   },
   "overrides": {
     "react-dom": "19.2.6",
-    "fast-uri": "^3.1.4",
+    "fast-uri": "3.1.8",
     "fast-xml-parser": "^5.10.1",
     "protobufjs": "^7.6.5"
   },
