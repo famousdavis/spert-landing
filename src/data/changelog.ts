@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.12.3',
+    date: 'November 15, 2026',
+    sections: [
+      {
+        heading: 'Security',
+        items: [
+          'Updated the tools the site is built and tested with to fix published security advisories. Each new version has been public for at least 60 days. Some of these tools have newer fixes that are not yet 60 days old; those will follow once they are.',
+          'Nothing changes in what the site does or how it looks.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.12.2',
     date: 'November 15, 2026',
     sections: [
