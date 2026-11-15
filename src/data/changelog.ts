@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.12.4',
+    date: 'November 15, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'A build on a developer’s computer now produces the same stylesheet the live site serves. The styling tool no longer scans the server code in functions/, which the live site’s build never sees.',
+          'Nothing changes in what the site does or how it looks.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.12.3',
     date: 'November 15, 2026',
     sections: [
