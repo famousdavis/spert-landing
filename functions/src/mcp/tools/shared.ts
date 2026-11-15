@@ -138,6 +138,19 @@ export function checkPayloadSize(
   return null;
 }
 
+// ── Tool input size ──────────────────────────────────────────────────────────
+// index.ts passes this to McpServer as maxToolInputElements (SDK 1.32.0, the
+// fix for GHSA-46jr-4wx8-v453; the option is off unless set). Before zod runs,
+// the SDK counts every own key of every object and every element of every
+// array in a call's arguments, at every depth, and refuses a call whose count
+// exceeds this. String length is not counted. Measured 2026-11-15: the
+// largest legal call of any tool is scheduler_bulk_import's at 5,406 (6 keys,
+// 100 activities x 10, 100 milestones x 4, 500 assignments x 3, 500
+// dependencies x 5). toolInputElements.test.ts derives every tool's largest
+// legal call from its schema and fails if one exceeds this, so a cap raised
+// past it is caught there.
+export const MAX_TOOL_INPUT_ELEMENTS = 6_000;
+
 // ── Shared session tools ─────────────────────────────────────────────────────
 // resolve_session_code and get_session_info are app-agnostic and MUST be
 // registered exactly once per server (the MCP SDK throws on a duplicate tool

@@ -12,7 +12,10 @@ import {
 import {registerStorymapTools} from "./tools/storymap";
 import {registerSchedulerTools} from "./tools/scheduler";
 import {registerForecasterTools} from "./tools/forecaster";
-import {registerSharedSessionTools} from "./tools/shared";
+import {
+  registerSharedSessionTools,
+  MAX_TOOL_INPUT_ELEMENTS,
+} from "./tools/shared";
 import {checkIpRateLimit} from "./rateLimit";
 
 if (getApps().length === 0) initializeApp();
@@ -46,7 +49,12 @@ export const mcpSpertSuite = onRequest(
       return;
     }
     const db = getFirestore();
-    const server = new McpServer({name: "spert-suite", version: "1.18.0"});
+    // maxToolInputElements refuses an over-large call before zod parses it
+    // (see MAX_TOOL_INPUT_ELEMENTS in tools/shared.ts).
+    const server = new McpServer(
+      {name: "spert-suite", version: "1.18.1"},
+      {maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS},
+    );
     // Shared session tools (resolve_session_code, get_session_info) register
     // exactly once; each app's register*Tools adds only its own tools.
     registerSharedSessionTools(server, db);

@@ -18,7 +18,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.32.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "2.0.8",
     "firebase-admin": "^13.10.0",
