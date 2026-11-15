@@ -4,6 +4,11 @@
 
 @import "tailwindcss";
 
+/* functions/ is the Cloud Functions package. .vercelignore drops it from the
+   Vercel build, so production never scans it; excluding it here makes a local
+   build emit the same CSS that production serves. */
+@source not "../../functions";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
