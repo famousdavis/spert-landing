@@ -1,0 +1,116 @@
+# Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+# Licensed under the GNU General Public License v3.0.
+# See LICENSE file in the project root for full license text.
+
+# Is the Help Center's guide list (src/data/help.ts) still true?
+#
+# TWO JOBS, ON PURPOSE (2.13.0)
+# -----------------------------
+# "Guide links work" fetches every guide PDF the Help Center links to. Its red
+# is RARE and URGENT: people following that link get the wrong thing today.
+#
+# "Guide list matches the app repos" reads each app repo's public/ folder over
+# the GitHub Contents API. Its red is ROUTINE: usually a new guide waiting for
+# its help.ts entry and a patch release, which can take days.
+#
+# In one job, the routine red would hide the urgent one — a broken link during a
+# pending addition would read as "that guide again". Different signal, different
+# response, so each gets its own red X, as firestore-rules-drift.yml argues.
+#
+# Neither job is a required check, and neither is part of the ship gate: a
+# release must never depend on the network or on other apps' state.
+#
+# NO SECRET. Every app repo is public. The automatic GITHUB_TOKEN is passed to
+# the list job only for the authenticated rate limit. Unmeasured when written:
+# whether it may read spert-suite/spert-ahp, a public repo in another
+# organisation. If it may not, AHP's row fails BY NAME, never silently.
+
+name: Help Center guides
+
+on:
+  schedule:
+    # Daily. Guides change about monthly, and a broken one has never been seen;
+    # this is a backstop, not an alarm.
+    - cron: "20 7 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/data/help.ts"
+      - "scripts/check-help-guides.mjs"
+      - "src/guards/help-guides-check.test.ts"
+      - ".github/workflows/help-guides.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: help-guides
+  cancel-in-progress: true
+
+jobs:
+  links:
+    name: Guide links work
+    runs-on: ubuntu-latest
+    # The script's own worst case is 100 s (every check concurrent, 3 attempts of
+    # 30 s, 5 s apart). This is a backstop it cannot reach by design.
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+
+      # No `npm ci`. The script uses only Node built-ins and imports one .ts file
+      # with no imports of its own, under Node's type stripping.
+
+      - name: Fetch every guide the Help Center links to
+        run: npm run check:help-links
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Guide links work"
+            echo
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "Every guide link answers with its PDF, and every host's control"
+              echo "was judged broken, so the check can still tell the difference."
+            else
+              echo "**A guide link is broken, or the check could not run.** Users"
+              echo "following that link get the wrong thing. The job log's FAIL lines"
+              echo "name the URL and the repo, and the line under each says what to do."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  inventory:
+    name: Guide list matches the app repos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6.0.2
+
+      - uses: actions/setup-node@v6.4.0
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Compare help.ts with each app repo's public/ folder
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npm run check:help-list
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### Guide list matches the app repos"
+            echo
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "src/data/help.ts lists exactly the guides the app repos publish."
+            else
+              echo "**The guide list and the app repos disagree, or the check could"
+              echo "not run.** Usually a new guide is waiting for its help.ts entry."
+              echo "No user gets a broken link from this; the other job covers that."
+              echo "The job log's FAIL lines name the repo and file."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

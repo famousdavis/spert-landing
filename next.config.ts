@@ -26,6 +26,10 @@ const nextConfig: NextConfig = {
       // "I Have a Request" was retired in 2.8.0, when its tile became the
       // Approval Kit. Ideas now go through the contact form too.
       { source: "/request", destination: "/contact", permanent: true },
+      // The Help Center lives at /help (2.13.0). "Support" is the other word
+      // people reach for, so that address lands there too. Pinned by G7 in
+      // src/guards/help-center.test.ts.
+      { source: "/support", destination: "/help", permanent: true },
     ];
   },
   async headers() {

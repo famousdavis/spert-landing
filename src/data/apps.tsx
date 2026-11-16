@@ -92,6 +92,17 @@ export const apps: AppInfo[] = [
     linkLabel: 'Plan Your Budget',
   },
   {
+    name: 'Help Center',
+    description: 'Find the guide for the app you’re using.',
+    url: '/help',
+    icon: '📚',
+    color: '#0d9488',
+    labelColor: '#0c857a',
+    external: false,
+    linkLabel: 'Find a Guide',
+    category: 'support',
+  },
+  {
     name: 'Contact Me',
     description: 'Have a question, suggestion, or feedback? Send me a message',
     url: '/contact',

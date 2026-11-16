@@ -1,6 +1,6 @@
 {
   "name": "spert-landing-page",
-  "version": "2.12.5",
+  "version": "2.13.0",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -17,6 +17,8 @@
     "rules:drift": "node scripts/check-deployed-rules.mjs",
     "rules:mirror": "node scripts/check-scheduler-mirror.mjs",
     "check:pointers": "node scripts/check-pointers.mjs",
+    "check:help-links": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-help-guides.mjs --links",
+    "check:help-list": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-help-guides.mjs --inventory",
     "shipgate": "node scripts/shipgate.mjs",
     "verify:sync": "node scripts/verify-sync.mjs"
   },

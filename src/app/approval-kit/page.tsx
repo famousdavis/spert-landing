@@ -7,21 +7,11 @@ import Link from 'next/link';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { APPROVAL_KIT, APPROVAL_KIT_BASE, type KitDocument } from '@/data/approvalKit';
+import { LINK_CLASS, LIST_CLASS, SECTION_HEADING_CLASS, TEXT_CLASS } from '@/components/textStyles';
 
 export const metadata: Metadata = {
   title: 'Approval Kit | SPERT® Suite',
 };
-
-/**
- * Body links are underlined so they don't rely on colour alone, and use the
- * 600/400 blues, which meet WCAG AA on this page's light and dark backgrounds.
- */
-const LINK_CLASS =
-  'text-blue-600 underline underline-offset-2 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300';
-
-const SECTION_HEADING_CLASS = 'mt-8 mb-2 text-lg font-semibold text-spert-blue';
-const TEXT_CLASS = 'text-sm leading-relaxed text-zinc-600 dark:text-zinc-400';
-const LIST_CLASS = 'list-disc pl-6 space-y-1 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400';
 
 const USE_LABEL: Record<KitDocument['use'], string> = {
   template: 'Yes: a template to fill in, then save as PDF',
