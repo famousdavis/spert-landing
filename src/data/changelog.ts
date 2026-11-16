@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.13.1',
+    date: 'November 16, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'An AI assistant connected to SPERT® Story Map, SPERT® Scheduler or SPERT® Forecaster is now told where each app’s guides are: the SPERT® Suite Help Center, at spertsuite.com/help. Asked how to use an app, rather than about your project, it can point you to the right guides.',
+          'Nothing changes in what the AI service can read or do. The AI service now reports its version as 1.19.0.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.13.0',
     date: 'November 16, 2026',
     sections: [
