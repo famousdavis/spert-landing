@@ -35,7 +35,7 @@ export default function Home() {
           <h2 className="mb-4 text-lg font-bold text-zinc-900 dark:text-zinc-100">
             Support
           </h2>
-          <div className="grid gap-6 sm:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {apps
               .filter((app) => app.category === 'support')
               .map((app) => (

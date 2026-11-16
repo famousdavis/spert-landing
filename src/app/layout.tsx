@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Resolves the help pages' relative canonical URLs. Measured (2.13.0): it changes no
+  // other page's emitted HTML. Never put a canonical here: it would spread to every page.
+  metadataBase: new URL('https://spertsuite.com'),
   title: 'SPERT® Suite',
   description: 'Estimation Made Easy® — Free browser-based tools for project managers',
   icons: {

@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.13.0',
+    date: 'November 16, 2026',
+    sections: [
+      {
+        heading: 'Help Center',
+        items: [
+          'New Help Center at spertsuite.com/help: every guide for every SPERT® Suite app in one place, each with a short note on what it is for, plus where to turn when the guides don’t answer your question.',
+          'Each app has its own page, such as spertsuite.com/help/scheduler, which the apps will link to in their next releases. Scheduler’s primer on scheduling constraints and the critical path is listed for the first time.',
+          'A Help Center tile now leads the Support section of the home page, and spertsuite.com/support goes to the Help Center too.',
+        ],
+      },
+      {
+        heading: 'Improvements',
+        items: [
+          'The contact form now asks which app your message is about. It is optional.',
+          'The site now publishes a sitemap and a robots.txt, so search engines and AI tools can find the Help Center’s pages. Nothing is blocked that was allowed before.',
+        ],
+      },
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Two daily checks keep the Help Center true: one that every guide link still opens its PDF, and one that the list matches the guides each app actually publishes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.12.5',
     date: 'November 15, 2026',
     sections: [

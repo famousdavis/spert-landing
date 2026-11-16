@@ -4,6 +4,7 @@
 
 import Link from 'next/link';
 import { FormPageShell } from '@/components/FormPageShell';
+import { AppCheckboxGroup } from '@/components/AppCheckboxGroup';
 
 const LINK_CLASS =
   'text-blue-600 underline underline-offset-2 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300';
@@ -31,6 +32,9 @@ export default function ContactPage() {
           .
         </>
       }
-    />
+    >
+      {/* 2.13.0: the Help Center's "Still stuck?" sends people here, so the message says which app. */}
+      <AppCheckboxGroup legend="Which app(s) is this about? (optional)" />
+    </FormPageShell>
   );
 }

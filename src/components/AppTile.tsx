@@ -4,25 +4,7 @@
 
 import Link from 'next/link';
 import type { AppInfo } from '@/data/apps';
-
-const MARK_STYLE = "text-xs font-normal text-zinc-400 dark:text-zinc-500 align-super";
-
-function formatName(name: string) {
-  // Split on ® and ™ while keeping the delimiter
-  const tokens = name.split(/(®|™)/);
-  if (tokens.length === 1) return <>{name}</>;
-  return (
-    <>
-      {tokens.map((token, i) =>
-        token === '®' || token === '™' ? (
-          <span key={i} className={MARK_STYLE}>{token}</span>
-        ) : (
-          <span key={i}>{token}</span>
-        )
-      )}
-    </>
-  );
-}
+import { formatName } from '@/components/formatName';
 
 const TILE_CLASS = "group block rounded-xl border border-zinc-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg dark:border-zinc-700 dark:bg-zinc-900";
 

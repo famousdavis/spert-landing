@@ -151,6 +151,9 @@ MEMORY_*.md
 # `git ls-files --cached --others --exclude-standard` and so cannot see an
 # IGNORED file. The header guard would then pass vacuously rather than earned.
 !/scripts/check-pointers.mjs
+# check-help-guides.mjs is run by help-guides.yml (2.13.0) — same reason, and the
+# same negation-first order.
+!/scripts/check-help-guides.mjs
 
 # Firestore emulator output (npm run test:rules)
 firestore-debug.log
