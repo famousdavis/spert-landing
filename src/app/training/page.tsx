@@ -9,8 +9,8 @@ export default function TrainingPage() {
   return (
     <FormPageShell
       formspreeId="mreyygbb"
-      title="“I Want Training”"
-      subtitle="William W. Davis, creator of the SPERT® Suite, offers affordable live virtual training for individuals and teams. Use the form below to request a free consultation about your training needs, objectives, and any scheduling or budget constraints."
+      title="Training Services"
+      subtitle="William W. Davis, creator of the SPERT® Suite, offers affordable training for individuals and teams. Training is delivered live over Zoom; in-person training can be arranged on request. Use the form below to request a free consultation about your training needs, objectives, and any scheduling or budget constraints."
       submitLabel="Request Consultation"
       successMessage="Request received!"
       successDetail="Thank you! I'll be in touch soon to set up your free consultation."

@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.13.3',
+    date: 'November 17, 2026',
+    sections: [
+      {
+        heading: 'Training',
+        items: [
+          'The training request page is now titled Training Services, so it describes what is offered instead of repeating the home-page tile. The tile still reads “I Want Training”.',
+          'The training page now says how training is delivered: live over Zoom, with in-person training available on request.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.13.2',
     date: 'November 17, 2026',
     sections: [
