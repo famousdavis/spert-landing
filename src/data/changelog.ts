@@ -19,7 +19,7 @@ export const changelog: ChangelogEntry[] = [
       {
         heading: 'Training',
         items: [
-          'The training request page is now titled Virtual Training Services, so it describes what is offered instead of repeating the home-page tile. The tile still reads “I Want Training”.',
+          'The training request page is now titled Training Services, so it describes what is offered instead of repeating the home-page tile. The tile still reads “I Want Training”.',
         ],
       },
     ],
