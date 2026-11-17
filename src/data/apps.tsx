@@ -126,7 +126,7 @@ export const apps: AppInfo[] = [
     category: 'support',
   },
   {
-    name: 'I Want Training',
+    name: '“I Want Training”',
     description: 'Want hands-on training for you or your team? Let\u2019s talk',
     url: '/training',
     icon: '\uD83C\uDF93',

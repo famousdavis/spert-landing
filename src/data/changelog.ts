@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.13.2',
+    date: 'November 17, 2026',
+    sections: [
+      {
+        heading: 'Home page',
+        items: [
+          'The training tile and the training request page are now titled “I Want Training”, in quotation marks, because it is you, the visitor, asking for training. The Contact Me tile beside it is William speaking, and the quotation marks keep the two apart.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.13.1',
     date: 'November 16, 2026',
     sections: [
