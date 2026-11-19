@@ -4,7 +4,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, it, expect } from 'vitest';
@@ -22,7 +22,8 @@ import { APPROVAL_KIT } from '../data/approvalKit';
  * module, which the page prints.
  */
 
-const DIR = join(process.cwd(), 'public', 'approval-kit', `v${APPROVAL_KIT.version}`);
+const ROOT = join(process.cwd(), 'public', 'approval-kit');
+const DIR = join(ROOT, `v${APPROVAL_KIT.version}`);
 
 /** Every file the page links to, relative to DIR. */
 const LISTED = [
@@ -36,8 +37,8 @@ function sha256(path: string): string {
 }
 
 /** checksums.txt as `name → hash`, in `shasum -a 256` format. */
-function readChecksums(): Map<string, string> {
-  const lines = readFileSync(join(DIR, 'checksums.txt'), 'utf8').split('\n').filter((l) => l.trim());
+function readChecksums(dir: string = DIR): Map<string, string> {
+  const lines = readFileSync(join(dir, 'checksums.txt'), 'utf8').split('\n').filter((l) => l.trim());
   const entries = lines.map((line) => /^([0-9a-f]{64}) [ *](.+)$/.exec(line));
   const malformed = lines.filter((_, i) => entries[i] === null);
   expect(malformed, `checksums.txt has lines not in shasum format: ${malformed.join(' | ')}`).toEqual([]);
@@ -62,8 +63,15 @@ describe('Approval Kit — the published files match the release', () => {
     expect(changed, `these files differ from checksums.txt: ${changed.join(', ')}`).toEqual([]);
   });
 
+  /** From v2.0.0 the kit's checksums.txt covers its README too (v1.0.0's did not). */
+  it("matches the README's hash to its line in checksums.txt", () => {
+    const sums = readChecksums();
+    expect(sums.has('README.txt'), 'checksums.txt has no line for README.txt').toBe(true);
+    expect(sha256(join(DIR, 'README.txt')), 'README.txt differs from checksums.txt').toBe(sums.get('README.txt'));
+  });
+
   it('lists every file named in checksums.txt (no orphans)', () => {
-    const orphans = [...readChecksums().keys()].filter((f) => !LISTED.includes(f));
+    const orphans = [...readChecksums().keys()].filter((f) => !LISTED.includes(f) && f !== 'README.txt');
     expect(orphans, `in checksums.txt but not on /approval-kit: ${orphans.join(', ')}`).toEqual([]);
   });
 
@@ -90,5 +98,30 @@ describe('Approval Kit — the published files match the release', () => {
     );
     const invisible = [...LISTED, 'README.txt'].filter((f) => !visible.has(f));
     expect(invisible, `git cannot see these (ignored?): ${invisible.join(', ')}`).toEqual([]);
+  });
+});
+
+/**
+ * Each kit PDF links to spertsuite.com/approval-kit, and a reviewer may hold a
+ * copy of any version, so an earlier version's folder is never removed or
+ * changed. The page names the earlier versions; each must still verify against
+ * its own checksums.txt.
+ */
+describe('Approval Kit — earlier versions stay published, unchanged', () => {
+  const folders = readdirSync(ROOT).filter((f) => /^v\d+\.\d+\.\d+$/.test(f));
+
+  it('names every earlier folder on the page, and only those', () => {
+    const earlier = folders.map((f) => f.slice(1)).filter((v) => v !== APPROVAL_KIT.version).sort();
+    expect([...APPROVAL_KIT.earlier].sort()).toEqual(earlier);
+    expect(earlier.length, 'no earlier folder found — the check would be vacuous').toBeGreaterThan(0);
+  });
+
+  it.each(APPROVAL_KIT.earlier.map((v) => [v]))('v%s still matches its own checksums.txt and has its zip', (v) => {
+    const dir = join(ROOT, `v${v}`);
+    const sums = readChecksums(dir);
+    expect(sums.size).toBeGreaterThan(0);
+    const changed = [...sums].filter(([f, h]) => !existsSync(join(dir, f)) || sha256(join(dir, f)) !== h);
+    expect(changed.map(([f]) => f), `v${v} files changed or missing`).toEqual([]);
+    expect(existsSync(join(dir, `SPERT-Suite-Approval-Kit-v${v}.zip`)), `v${v} zip missing`).toBe(true);
   });
 });

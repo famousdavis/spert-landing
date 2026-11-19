@@ -18,10 +18,10 @@ export interface KitDocument {
   name: string;
   /** Verbatim from the CONTENTS section of the kit's README.txt. */
   description: string;
-  /** From the "Who it is for" column of the Guide's section 1. */
+  /** Who the document is for (the kit build's metadata, as the Guide lists it). */
   audience: string;
-  /** "template" when the file name contains "Template" (README.txt). */
-  use: 'template' | 'forward' | 'read';
+  /** "template" when the file name contains "Template" (README.txt); "example" for the invented example. */
+  use: 'template' | 'forward' | 'read' | 'example';
   pages: number;
 }
 
@@ -29,17 +29,20 @@ export interface ApprovalKit {
   version: string;
   /** The date the kit's content was reviewed, as printed under each document's title. */
   reviewed: string;
+  /** Earlier versions, still served from their own folders; never removed. */
+  earlier: readonly string[];
   zip: { file: string; bytes: number; sha256: string };
   documents: readonly KitDocument[];
 }
 
 export const APPROVAL_KIT: ApprovalKit = {
-  version: '1.0.0',
-  reviewed: '2026-10-25',
+  version: '2.0.0',
+  reviewed: '2026-11-19',
+  earlier: ['1.0.0'],
   zip: {
-    file: 'SPERT-Suite-Approval-Kit-v1.0.0.zip',
-    bytes: 2810977,
-    sha256: '3d759e84d24c911c8cdff34ccd2029db18e0f3ef00d7e0366ed04355d3ee285a',
+    file: 'SPERT-Suite-Approval-Kit-v2.0.0.zip',
+    bytes: 9593196,
+    sha256: '9dad63e8f4de0b742173c15d2f86aa702fb89d70acc89868ac928eff91cfbe0f',
   },
   /** In the order of the README's CONTENTS. */
   documents: [
@@ -56,42 +59,43 @@ export const APPROVAL_KIT: ApprovalKit = {
       file: 'SPERT-Approval-Kit_Guide',
       name: 'Guide',
       description:
-        'How a project manager runs an approval process: who to engage, in what order, and how to answer each reviewer',
+        'How a project manager runs an approval process: the smallest set of documents for each request, who to engage and in what order, and how to answer each reviewer',
       audience: 'You, the project manager',
       use: 'read',
-      pages: 8,
+      pages: 9,
     },
     {
       file: 'SPERT-Approval-Kit_Template-Approval-Pathway-Checklist',
       name: 'Approval Pathway Checklist',
-      description: 'Fill-in template: every approval step, owner, date and decision in one place',
+      description:
+        'Fill-in template: every approval step, the decision for each app and feature, its conditions, and the exit tasks',
       audience: 'You and your sponsor',
       use: 'template',
-      pages: 3,
+      pages: 5,
     },
     {
       file: 'SPERT-Approval-Kit_Template-Value-Brief',
       name: 'Value Brief',
       description:
-        'Fill-in template: the problem, the pilot, how it fits with existing tools, cost, risks and exit',
+        'Two-page fill-in template: the problem, the pilot, fit with existing tools, costs, measurable success criteria, risks and exit',
       audience: 'Your sponsor, manager, procurement',
       use: 'template',
-      pages: 4,
+      pages: 2,
     },
     {
       file: 'SPERT-Approval-Kit_Template-Information-Security-Profile',
       name: 'Information Security Profile',
       description:
-        'Fill-in template: controls, gaps, approval scope and attestation, for information security and privacy reviewers',
+        'Fill-in template: controls, gaps, risk decisions by owner and date, and attestation by app and feature, for information security and privacy reviewers',
       audience: 'Information security, privacy',
       use: 'template',
-      pages: 10,
+      pages: 14,
     },
     {
       file: 'SPERT-Approval-Kit_Template-Data-Flow-Diagram',
       name: 'Data Flow Diagram',
       description:
-        "Fill-in template: data flows per tier, Connect AI snapshot contents and tools, and the organization's own controls",
+        "Fill-in template: data flows per tier, Connect AI snapshot contents and sessions, an endpoint matrix, and the organization's own controls",
       audience: 'Architecture, information security, AI governance',
       use: 'template',
       pages: 10,
@@ -99,37 +103,65 @@ export const APPROVAL_KIT: ApprovalKit = {
     {
       file: 'SPERT-Approval-Kit_Template-Reviewer-FAQ',
       name: 'Reviewer FAQ',
-      description: 'Fill-in template: short, sourced answers to the questions each reviewer asks',
+      description:
+        'Fill-in template: short, sourced answers to the questions each reviewer asks',
       audience: 'All reviewers',
       use: 'template',
-      pages: 4,
+      pages: 6,
     },
     {
       file: 'SPERT-Approval-Kit_Architecture-Overview',
       name: 'Architecture Overview',
       description:
-        'Components, data flows and trust boundaries for architecture, security and privacy reviewers',
+        'Components, data flows, trust boundaries and controls for architecture, security and privacy reviewers',
       audience: 'Architecture, information security, privacy',
       use: 'forward',
-      pages: 12,
-    },
-    {
-      file: 'SPERT-Approval-Kit_Security-Questionnaire-Answers',
-      name: 'Security Questionnaire Answers',
-      description:
-        "Draft answers to common vendor security questionnaire topics, for [ORGANIZATION]'s reviewers",
-      audience: 'Information security',
-      use: 'forward',
-      pages: 14,
+      pages: 13,
     },
     {
       file: 'SPERT-Approval-Kit_Connect-AI-Data-Explainer',
       name: 'Connect AI Data Explainer',
       description:
-        'A one-document briefing for information security, privacy and architecture reviewers',
-      audience: 'Privacy, AI governance',
+        'What Connect AI sends and to whom, what the AI can change, and how long data is kept, for all three apps that offer it',
+      audience: 'Information security, privacy and AI governance',
       use: 'forward',
+      pages: 7,
+    },
+    {
+      file: 'SPERT-Approval-Kit_Scheduler-Security-Questionnaire-Answers',
+      name: 'Scheduler Security Questionnaire Answers',
+      description:
+        'Draft answers to common vendor security questionnaire topics for SPERT® Scheduler, each with its control status and evidence',
+      audience: 'Information security',
+      use: 'forward',
+      pages: 15,
+    },
+    {
+      file: 'SPERT-Approval-Kit_App-and-Feature-Reference',
+      name: 'App and Feature Reference',
+      description:
+        'The six apps, how each stores data and what sign-out does, export formats, headers, and every Connect AI tool',
+      audience: 'Enterprise architecture, information security, and the project manager',
+      use: 'forward',
+      pages: 6,
+    },
+    {
+      file: 'SPERT-Approval-Kit_Example-Completed-Request',
+      name: 'Example Completed Request',
+      description:
+        'A fictional, filled-in request showing a completed decision record by app and feature, conditions, success measures, gap decisions and exit plan',
+      audience: 'You, the project manager',
+      use: 'example',
       pages: 3,
+    },
+    {
+      file: 'SPERT-Approval-Kit_Evidence-Register',
+      name: 'Evidence Register',
+      description:
+        'The facts register behind the kit: each product fact with its scope, source, revision, kind of evidence and verification date',
+      audience: 'Any reviewer who wants to check a claim',
+      use: 'forward',
+      pages: 23,
     },
   ],
 };
