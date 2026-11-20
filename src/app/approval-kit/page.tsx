@@ -15,8 +15,9 @@ export const metadata: Metadata = {
 
 const USE_LABEL: Record<KitDocument['use'], string> = {
   template: 'Yes: a template to fill in, then save as PDF',
-  forward: 'Placeholders only, then forward it',
+  forward: 'No: no placeholders, forward the PDF as it is',
   read: 'No. Start here: your plan to get approval',
+  example: 'No: an invented example of a finished request',
 };
 
 const ZIP_MEGABYTES = (APPROVAL_KIT.zip.bytes / 1_000_000).toFixed(1);
@@ -38,8 +39,8 @@ export default function ApprovalKitPage() {
           Approval Kit
         </h2>
         <p className={TEXT_CLASS}>
-          Ten documents that help a project manager get the SPERT&reg; Suite approved for use at
-          work. They support your organization&rsquo;s approval process; they are not legal,
+          {APPROVAL_KIT.documents.length} documents that help a project manager get the SPERT&reg;
+          Suite approved for use at work. They support your organization&rsquo;s approval process; they are not legal,
           compliance or security advice.
         </p>
 
@@ -49,8 +50,8 @@ export default function ApprovalKitPage() {
             <strong className="font-semibold text-zinc-800 dark:text-zinc-200">
               Project managers:
             </strong>{' '}
-            read the Guide first. It explains the approval process and which document to give each
-            reviewer.
+            read the Guide first. It explains the approval process and gives the smallest set of
+            documents for each kind of request.
           </li>
           <li>
             <strong className="font-semibold text-zinc-800 dark:text-zinc-200">Reviewers:</strong>{' '}
@@ -58,9 +59,10 @@ export default function ApprovalKitPage() {
           </li>
         </ul>
         <p className={`mt-3 ${TEXT_CLASS}`}>
-          Every document comes as a PDF, for reading and forwarding, and as a Word file, for
-          completing the highlighted [PLACEHOLDERS]. This page always lists the current version, so
-          check it before you submit.
+          Every document comes as a PDF and as a Word file. Templates are for you to complete: fill
+          in the highlighted [PLACEHOLDERS] in the Word file, then save it as PDF. Their PDFs are
+          reference copies. The other documents have no placeholders, so you can forward their PDFs
+          as they are. This page always lists the current version, so check it before you submit.
         </p>
 
         <h3 className={SECTION_HEADING_CLASS}>The documents</h3>
@@ -115,7 +117,7 @@ export default function ApprovalKitPage() {
 
         <h3 className={SECTION_HEADING_CLASS}>The whole kit</h3>
         <p className={TEXT_CLASS}>
-          All twenty files, with a README:{' '}
+          All {APPROVAL_KIT.documents.length * 2} files, with a README and checksums:{' '}
           <a
             href={`${APPROVAL_KIT_BASE}/${APPROVAL_KIT.zip.file}`}
             className={`${LINK_CLASS} font-semibold`}
@@ -142,6 +144,21 @@ export default function ApprovalKitPage() {
         <h3 className={SECTION_HEADING_CLASS}>Version and contact</h3>
         <p className={TEXT_CLASS}>
           Approval Kit v{APPROVAL_KIT.version} &middot; content reviewed {APPROVAL_KIT.reviewed}
+        </p>
+        <p className={`mt-3 ${TEXT_CLASS}`}>
+          Earlier versions stay at their own addresses, so links in documents already sent keep
+          working: {APPROVAL_KIT.earlier.map((v, i) => (
+            <span key={v}>
+              {i > 0 && ', '}
+              <a
+                href={`/approval-kit/v${v}/SPERT-Suite-Approval-Kit-v${v}.zip`}
+                className={LINK_CLASS}
+              >
+                v{v} (zip)
+              </a>
+            </span>
+          ))}
+          .
         </p>
         <p className={`mt-3 ${TEXT_CLASS}`}>
           Questions about the kit:{' '}

@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.14.0',
+    date: 'November 19, 2026',
+    sections: [
+      {
+        heading: 'Approval Kit',
+        items: [
+          'Approval Kit v2.0.0: every fact re-checked against the apps, the shared backend and the legal documents as of November 19, 2026, and the kit rewritten after an outside review. Reassurances now say what each option reduces and what remains, and the security questionnaire separates each answer from its control status and evidence.',
+          'Three new documents: an App and Feature Reference (what each app does, its storage, sign-out behaviour and every Connect AI tool), an invented example of a completed request, and an Evidence Register listing the source, revision, kind of evidence and date behind each fact.',
+          'The Connect AI Data Explainer now covers SPERT® Scheduler, Story Map and Forecaster, and opens with a Write Mode and Read Mode comparison. The Guide suggests the smallest set of documents for each kind of request, and the decision record works by app and feature.',
+          'The PDFs are tagged for screen readers with their fonts embedded, and template placeholders are Word content controls: filling in one copy of a value such as the organization’s name fills every copy in that file. checksums.txt now covers the README.',
+          'Version 1.0.0 stays at its own address, unchanged, so links in documents already sent keep working.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.13.3',
     date: 'November 17, 2026',
     sections: [
