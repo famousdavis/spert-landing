@@ -36,13 +36,13 @@ export interface ApprovalKit {
 }
 
 export const APPROVAL_KIT: ApprovalKit = {
-  version: '2.0.1',
-  reviewed: '2026-11-19',
-  earlier: ['1.0.0', '2.0.0'],
+  version: '2.0.2',
+  reviewed: '2026-11-19, Microsoft sign-in 2026-11-20',
+  earlier: ['1.0.0', '2.0.0', '2.0.1'],
   zip: {
-    file: 'SPERT-Suite-Approval-Kit-v2.0.1.zip',
-    bytes: 10059133,
-    sha256: '6176d8ac55dde155f560cf83ebba0c211b5f9f1319049e90509af8ad4dd5ee90',
+    file: 'SPERT-Suite-Approval-Kit-v2.0.2.zip',
+    bytes: 10094244,
+    sha256: 'f6b3872a47df2cef70adb8e82674a470cc4345d1bd6e9febe3ac0f96066fcd60',
   },
   /** In the order of the README's CONTENTS. */
   documents: [
@@ -161,7 +161,7 @@ export const APPROVAL_KIT: ApprovalKit = {
         'The facts register behind the kit: each product fact with its scope, source, revision, kind of evidence and verification date',
       audience: 'Any reviewer who wants to check a claim',
       use: 'forward',
-      pages: 23,
+      pages: 24,
     },
   ],
 };

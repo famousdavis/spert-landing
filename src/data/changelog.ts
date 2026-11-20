@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.14.1',
+    date: 'November 20, 2026',
+    sections: [
+      {
+        heading: 'Approval Kit',
+        items: [
+          'Approval Kit v2.0.2: the SPERT® Suite Microsoft sign-in app became a Microsoft verified publisher on November 20, 2026, and the kit now says so, including where an organization’s administrator may still need to grant consent. It also states which Microsoft accounts can sign in (work or school accounts, not personal ones) and the four permissions the sign-in asks for, both checked on the live service. Versions 1.0.0, 2.0.0 and 2.0.1 stay at their own addresses.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.14.0',
     date: 'November 19, 2026',
     sections: [
