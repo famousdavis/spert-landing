@@ -36,13 +36,13 @@ export interface ApprovalKit {
 }
 
 export const APPROVAL_KIT: ApprovalKit = {
-  version: '2.0.0',
+  version: '2.0.1',
   reviewed: '2026-11-19',
-  earlier: ['1.0.0'],
+  earlier: ['1.0.0', '2.0.0'],
   zip: {
-    file: 'SPERT-Suite-Approval-Kit-v2.0.0.zip',
-    bytes: 9593196,
-    sha256: '9dad63e8f4de0b742173c15d2f86aa702fb89d70acc89868ac928eff91cfbe0f',
+    file: 'SPERT-Suite-Approval-Kit-v2.0.1.zip',
+    bytes: 10059133,
+    sha256: '6176d8ac55dde155f560cf83ebba0c211b5f9f1319049e90509af8ad4dd5ee90',
   },
   /** In the order of the README's CONTENTS. */
   documents: [
