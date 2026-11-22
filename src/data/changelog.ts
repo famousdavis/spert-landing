@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.14.2',
+    date: 'November 22, 2026',
+    sections: [
+      {
+        heading: 'Header',
+        items: [
+          'The SPERT® Suite title at the top of every page is now drawn in the suite’s own navy, the color of its icon, as a gradient from a lighter to a deeper navy. It replaces the bright blue gradient.',
+          'The title now meets a 3:1 contrast ratio against the page at every point of its gradient, in both light and dark mode. The old blue fell just short in both.',
+          'Printed with your browser’s default settings, the title now comes out in solid near-black. The old title printed blank.',
+          'On every page but the home page, where the title links back home, it no longer fades when you point at it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.14.1',
     date: 'November 20, 2026',
     sections: [

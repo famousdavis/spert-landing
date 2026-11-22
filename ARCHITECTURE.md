@@ -96,7 +96,7 @@ Three-state (Light/Dark/System) toggle matching the pattern used across all SPER
 
 ### Brand Consistency
 Visual language matches the SPERT ecosystem:
-- Blue gradient heading: `#0099ff` → `#0051cc`
+- Title gradient in the suite's navy, from the favicon's `#1e3a8a`: `#3c589e` → `#0a1f69` (light), `#7494e0` → `#3b5aa8` (dark); solid `--foreground` when printed or when the system asks for more contrast (`src/guards/header-title-gradient.test.ts`)
 - Geist font family
 - Centered footer: `© [Year] William W. Davis, MSPM, PMP | Version X.X | Licensed under GNU GPL v3`
 - Italic tagline
