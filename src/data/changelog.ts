@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.14.3',
+    date: 'November 22, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'The suite’s security rules now let SPERT® CFD keep each person’s project display preferences in their own CFD settings, beside the project order it keeps there already. No app behaves differently yet.',
+          'Those settings can still be read and written only by the person they belong to, and they can hold only these two kinds of setting. The rules check which settings are stored, not what they contain.',
+          'A new check in the rules test suite fails if the rules stop accepting CFD’s saves of a person’s project order once that person’s settings hold display preferences. Nothing else in the rules changed.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.14.2',
     date: 'November 22, 2026',
     sections: [

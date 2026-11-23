@@ -896,11 +896,34 @@ service cloud.firestore {
     // src/lib/firestore-driver.ts loadProjectOrder / createProject /
     // deleteProject / reorderProjects). If CFD ever adds more per-user
     // settings, this allowlist must be updated in lock-step.
+    //
+    // v2.14.3 (DASH26 R2a): `projectPrefs` joins the allowlist BEFORE any
+    // CFD build writes it. It is the key SPERT Forecaster, Story Map,
+    // GanttApp and MyScrumBudget use for a person's own tile colour and
+    // archive, { [projectId]: { color?, archived? } } (Forecaster's
+    // saveProjectPrefs writes it; its sanitizeProjectPrefs reads it). A
+    // later CFD release, DASH26 R2, writes it here. KEYS ONLY: no top-level
+    // key but these two may be written, and nothing about either value is
+    // checked; the app is to sanitise on read, as Forecaster does. Any later
+    // value check on `projectPrefs` must judge only what a write changes,
+    // never the whole stored document: a check over request.resource.data
+    // would refuse every `projectOrder` write from a document that already
+    // holds an older value.
+    //
+    // ROLLBACK. Until `projectPrefs` is first written in production,
+    // removing it from this list breaks no CFD build. After that,
+    // the old rule refuses EVERY `projectOrder` write (create's append,
+    // delete, reorder, a clone's placement) to a document holding it. The
+    // old rule does accept deleting the whole `projectPrefs` field, after
+    // which those writes work again, so a rollback works only after every
+    // person's `projectPrefs` is deleted, which erases everyone's colours
+    // and archive. Measured on the emulator; the accepts are held by
+    // rules-tests/spertcfd-settings-project-prefs.test.ts.
     match /spertcfd_settings/{userId} {
       allow read: if isAuth() && request.auth.uid == userId;
       allow write: if isAuth()
                    && request.auth.uid == userId
-                   && request.resource.data.keys().hasOnly(['projectOrder']);
+                   && request.resource.data.keys().hasOnly(['projectOrder', 'projectPrefs']);
     }
     // ── SPERT-AHP (v0.2.0, April 2026; hardened v0.7.2) ──────
     // Monolithic document model: one doc per AHP decision at

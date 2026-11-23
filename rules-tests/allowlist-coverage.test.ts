@@ -52,6 +52,14 @@
  *      `order`, and the three are KEPT on the allowlist until the documents
  *      that still store them are cleaned. `myscrumbudget_projects` shape 4
  *      therefore RUNS, on create and on update; the other twelve still skip.
+ *
+ *      CORRECTED 2.14.3 (DASH26 R2a): eleven skip. `spertcfd_settings`
+ *      allowlists `projectPrefs` ahead of the CFD release that writes it, so
+ *      its shape 4 runs too, on `write`. It writes the same one-key document
+ *      as that site's shape 2 (`appMax` and `appMin` are both
+ *      `['projectOrder']`), so it adds a case and no coverage: the cases that
+ *      can fail for that widening are in
+ *      `spertcfd-settings-project-prefs.test.ts`.
  *   5. ALLOWED - `deleteField()` removal, wherever a site declares `clearable`.
  *      Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
  *      REMOVAL, and both apps make them: Forecaster writes deleteField()

@@ -81,8 +81,10 @@
  *
  * Recorded as dated blocks rather than per-entry fields on purpose:
  * `sourceVersion`/`sourceCommit` already exist to say how stale a snapshot is,
- * and that pair has already failed silently here - `spertcfd_settings` pins a
- * commit at which the transforms its `source` describes did not exist. A
+ * and that pair has already failed silently here - `spertcfd_settings` pinned a
+ * commit at which the transforms its `source` describes did not exist
+ * (`a29dbd0`, v0.15.1; the arrayUnion/arrayRemove writes arrived in v0.15.9).
+ * 2.14.3 re-read that entry and re-stamped it, so the example is history. A
  * second instance of the same mechanism would not fix the first. A date, seven
  * repos at seven SHAs and a diff to read are checkable; twenty-six strings
  * nobody can verify without redoing the sweep are not.
@@ -219,6 +221,11 @@ export interface AllowlistContract {
    * PURPOSE, because the three are kept on the allowlist until the documents
    * that still store them are cleaned - see that entry's `notes`. The other
    * twelve still coincide.
+   *
+   * CORRECTED 2.14.3 (DASH26 R2a): eleven now. `spertcfd_settings` is `false`
+   * too, ON PURPOSE: `projectPrefs` is allowlisted ahead of the CFD release
+   * that writes it, and R2c flips it back once that release ships - see that
+   * entry's `notes`.
    */
   coincides: boolean;
   /**
@@ -241,6 +248,13 @@ export interface AllowlistContract {
    * carries all three here and its shape 4 RUNS, on create and on update: the
    * case the paragraph above describes, reached on purpose rather than by
    * drift. The other twelve are still empty and still skip.
+   *
+   * CORRECTED 2.14.3 (DASH26 R2a): eleven now. `spertcfd_settings` carries
+   * `projectPrefs` here, allowlisted ahead of the CFD release that writes it,
+   * and its shape 4 runs on `write` - writing the same one-key document as its
+   * shape 2, because its `appMax` and `appMin` are both `['projectOrder']`. The
+   * cases that can fail for that widening are in
+   * `spertcfd-settings-project-prefs.test.ts`.
    */
   unionOnly: string[];
   /**
@@ -821,8 +835,9 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'tab, v0.41.0 or earlier, also still writes all three. WI-E4 is PLANNED: clean ' +
       'the stored documents first, then drop the three here ' +
       'and in the Scheduler mirror, changing the KEEP cases in ' +
-      'myscrumbudget-provenance-fields.test.ts on purpose. Until then this is the one ' +
-      'entry where coincides is false, so shape 4 runs for it.',
+      'myscrumbudget-provenance-fields.test.ts on purpose. Until then coincides is false ' +
+      'here, so shape 4 runs for it. (It was the one such entry until landing 2.14.3, when ' +
+      'spertcfd_settings joined it on purpose - see that entry.)',
   },
   {
     key: 'spertcfd_projects',
@@ -947,7 +962,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertahp_projects',
     sub: null,
     ops: ['create', 'update'],
-    lines: [979, 993],
+    lines: [1002, 1016],
     shape: 'project',
     // Exactly `keyof FirestoreModelDoc` (FirestoreAdapter.ts).
     allowlist: [
@@ -1068,27 +1083,53 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'spertcfd_settings',
     sub: null,
     ops: ['write'],
-    lines: [903],
+    lines: [926],
     shape: 'selfOwned',
-    allowlist: ['projectOrder'],
+    // `projectPrefs` since 2.14.3 (DASH26 R2a), allowlisted AHEAD of the CFD
+    // release that writes it. See `notes`.
+    allowlist: ['projectOrder', 'projectPrefs'],
+    // Re-read at the stamp below: CFD writes this document four ways and every
+    // one is `setDoc(..., { projectOrder }, { merge: true })` carrying that key
+    // alone - createProject's arrayUnion append, placedProjectWrite's whole
+    // order (a positioned create, from createProject), deleteProject's
+    // arrayRemove and reorderProjects' whole order. Nothing writes
+    // `projectPrefs` yet.
     appMax: ['projectOrder'],
     appMin: ['projectOrder'],
-    coincides: true,
-    unionOnly: [],
+    // FALSE ON PURPOSE from 2.14.3 until CFD R2 ships, the second entry where
+    // it is: `projectPrefs` is allowlisted before CFD writes it. R2c, a landing
+    // patch merged right after R2, re-reads `appMax` and flips this back.
+    coincides: false,
+    unionOnly: ['projectPrefs'],
     clearable: [],
     ownerOrthogonal: false,
     source:
-      'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject / deleteProject / reorderProjects',
-    // No derivation: one field of one, so the minimum and the maximum are the
-    // same set by construction. There is no symbol to name here, and naming
-    // one would imply a reading that was never taken.
-    minSource: 'no derivation - single-field allowlist, appMin == appMax necessarily',
-    sourceVersion: 'spert-cfd v0.15.1',
-    sourceCommit: 'a29dbd0',
+      'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject (and its placedProjectWrite) / deleteProject / reorderProjects',
+    // Every write path sends `projectOrder` alone, so the narrowest is any of
+    // them; anchored at the routine one, the create's append. Until 2.14.3
+    // this read "no derivation - single-field allowlist", true while the
+    // allowlist had one field and no longer.
+    minSource: 'spert-cfd/src/lib/firestore-driver.ts:createProject (its arrayUnion append, one key)',
+    // Re-read at 522ad9c - 522ad9c8a27aae9ba04c2a5060cca7b78c95d009, the squash
+    // commit of spert-cfd v0.20.1 on its main - which is what this stamp names.
+    // Until 2.14.3 it named a29dbd0 (v0.15.1), before the arrayUnion and
+    // arrayRemove writes existed (they arrived in v0.15.9).
+    sourceVersion: 'spert-cfd v0.20.1',
+    sourceCommit: '522ad9c',
     notes:
-      'Single-field allowlist, so appMin and appMax are necessarily the same set. ' +
-      'The minimal case is not redundant with the maximal one here in the way it is ' +
-      'elsewhere - there is only one document shape this site can ever receive.',
+      'ALLOWLISTED AHEAD OF THE APP since landing 2.14.3 (DASH26 R2a): projectPrefs, a ' +
+      'person\'s own tile colour and archive per project ({ [projectId]: { color?, ' +
+      'archived? } }, the key SPERT Forecaster, Story Map, GanttApp and MyScrumBudget ' +
+      'use), is allowed before any CFD build writes it, so coincides is false and shape 4 ' +
+      'runs - writing the same one-key document as shape 2. The rule checks keys only. ' +
+      'Until CFD R2 first writes projectPrefs in production, removing it is free. After ' +
+      'that it is NOT a dead key: on a document holding it, the old rule refuses every ' +
+      'projectOrder write (measured). The old rule does accept deleting the whole ' +
+      'projectPrefs field, after which those writes work again, so a rollback works only ' +
+      'after every person\'s projectPrefs is deleted, which erases everyone\'s colours ' +
+      'and archive. Held by spertcfd-settings-project-prefs.test.ts. R2c, a landing patch ' +
+      'merged right after R2, re-reads appMax at R2 and flips this entry back to ' +
+      'coincides: true.',
   },
   {
     key: 'users_tos',
@@ -1096,7 +1137,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'users',
     sub: null,
     ops: ['write'],
-    lines: [1085],
+    lines: [1108],
     shape: 'selfOwned',
     allowlist: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'appId', 'authProvider'],
     appMax: ['acceptedAt', 'tosVersion', 'privacyPolicyVersion', 'authProvider', 'appId'],
@@ -1130,7 +1171,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['create'],
-    lines: [1124],
+    lines: [1147],
     shape: 'anonymous',
     allowlist: [
       'createdAt', 'lastActiveAt', 'expiresAt', 'browserConnectedAt',
@@ -1175,7 +1216,7 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     collection: 'anonymous_sessions',
     sub: null,
     ops: ['update'],
-    lines: [1142],
+    lines: [1165],
     shape: 'anonymous',
     allowlist: [
       'browserConnectedAt', 'lastActiveAt', 'expiresAt',
