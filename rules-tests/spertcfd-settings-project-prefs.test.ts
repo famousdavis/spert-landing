@@ -36,31 +36,52 @@
  *
  * WHAT IT PINS
  * ------------
+ *   THE TEXT - the `spertcfd_settings` match block's statements, comments
+ *            removed and whitespace collapsed, equal one pinned string, whose
+ *            key list is the register's allowlist; and no other rule in the
+ *            file can match the path. The behavioural cases below probe NAMED
+ *            keys, and `allowlist-vs-rules` reads only the first `hasOnly(` on
+ *            a line, so a widening by an ARBITRARY key - a second `hasOnly`
+ *            joined by `||`, or a key added to the rule and the register
+ *            together - passes all of them (measured, PR #169's review). Only
+ *            a pin of the text sees it, whatever the key is called.
  *   ALLOWED (the guard) - CFD's four `projectOrder` writes, each
  *            `setDoc(..., { merge: true })` as `firestore-driver.ts` sends them
  *            (createProject's arrayUnion append, placedProjectWrite's whole
  *            order, deleteProject's arrayRemove, reorderProjects' whole
- *            order), on two seeds: order + prefs, and prefs alone (an invitee
- *            who set a colour before creating a project).
+ *            order), on three seeds: order + prefs; prefs alone (an invitee
+ *            who set a colour before creating a project); and order with an
+ *            EMPTY `projectPrefs: {}`, which R2's own nested delete of a
+ *            person's last entry leaves, and on which the old rule refuses
+ *            CFD's writes just the same.
  *   ALLOWED            - R2's write form, Forecaster's saveProjectPrefs:
  *            `setDoc` with `mergeFields` of one `FieldPath('projectPrefs', id,
  *            field)`, setting a value or a nested `deleteField()`; and the
  *            same onto a document that does not exist yet (an `updateDoc`
  *            there fails not-found, which is why R2 does not use one).
- *   DENIED - each of those writes plus ONE top-level key from the near
+ *   READS  - the owner reads their document; another person and a signed-out
+ *            reader are refused.
+ *   DENIED - each of those writes plus ONE top-level key from the named near
  *            misses: `color` and `archived` (the two keys a literal reading of
  *            "add the colour and archive keys" would add) and
  *            `projectPrefsSeed` (MyScrumBudget's seeding key, which CFD R2
- *            does not need). And each of them made by another person.
+ *            does not need). And each of them made by another person. Any
+ *            OTHER key is the text pin's job, not these cases'.
  *   CONTROL - deleting the whole `projectPrefs` field is accepted. It is
  *            accepted under the old rule too, so it cannot fail for a revert
  *            of 2.14.3. It documents the recovery path the rules comment
  *            describes (DASH26 O45) and pins that it exists.
  *
  * WHAT IT DOES NOT CLAIM. Values are unconstrained: `projectPrefs: 'junk'`,
- * `null`, or an unknown field inside an entry are all accepted (measured).
- * Nothing here pins that either way, so a later value check is free to land -
- * provided it judges only what a write changes (see the rules comment).
+ * `null`, or an unknown field inside an entry are all accepted (measured while
+ * planning DASH26 R2a), and no behavioural case here pins values either way.
+ * A value check does not land unnoticed, though: the generated shape 1 in
+ * `allowlist-coverage.test.ts` writes `projectPrefs` as a string, so ANY value
+ * check, right or wrong, reds shape 1 and must give it a typed value; and the
+ * text pin reds on any edit to the block. Neither tests the rules comment's
+ * requirement (DASH26 O41) that a value check judge only what a write
+ * changes: a whole-document check passes every behavioural case here. That
+ * requirement lives in the rules comment only.
  */
 
 import { readFileSync } from 'node:fs';
@@ -83,6 +104,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ALLOWLIST_CONTRACTS } from './allowlist-contracts';
 
 const COL = 'spertcfd_settings';
 const ALICE = 'uid_alice';
@@ -98,6 +120,16 @@ const SEEDS: ReadonlyArray<{ name: string; data: Doc }> = [
   { name: 'order + prefs', data: { projectOrder: ['p1', 'p2', 'p3'], projectPrefs: PREFS } },
   { name: 'prefs only', data: { projectPrefs: PREFS } },
 ];
+
+/**
+ * An EMPTY map is still a present key: R2's nested deleteField() of a person's
+ * last entry leaves exactly this, and the old rule refuses CFD's writes on it.
+ * Only CFD's four writes run on it (R2's forms' expected documents assume PREFS).
+ */
+const EMPTY_PREFS_SEED: { name: string; data: Doc } = {
+  name: 'order + EMPTY prefs',
+  data: { projectOrder: ['p1', 'p2', 'p3'], projectPrefs: {} },
+};
 
 /** The top-level keys a mistaken widening would most likely add. */
 const NEAR_MISSES: readonly string[] = ['color', 'archived', 'projectPrefsSeed'];
@@ -219,12 +251,14 @@ function brokenMessage(form: Form, seedName: string, err: unknown): Error {
       ? `PROJECTPREFS GUARD BROKEN: CFD's ${form.name} to a settings document holding ` +
           `projectPrefs (${seedName}) was DENIED. projectPrefs has been dropped from, or ` +
           'narrowed out of, the spertcfd_settings allowlist in firestore.rules while ' +
-          "people's documents may hold it: every projectOrder write to such a document is " +
-          'now refused (a new project or clone is not placed, a deleted id stays in the ' +
+          "people's documents may hold it: every projectOrder write CFD makes to such a " +
+          'document (all four are merges) is now refused, an empty projectPrefs map ' +
+          'included (a new project or clone is not placed, a deleted id stays in the ' +
           'order, a reorder does not stick). Removing the key is free only until CFD R2 ' +
           'first writes it in production. After that, delete projectPrefs from every ' +
-          "person's document first (the old rule allows that), which erases their colours " +
-          "and archive. See the spertcfd_settings entry's notes in allowlist-contracts.ts. " +
+          "person's document first, empty maps included (the old rule allows that), which " +
+          "erases their colours and archive. See the spertcfd_settings entry's notes in " +
+          'allowlist-contracts.ts. ' +
           `Cause: ${String(err)}`
       : `PROJECTPREFS REFUSED: ${form.name} on a settings document holding projectPrefs ` +
           `(${seedName}) was DENIED. CFD R2 writes projectPrefs this way, so the ` +
@@ -244,6 +278,15 @@ describe('harness self-check', () => {
         expect(form.expected(seed.data), `${form.name} on ${seed.name} changes the document`)
           .not.toStrictEqual(seed.data);
       }
+    }
+  });
+
+  it('the empty seed holds projectPrefs as a PRESENT, empty map, and every CFD form changes it', () => {
+    expect(Object.keys(EMPTY_PREFS_SEED.data)).toContain('projectPrefs');
+    expect(EMPTY_PREFS_SEED.data.projectPrefs).toStrictEqual({});
+    for (const form of FORMS.filter((f) => f.cfd)) {
+      expect(form.expected(EMPTY_PREFS_SEED.data), `${form.name} changes the document`)
+        .not.toStrictEqual(EMPTY_PREFS_SEED.data);
     }
   });
 
@@ -286,7 +329,42 @@ describe.each(SEEDS)('spertcfd_settings holding projectPrefs ($name)', (seed) =>
   });
 });
 
-describe('spertcfd_settings: nothing but the two keys, and only by the owner', () => {
+describe('spertcfd_settings: an EMPTY projectPrefs map is still a held key', () => {
+  beforeEach(async () => {
+    await seedAlice(EMPTY_PREFS_SEED.data);
+  });
+
+  for (const form of FORMS.filter((f) => f.cfd)) {
+    it(`ALLOWED: ${form.name}`, async () => {
+      await assertSucceeds(form.write(doc(dbAs(ALICE), COL, ALICE))).catch((err: unknown) => {
+        throw brokenMessage(form, EMPTY_PREFS_SEED.name, err);
+      });
+      expect(await stored(ALICE)).toStrictEqual(form.expected(EMPTY_PREFS_SEED.data));
+    });
+  }
+});
+
+describe('spertcfd_settings: reads, only by the owner', () => {
+  beforeEach(async () => {
+    await seedAlice(SEEDS[0].data);
+  });
+
+  it('ALLOWED: the owner reads their own settings', async () => {
+    const snap = await assertSucceeds(getDoc(doc(dbAs(ALICE), COL, ALICE)));
+    expect(snap.data()).toStrictEqual(SEEDS[0].data);
+  });
+
+  it('DENIED: another person reads them', async () => {
+    await assertFails(getDoc(doc(dbAs(BOB), COL, ALICE)));
+  });
+
+  it('DENIED: a signed-out reader reads them', async () => {
+    const signedOut = testEnv.unauthenticatedContext().firestore() as unknown as Firestore;
+    await assertFails(getDoc(doc(signedOut, COL, ALICE)));
+  });
+});
+
+describe('spertcfd_settings: the named near-miss keys are refused, and only the owner writes', () => {
   beforeEach(async () => {
     await seedAlice(SEEDS[0].data);
   });
@@ -328,5 +406,95 @@ describe("spertcfd_settings: R2's first write, onto a document that does not exi
   it('DENIED: the same write, made by another person', async () => {
     await assertFails(r2Colour.write(doc(dbAs(ALICE), COL, BOB)));
     expect(await stored(BOB)).toBeNull();
+  });
+});
+
+/**
+ * THE TEXT PIN (PR #169's review, -02 and -04).
+ *
+ * The behavioural cases above refuse three NAMED near-miss keys, and
+ * `src/guards/allowlist-vs-rules.test.ts` compares the register with only the
+ * first `hasOnly(` on each line. So two one-file or two-file widenings by any
+ * OTHER key pass every check in the suite: a second `hasOnly([... 'theme'])`
+ * joined to this one by `||` (rule only), and `'theme'` added to the rule and
+ * the register together. Measured green in `test:rules` and `npm test` before
+ * this pin existed (PR #169's review, its M8 and M4). No behavioural case can
+ * refuse "every other key", so this pins the block's text instead, and checks
+ * that nothing else in the file can match the path (a second match block, or a
+ * wildcard one, would widen it by OR, which is how Firestore combines rules).
+ *
+ * A deliberate change to the block moves PINNED_BLOCK here and the register
+ * entry in the same commit; the last case below holds the two together.
+ */
+const PINNED_KEYS = ['projectOrder', 'projectPrefs'];
+const PINNED_BLOCK =
+  'match /spertcfd_settings/{userId} { ' +
+  'allow read: if isAuth() && request.auth.uid == userId; ' +
+  'allow write: if isAuth() && request.auth.uid == userId ' +
+  "&& request.resource.data.keys().hasOnly(['projectOrder', 'projectPrefs']); }";
+
+/** `firestore.rules` with every `//` comment cut off, line by line. */
+function strippedRules(): string {
+  return readFileSync(resolve(process.cwd(), 'firestore.rules'), 'utf8')
+    .split('\n')
+    .map((line) => {
+      const i = line.indexOf('//');
+      return i === -1 ? line : line.slice(0, i);
+    })
+    .join('\n');
+}
+
+/** The `match /spertcfd_settings/...` block, braces balanced, whitespace collapsed. */
+function settingsBlock(stripped: string): string {
+  const start = stripped.indexOf('match /spertcfd_settings/');
+  if (start === -1) throw new Error('firestore.rules has no `match /spertcfd_settings/` block');
+  const segmentEnd = stripped.indexOf('}', start); // closes the `{userId}` path segment
+  const open = stripped.indexOf('{', segmentEnd); // the block's own brace
+  let depth = 0;
+  for (let i = open; i < stripped.length; i++) {
+    if (stripped[i] === '{') depth++;
+    else if (stripped[i] === '}' && --depth === 0) {
+      return stripped.slice(start, i + 1).replace(/\s+/g, ' ').trim();
+    }
+  }
+  throw new Error('unbalanced braces after `match /spertcfd_settings/`');
+}
+
+describe('spertcfd_settings: the rule text is pinned', () => {
+  it('the match block reads exactly as pinned', () => {
+    const found = settingsBlock(strippedRules());
+    if (found !== PINNED_BLOCK) {
+      throw new Error(
+        'SPERTCFD_SETTINGS RULE CHANGED: the match /spertcfd_settings/{userId} block in ' +
+          'firestore.rules no longer reads as pinned. Nothing else in the suite sees every ' +
+          'widening of this rule: allowlist-vs-rules reads only the first hasOnly( on a line ' +
+          'and the generated cases follow the register, so a second hasOnly joined by ||, or ' +
+          'a key added to the rule and the register together, passes them. If the change is ' +
+          'deliberate, move PINNED_BLOCK (and PINNED_KEYS) here and the spertcfd_settings ' +
+          'register entry in the same commit, and add cases for what the new rule allows. ' +
+          `\n  pinned: ${PINNED_BLOCK}\n  found:  ${found}`,
+      );
+    }
+    expect(found).toBe(PINNED_BLOCK);
+  });
+
+  it('no other rule in the file can match a spertcfd_settings document', () => {
+    const stripped = strippedRules();
+    expect(
+      stripped.match(/match\s+\/spertcfd_settings\//g) ?? [],
+      'exactly one match block for the collection',
+    ).toHaveLength(1);
+    expect(stripped.match(/match\s+\/\{/g) ?? [], 'no match whose first segment is a wildcard')
+      .toHaveLength(0);
+    expect(stripped.match(/=\*\*\}/g) ?? [], 'no recursive wildcard').toHaveLength(0);
+  });
+
+  it("the pinned key list is the register's allowlist, so a deliberate change moves both", () => {
+    const entry = ALLOWLIST_CONTRACTS.find((c) => c.key === 'spertcfd_settings');
+    expect(entry, 'spertcfd_settings register entry present').toBeDefined();
+    expect([...entry!.allowlist].sort()).toStrictEqual([...PINNED_KEYS].sort());
+    expect(PINNED_BLOCK).toContain(
+      `hasOnly([${PINNED_KEYS.map((k) => `'${k}'`).join(', ')}])`,
+    );
   });
 });

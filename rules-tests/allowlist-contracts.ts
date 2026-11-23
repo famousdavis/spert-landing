@@ -1122,11 +1122,13 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'archived? } }, the key SPERT Forecaster, Story Map, GanttApp and MyScrumBudget ' +
       'use), is allowed before any CFD build writes it, so coincides is false and shape 4 ' +
       'runs - writing the same one-key document as shape 2. The rule checks keys only. ' +
-      'Until CFD R2 first writes projectPrefs in production, removing it is free. After ' +
-      'that it is NOT a dead key: on a document holding it, the old rule refuses every ' +
-      'projectOrder write (measured). The old rule does accept deleting the whole ' +
-      'projectPrefs field, after which those writes work again, so a rollback works only ' +
-      'after every person\'s projectPrefs is deleted, which erases everyone\'s colours ' +
+      'Until CFD R2 first writes projectPrefs in production, a rollback strands no one\'s ' +
+      'order (an R2 build already shipped would lose only its colour and archive saves). ' +
+      'After that it is NOT a dead key: on a document holding it, even as an empty map, ' +
+      'the old rule refuses every projectOrder write CFD makes (all four are merges; ' +
+      'measured). The old rule does accept deleting the whole projectPrefs field, after ' +
+      'which those writes work again, so a rollback works only after every person\'s ' +
+      'projectPrefs, an empty one included, is deleted, which erases everyone\'s colours ' +
       'and archive. Held by spertcfd-settings-project-prefs.test.ts. R2c, a landing patch ' +
       'merged right after R2, re-reads appMax at R2 and flips this entry back to ' +
       'coincides: true.',
