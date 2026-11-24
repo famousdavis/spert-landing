@@ -10,7 +10,8 @@ import { formatName } from '@/components/formatName';
 import { DataAndPrivacy, StillStuck } from '@/components/HelpSections';
 import { LINK_CLASS, SECTION_HEADING_CLASS, TEXT_CLASS, LIST_CLASS } from '@/components/textStyles';
 import { apps } from '@/data/apps';
-import { HELP_APPS } from '@/data/help';
+import { CONNECT_AI_PATH } from '@/data/connectAi';
+import { HELP_APPS, connectAiGuide } from '@/data/help';
 
 export const metadata: Metadata = {
   title: 'Help Center | SPERT® Suite',
@@ -27,6 +28,12 @@ function guideCount(count: number): string {
 
 export default function HelpCenterPage() {
   const listed = HELP_APPS.filter((a) => a.listed);
+  // Short names ("Story Map"), from the apps that publish a Connect AI guide.
+  const connectAiApps = HELP_APPS.filter((a) => connectAiGuide(a)).map((a) => a.name.replace(/^SPERT® /, ''));
+  const connectAiNames =
+    connectAiApps.length > 1
+      ? `${connectAiApps.slice(0, -1).join(', ')} and ${connectAiApps[connectAiApps.length - 1]}`
+      : connectAiApps.join('');
   const training = apps.find((a) => a.url === '/training');
   const approvalKit = apps.find((a) => a.url === '/approval-kit');
 
@@ -51,7 +58,20 @@ export default function HelpCenterPage() {
           .
         </p>
 
-        <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+        <Link
+          href={CONNECT_AI_PATH}
+          className="mt-6 block rounded-lg border border-zinc-300 bg-zinc-50 p-4 transition-colors hover:border-zinc-500 dark:border-zinc-600 dark:bg-zinc-900 dark:hover:border-zinc-400"
+        >
+          <span className="block text-base font-semibold text-zinc-900 dark:text-zinc-100">
+            Connect your AI assistant
+          </span>
+          <span className={`mt-1 block ${TEXT_CLASS}`}>
+            Using Connect AI? Add SPERT Suite to Claude, ChatGPT, Gemini, Grok or Copilot once, then use it in{' '}
+            {connectAiNames}.
+          </span>
+        </Link>
+
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2">
           {listed.map((app) => (
             <li key={app.slug}>
               <Link

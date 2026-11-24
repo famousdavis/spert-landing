@@ -6,6 +6,7 @@ import type { MetadataRoute } from 'next';
 // Relative, not '@/data/help': Vitest has no '@/' alias, and G6 in
 // src/guards/help-center.test.ts imports and calls this function.
 import { HELP_APPS } from '../data/help';
+import { CONNECT_AI_PATH } from '../data/connectAi';
 
 const ORIGIN = 'https://spertsuite.com';
 
@@ -17,7 +18,7 @@ const ORIGIN = 'https://spertsuite.com';
  * so they are not listed here either.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const pages = ['/', '/help', '/approval-kit', '/contact', '/training', '/security', '/changelog'];
+  const pages = ['/', '/help', CONNECT_AI_PATH, '/approval-kit', '/contact', '/training', '/security', '/changelog'];
   const help = HELP_APPS.filter((a) => a.listed).map((a) => `/help/${a.slug}`);
   return [...pages, ...help].map((path) => ({ url: `${ORIGIN}${path}` }));
 }

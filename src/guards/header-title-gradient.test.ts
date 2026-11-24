@@ -57,7 +57,7 @@ const FOREGROUND = { light: '#171717', dark: '#ededed' } as const;
 /** SPERT and Suite, in each of the title's two shapes. */
 const GRADIENT_ELEMENTS = 4;
 /** The pages that render the header. A new one must be checked for a background of its own. */
-const CALL_SITES = 7;
+const CALL_SITES = 8; // 2.15.0: /help/connect-ai, the same plain wrapper as the other help pages
 
 /** The `<h1>`'s own classes, the ®'s, and the gradient string: each exactly as `Header.tsx` carries it. */
 const H1_CLASSES = 'text-2xl font-bold sm:text-3xl md:text-[2.1rem]';

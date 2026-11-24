@@ -216,6 +216,16 @@ export function guideUrl(app: HelpApp, guide: HelpGuide): string {
   return app.appUrl + guide.file;
 }
 
+/**
+ * The app's Connect AI guide, when it has one. An app has Connect AI exactly
+ * when its repo publishes one of these, so the setup page (/help/connect-ai)
+ * and the app pages derive the list from here rather than keeping their own
+ * (G16 pins which apps that is today).
+ */
+export function connectAiGuide(app: HelpApp): HelpGuide | undefined {
+  return app.guides.find((g) => g.file.endsWith('_Connect_AI_Guide.pdf'));
+}
+
 /** D2. The app page's metadata uses this, so the decision lives where a guard can import it (G12). */
 export function helpRobots(app: HelpApp): { index: false } | undefined {
   return app.listed ? undefined : { index: false };
