@@ -10,7 +10,8 @@ import { Footer } from '@/components/Footer';
 import { formatName } from '@/components/formatName';
 import { DataAndPrivacy, PdfLink, StillStuck } from '@/components/HelpSections';
 import { LINK_CLASS, SECTION_HEADING_CLASS, TEXT_CLASS } from '@/components/textStyles';
-import { HELP_APPS, guideUrl, helpRobots, type HelpApp, type HelpGuide } from '@/data/help';
+import { CONNECT_AI_PATH } from '@/data/connectAi';
+import { HELP_APPS, connectAiGuide, guideUrl, helpRobots, type HelpApp, type HelpGuide } from '@/data/help';
 
 /**
  * /help/<slug>: one page per app in HELP_APPS, every one built at build time.
@@ -107,6 +108,15 @@ export default async function AppHelpPage({ params }: Props) {
                   ))}
                 </ul>
               </section>
+            )}
+            {connectAiGuide(app) && (
+              <p className={`mt-6 ${TEXT_CLASS}`}>
+                Using Connect AI for the first time? Start by adding SPERT Suite to your AI assistant:{' '}
+                <Link href={CONNECT_AI_PATH} className={LINK_CLASS}>
+                  Connect your AI assistant
+                </Link>
+                .
+              </p>
             )}
             <p className={`mt-6 ${TEXT_CLASS}`}>
               Inside {name}, the About page also explains how the app works.

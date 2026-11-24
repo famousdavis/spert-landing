@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.15.0',
+    date: 'November 23, 2026',
+    sections: [
+      {
+        heading: 'Help Center',
+        items: [
+          'A new page, Connect your AI assistant, shows how to add SPERT® Suite to Claude, ChatGPT, Gemini, Grok, Claude Code or Microsoft Copilot Studio. You do it once, before your first Connect AI session, and it then works in SPERT® Story Map, SPERT® Scheduler and SPERT® Forecaster.',
+          'Gemini is new to the list: it has been tested with SPERT® Suite on a free personal Google account.',
+          'The page also covers the warnings each assistant shows before adding SPERT® Suite, what SPERT® Suite can and can’t do once connected, and what to try when the connection doesn’t work.',
+          'The Help Center and the Story Map, Scheduler and Forecaster help pages now link to it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.14.3',
     date: 'November 22, 2026',
     sections: [

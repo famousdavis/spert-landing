@@ -10,7 +10,8 @@ import { describe, it, expect } from 'vitest';
 import nextConfig from '../../next.config';
 import sitemap from '../app/sitemap';
 import { apps } from '../data/apps';
-import { HELP_APPS, guideUrl, helpRobots } from '../data/help';
+import { HELP_APPS, connectAiGuide, guideUrl, helpRobots } from '../data/help';
+import { ASSISTANTS, CONNECT_AI_PATH, MCP_SERVER_URL, OTHER_ASSISTANTS_ID } from '../data/connectAi';
 
 /**
  * The Help Center (2.13.0) lists every app's guide PDFs at /help/<slug>. Its
@@ -163,5 +164,71 @@ describe('Help Center wiring', () => {
     expect(page, 'the app page no longer sets robots: helpRobots(...) in its metadata').toMatch(
       /robots:\s*helpRobots\(/,
     );
+  });
+});
+
+/**
+ * The Connect AI setup page (2.15.0), /help/connect-ai: one page for every
+ * assistant's setup, which the three apps' Connect AI guides used to repeat.
+ */
+describe('Connect AI setup page', () => {
+  const pageSource = readFileSync(join(process.cwd(), 'src', 'app', 'help', 'connect-ai', 'page.tsx'), 'utf-8');
+
+  /**
+   * G13. The page is a fixed route beside /help/[app], so an app given the slug
+   * 'connect-ai' would be shadowed by it. And it belongs in the sitemap.
+   */
+  it('G13: has its own address, in the sitemap, which no app slug may take', () => {
+    expect(CONNECT_AI_PATH).toBe('/help/connect-ai');
+    const slug = CONNECT_AI_PATH.split('/').pop();
+    expect(HELP_APPS.map((a) => a.slug)).not.toContain(slug);
+    expect(sitemap().map((e) => e.url)).toContain(`https://spertsuite.com${CONNECT_AI_PATH}`);
+  });
+
+  /**
+   * G14. The section anchors are published addresses: the apps are to link
+   * straight to /help/connect-ai#<assistant>. Renaming one breaks those links,
+   * so a change here should be deliberate, and the apps told.
+   */
+  it('G14: keeps the published section anchors', () => {
+    expect([...ASSISTANTS.map((a) => a.id), OTHER_ASSISTANTS_ID]).toEqual([
+      'claude',
+      'chatgpt',
+      'gemini',
+      'grok',
+      'claude-code',
+      'copilot-studio',
+      'other',
+    ]);
+    // Every assistant has its steps on the page, keyed by the same id.
+    for (const a of ASSISTANTS) {
+      expect(pageSource, `no steps for ${a.id}`).toMatch(new RegExp(`^  '?${a.id}'?: \\(`, 'm'));
+    }
+  });
+
+  /**
+   * G15. The address is written in one place. The page reads MCP_SERVER_URL; a
+   * literal copy in the page could be mistyped, or left behind if the address
+   * ever moves.
+   */
+  it('G15: takes the server address from MCP_SERVER_URL, never a literal', () => {
+    expect(MCP_SERVER_URL).toBe('https://mcp.spertsuite.com');
+    expect(pageSource).not.toContain('mcp.spertsuite.com');
+    expect(pageSource).toContain('MCP_SERVER_URL');
+  });
+
+  /**
+   * G16. Which apps have Connect AI is derived from their published guides
+   * (connectAiGuide in help.ts), and pinned here. When another app gains
+   * Connect AI this fails: check the setup page's wording, which names the apps
+   * by kind of work ("Which assistant for which job"), and the Copilot Studio
+   * server description.
+   */
+  it('G16: knows which apps have Connect AI', () => {
+    expect(HELP_APPS.filter((a) => connectAiGuide(a)).map((a) => a.slug)).toEqual([
+      'storymap',
+      'forecaster',
+      'scheduler',
+    ]);
   });
 });
