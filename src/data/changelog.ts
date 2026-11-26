@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.15.1',
+    date: 'November 26, 2026',
+    sections: [
+      {
+        heading: 'Infrastructure',
+        items: [
+          'Nothing changes for anyone. The record the suite’s rules tests keep of what each app saves now notes that SPERT® CFD saves each person’s project display preferences in their own CFD settings, which CFD 0.21.0 began doing. The rules themselves are unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.15.0',
     date: 'November 23, 2026',
     sections: [

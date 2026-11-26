@@ -60,6 +60,10 @@
  *      `['projectOrder']`), so it adds a case and no coverage: the cases that
  *      can fail for that widening are in
  *      `spertcfd-settings-project-prefs.test.ts`.
+ *
+ *      CORRECTED 2.15.1 (DASH26 R2c): twelve skip again. spert-cfd v0.21.0
+ *      writes `projectPrefs`, so `spertcfd_settings` coincides and its shape 4
+ *      skips; `myscrumbudget_projects` is again the one site where it runs.
  *   5. ALLOWED - `deleteField()` removal, wherever a site declares `clearable`.
  *      Shapes 1, 2 and 4 all build plain documents, so none of them exercises a
  *      REMOVAL, and both apps make them: Forecaster writes deleteField()

@@ -14,9 +14,10 @@
  * SPERT Forecaster, Story Map, GanttApp and MyScrumBudget use - before the CFD
  * release that writes it (DASH26 R2). The rule checks KEYS ONLY.
  *
- * The register (`allowlist-contracts.ts`) records `projectPrefs` as a key no
- * app writes (`unionOnly`) until R2c flips it back. A register that says "no
- * app writes this" invites a later pass to remove it, and the generated cases
+ * The register (`allowlist-contracts.ts`) recorded `projectPrefs` as a key no
+ * app writes (`unionOnly`) from 2.14.3 until R2c (2.15.1) flipped it back, CFD
+ * v0.21.0 having begun to write it. A register that says "no app writes this"
+ * invites a later pass to remove it, and the generated cases
  * in `allowlist-coverage.test.ts` follow the register, so they would go on
  * passing if the key left the rule and the register together. These cases do
  * not read the register. They write what CFD writes, on a document that
@@ -48,9 +49,10 @@
  *   ALLOWED (the guard) - CFD's four `projectOrder` writes, each
  *            `setDoc(..., { merge: true })` as `firestore-driver.ts` sends them
  *            (createProject's arrayUnion append, placedProjectWrite's whole
- *            order, deleteProject's arrayRemove, reorderProjects' whole
- *            order), on three seeds: order + prefs; prefs alone (an invitee
- *            who set a colour before creating a project); and order with an
+ *            order, deleteProject's arrayRemove, moveProject's whole order,
+ *            reorderProjects' until CFD v0.20.2), on three seeds: order +
+ *            prefs; prefs alone (an invitee who set a colour before creating
+ *            a project); and order with an
  *            EMPTY `projectPrefs: {}`, which R2's own nested delete of a
  *            person's last entry leaves, and on which the old rule refuses
  *            CFD's writes just the same.
@@ -138,7 +140,7 @@ const order = (seed: Doc): string[] => (seed.projectOrder as string[] | undefine
 
 interface Form {
   name: string;
-  /** CFD's own write today (true) or R2's (false) - they fail with different messages. */
+  /** CFD's `projectOrder` write (true) or its `projectPrefs` write, R2's (false) - they fail with different messages. */
   cfd: boolean;
   /** The write, with optional extra top-level keys (merged, or masked in, as the form requires). */
   write: (ref: DocumentReference, extra?: Doc) => Promise<void>;
@@ -175,7 +177,7 @@ const FORMS: readonly Form[] = [
     expected: (seed) => ({ ...seed, projectOrder: order(seed).filter((id) => id !== 'p2') }),
   },
   {
-    name: "reorderProjects' whole order",
+    name: "moveProject's whole order",
     cfd: true,
     write: (ref, extra = {}) =>
       setDoc(ref, { projectOrder: ['p3', 'p1', 'p2'], ...extra }, { merge: true }),
@@ -323,7 +325,7 @@ describe.each(SEEDS)('spertcfd_settings holding projectPrefs ($name)', (seed) =>
     delete rest.projectPrefs;
     expect(await stored(ALICE)).toStrictEqual(rest);
 
-    const reorder = FORMS.find((f) => f.name.startsWith("reorderProjects'"))!;
+    const reorder = FORMS.find((f) => f.name.startsWith("moveProject'"))!;
     await assertSucceeds(reorder.write(doc(dbAs(ALICE), COL, ALICE)));
     expect(await stored(ALICE)).toStrictEqual(reorder.expected(rest));
   });
