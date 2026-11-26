@@ -226,6 +226,10 @@ export interface AllowlistContract {
    * too, ON PURPOSE: `projectPrefs` is allowlisted ahead of the CFD release
    * that writes it, and R2c flips it back once that release ships - see that
    * entry's `notes`.
+   *
+   * CORRECTED 2.15.1 (DASH26 R2c): twelve again. spert-cfd v0.21.0 writes
+   * `projectPrefs`, so `spertcfd_settings` coincides once more, and
+   * `myscrumbudget_projects` is again the one entry that does not.
    */
   coincides: boolean;
   /**
@@ -255,6 +259,10 @@ export interface AllowlistContract {
    * shape 2, because its `appMax` and `appMin` are both `['projectOrder']`. The
    * cases that can fail for that widening are in
    * `spertcfd-settings-project-prefs.test.ts`.
+   *
+   * CORRECTED 2.15.1 (DASH26 R2c): twelve empty again. spert-cfd v0.21.0
+   * writes `projectPrefs`, so `spertcfd_settings` carries nothing here and its
+   * shape 4 skips; `myscrumbudget_projects`' is again the one that runs.
    */
   unionOnly: string[];
   /**
@@ -837,7 +845,8 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
       'and in the Scheduler mirror, changing the KEEP cases in ' +
       'myscrumbudget-provenance-fields.test.ts on purpose. Until then coincides is false ' +
       'here, so shape 4 runs for it. (It was the one such entry until landing 2.14.3, when ' +
-      'spertcfd_settings joined it on purpose - see that entry.)',
+      'spertcfd_settings joined it on purpose, and is again since 2.15.1, when CFD v0.21.0 ' +
+      'began writing projectPrefs - see that entry.)',
   },
   {
     key: 'spertcfd_projects',
@@ -1086,52 +1095,72 @@ export const ALLOWLIST_CONTRACTS: AllowlistContract[] = [
     lines: [926],
     shape: 'selfOwned',
     // `projectPrefs` since 2.14.3 (DASH26 R2a), allowlisted AHEAD of the CFD
-    // release that writes it. See `notes`.
+    // release that writes it; written since spert-cfd v0.21.0. See `notes`.
     allowlist: ['projectOrder', 'projectPrefs'],
-    // Re-read at the stamp below: CFD writes this document four ways and every
-    // one is `setDoc(..., { projectOrder }, { merge: true })` carrying that key
-    // alone - createProject's arrayUnion append, placedProjectWrite's whole
-    // order (a positioned create, from createProject), deleteProject's
-    // arrayRemove and reorderProjects' whole order. Nothing writes
-    // `projectPrefs` yet.
-    appMax: ['projectOrder'],
+    // Re-read at the stamp below (2.15.1, DASH26 R2c): CFD writes this document
+    // five ways, and each write carries ONE top-level key. Four carry
+    // `projectOrder` alone, each `setDoc(..., { projectOrder }, { merge: true })`
+    // - createProject's arrayUnion append, placedProjectWrite's whole order (a
+    // positioned create, from createProject), deleteProject's arrayRemove and
+    // moveProject's whole order (writeWholeOrder; moveProject replaced
+    // reorderProjects in v0.20.2). The fifth carries `projectPrefs` alone:
+    // writeProjectPrefs, `setDoc` with `mergeFields` of one
+    // `FieldPath('projectPrefs', id, field)` per change and `deleteField()` to
+    // clear, called by the driver's debounced setProjectPref and by the
+    // upload's writeUploadedPref. Until 2.15.1 this said "four ways ...
+    // Nothing writes `projectPrefs` yet", true at v0.20.1.
+    appMax: ['projectOrder', 'projectPrefs'],
+    // ONE key, not both: `appMin` is the minimal realistic write, anchored at
+    // one write path (see `minSource`), and no CFD write carries both keys -
+    // every one of the five above carries exactly one. Anchored where it was,
+    // at the create's append. Making it both would describe a write CFD never
+    // makes.
     appMin: ['projectOrder'],
-    // FALSE ON PURPOSE from 2.14.3 until CFD R2 ships, the second entry where
-    // it is: `projectPrefs` is allowlisted before CFD writes it. R2c, a landing
-    // patch merged right after R2, re-reads `appMax` and flips this back.
-    coincides: false,
-    unionOnly: ['projectPrefs'],
+    // TRUE AGAIN since 2.15.1 (DASH26 R2c): CFD v0.21.0 writes `projectPrefs`.
+    // From 2.14.3 to 2.15.0 this was false on purpose, `projectPrefs` being
+    // allowlisted before CFD wrote it.
+    coincides: true,
+    unionOnly: [],
+    // CFD does clear with `deleteField()` here since v0.21.0, but NESTED, one
+    // `projectPrefs.<projectId>.<field>` at a time, which this cell's two forms
+    // (a top-level name, or the `members.<editor>` token) cannot express, and
+    // shape 5 runs only for `update` ops while this site's op is `write` (see
+    // the self-check on clearable paths in `allowlist-coverage.test.ts`). The
+    // nested removal is held by spertcfd-settings-project-prefs.test.ts ("R2's
+    // nested deleteField()") instead. No top-level removal path exists.
     clearable: [],
     ownerOrthogonal: false,
     source:
-      'spert-cfd/src/lib/firestore-driver.ts:loadProjectOrder / createProject (and its placedProjectWrite) / deleteProject / reorderProjects',
-    // Every write path sends `projectOrder` alone, so the narrowest is any of
-    // them; anchored at the routine one, the create's append. Until 2.14.3
-    // this read "no derivation - single-field allowlist", true while the
-    // allowlist had one field and no longer.
+      'spert-cfd/src/lib/firestore-driver.ts:createProject (its arrayUnion append, and placedProjectWrite) / ' +
+      'spert-cfd/src/lib/firestore-driver.ts:deleteProject / ' +
+      'spert-cfd/src/lib/firestore-driver.ts:moveProject (writeWholeOrder) / ' +
+      'spert-cfd/src/lib/firestore-prefs.ts:writeProjectPrefs (from the driver\'s setProjectPref, and ' +
+      'spert-cfd/src/lib/firestore-prefs.ts:writeUploadedPref for the upload)',
+    // Every write path sends one key, so the narrowest is any of them; anchored
+    // at the routine one, the create's append, re-read at the stamp below.
+    // Until 2.14.3 this read "no derivation - single-field allowlist", true
+    // while the allowlist had one field and no longer.
     minSource: 'spert-cfd/src/lib/firestore-driver.ts:createProject (its arrayUnion append, one key)',
-    // Re-read at 522ad9c - 522ad9c8a27aae9ba04c2a5060cca7b78c95d009, the squash
-    // commit of spert-cfd v0.20.1 on its main - which is what this stamp names.
-    // Until 2.14.3 it named a29dbd0 (v0.15.1), before the arrayUnion and
-    // arrayRemove writes existed (they arrived in v0.15.9).
-    sourceVersion: 'spert-cfd v0.20.1',
-    sourceCommit: '522ad9c',
+    // Re-read at f206425 - f2064258d1f3ffbf3e478d4d042dc6fd4f33468a, the squash
+    // commit of spert-cfd v0.21.0 on its main (PR #115) - which is what this
+    // stamp names. 2.14.3 to 2.15.0 named 522ad9c (v0.20.1), before CFD wrote
+    // `projectPrefs`; until 2.14.3 it named a29dbd0 (v0.15.1), before the
+    // arrayUnion and arrayRemove writes existed (they arrived in v0.15.9).
+    sourceVersion: 'spert-cfd v0.21.0',
+    sourceCommit: 'f206425',
     notes:
-      'ALLOWLISTED AHEAD OF THE APP since landing 2.14.3 (DASH26 R2a): projectPrefs, a ' +
-      'person\'s own tile colour and archive per project ({ [projectId]: { color?, ' +
-      'archived? } }, the key SPERT Forecaster, Story Map, GanttApp and MyScrumBudget ' +
-      'use), is allowed before any CFD build writes it, so coincides is false and shape 4 ' +
-      'runs - writing the same one-key document as shape 2. The rule checks keys only. ' +
-      'Until CFD R2 first writes projectPrefs in production, a rollback strands no one\'s ' +
-      'order (an R2 build already shipped would lose only its colour and archive saves). ' +
-      'After that it is NOT a dead key: on a document holding it, even as an empty map, ' +
-      'the old rule refuses every projectOrder write CFD makes (all four are merges; ' +
-      'measured). The old rule does accept deleting the whole projectPrefs field, after ' +
-      'which those writes work again, so a rollback works only after every person\'s ' +
-      'projectPrefs, an empty one included, is deleted, which erases everyone\'s colours ' +
-      'and archive. Held by spertcfd-settings-project-prefs.test.ts. R2c, a landing patch ' +
-      'merged right after R2, re-reads appMax at R2 and flips this entry back to ' +
-      'coincides: true.',
+      'projectPrefs, a person\'s own tile colour and archive per project ({ [projectId]: ' +
+      '{ color?, archived? } }, the key SPERT Forecaster, Story Map, GanttApp and ' +
+      'MyScrumBudget use), was allowlisted AHEAD OF THE APP in landing 2.14.3 (DASH26 R2a), ' +
+      'coincides false and shape 4 running until 2.15.1 (DASH26 R2c), which re-read appMax ' +
+      'at spert-cfd v0.21.0, the first CFD release that writes it, and flipped this entry ' +
+      'back to coincides: true. The rule checks keys only. It is NOT a dead key and is NOT ' +
+      'free to remove: on a document holding it, even as an empty map, the old rule refuses ' +
+      'every projectOrder write CFD makes (all four are merges; measured). The old rule ' +
+      'does accept deleting the whole projectPrefs field, after which those writes work ' +
+      'again, so a rollback works only after every person\'s projectPrefs, an empty one ' +
+      'included, is deleted, which erases everyone\'s colours and archive. Held by ' +
+      'spertcfd-settings-project-prefs.test.ts, whose cases do not read this register.',
   },
   {
     key: 'users_tos',
