@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.15.2',
+    date: 'November 27, 2026',
+    sections: [
+      {
+        heading: 'Help Center',
+        items: [
+          'The MyScrumBudget™ help page describes its Quick Reference Guide as forecasting “a project’s labor costs”, not “a Scrum project’s”: MyScrumBudget™ serves any project type.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.15.1',
     date: 'November 26, 2026',
     sections: [
