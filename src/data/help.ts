@@ -177,7 +177,7 @@ export const HELP_APPS: readonly HelpApp[] = [
         file: 'MyScrumBudget_Quick_Reference_Guide.pdf',
         title: 'Quick Reference Guide',
         description:
-          'What MyScrumBudget is and how it forecasts a Scrum project’s labor costs, burn rate and variance from your team’s allocations.',
+          'What MyScrumBudget is and how it forecasts a project’s labor costs, burn rate and variance from your team’s allocations.',
         startHere: true,
       },
       {
