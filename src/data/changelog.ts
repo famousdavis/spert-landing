@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.15.5',
+    date: 'November 28, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'Opening the AI service’s address, https://mcp.spertsuite.com, in a browser now shows a short page that says what the address is for and links to the Connect AI setup page, in place of an error. AI assistants connect exactly as before. The AI service now reports its version as 1.19.2.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.15.4',
     date: 'November 28, 2026',
     sections: [
