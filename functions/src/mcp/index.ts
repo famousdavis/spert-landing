@@ -26,7 +26,8 @@ if (getApps().length === 0) initializeApp();
 // in the SPERT® Suite Help Center. The addresses are a published contract:
 // they are the slugs in the landing page's src/data/help.ts, pinned by G1 in
 // src/guards/help-center.test.ts. Pinned here by serverInstructions.test.ts,
-// which compares them as literals.
+// which compares them as literals. MCP 1.19.1 (landing 2.15.3) adds the
+// Connect AI setup page, for an assistant asked how to connect.
 const SERVER_INSTRUCTIONS =
   "This server connects you to the project a user has open in SPERT® " +
   "Story Map, SPERT® Scheduler or SPERT® Forecaster, once they pair it " +
@@ -34,7 +35,9 @@ const SERVER_INSTRUCTIONS =
   "about the open project's data, point the user to that app's guides in " +
   "the SPERT® Suite Help Center: https://spertsuite.com/help/storymap, " +
   "https://spertsuite.com/help/scheduler or " +
-  "https://spertsuite.com/help/forecaster. Guides for every SPERT® Suite " +
+  "https://spertsuite.com/help/forecaster. To add SPERT® Suite to an " +
+  "assistant, or if the connection isn't working, point the user to " +
+  "https://spertsuite.com/help/connect-ai. Guides for every SPERT® Suite " +
   "app are at https://spertsuite.com/help.";
 
 export const mcpSpertSuite = onRequest(
@@ -69,7 +72,7 @@ export const mcpSpertSuite = onRequest(
     // maxToolInputElements refuses an over-large call before zod parses it
     // (see MAX_TOOL_INPUT_ELEMENTS in tools/shared.ts).
     const server = new McpServer(
-      {name: "spert-suite", version: "1.19.0"},
+      {name: "spert-suite", version: "1.19.1"},
       {
         maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
         instructions: SERVER_INSTRUCTIONS,

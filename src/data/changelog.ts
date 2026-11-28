@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.15.3',
+    date: 'November 28, 2026',
+    sections: [
+      {
+        heading: 'Connect AI',
+        items: [
+          'The Connect AI setup page has two new answers under “If something goes wrong”: what to do when your assistant shows old tools or fewer than it should, and when ChatGPT loops, ignores your instructions or finds few tools.',
+          'Its advice on which assistant to use now says that Copilot Studio holds up better than Microsoft 365 Copilot Chat on long changes, and that Claude and ChatGPT are the safest for a long build from scratch in SPERT® Scheduler.',
+          'An AI assistant asked how to connect, or whose connection isn’t working, is now pointed to the setup page. The AI service now reports its version as 1.19.1.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.15.2',
     date: 'November 27, 2026',
     sections: [
