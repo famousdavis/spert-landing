@@ -114,9 +114,9 @@ function initialize(): Promise<Record<string, unknown>> {
 }
 
 describe("mcpSpertSuite initialize: Help Center instructions", () => {
-  it("reports server version 1.19.1", async () => {
+  it("reports server version 1.19.2", async () => {
     const result = await initialize();
-    expect(result.serverInfo).toEqual({name: "spert-suite", version: "1.19.1"});
+    expect(result.serverInfo).toEqual({name: "spert-suite", version: "1.19.2"});
   });
 
   // MCP 1.19.1 (landing 2.15.3): an assistant asked how to connect, or whose

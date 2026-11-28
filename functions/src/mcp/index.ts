@@ -17,6 +17,11 @@ import {
   MAX_TOOL_INPUT_ELEMENTS,
 } from "./tools/shared";
 import {checkIpRateLimit} from "./rateLimit";
+import {
+  BROWSER_PAGE_HEADERS,
+  BROWSER_PAGE_HTML,
+  wantsBrowserPage,
+} from "./browserPage";
 
 if (getApps().length === 0) initializeApp();
 
@@ -43,6 +48,14 @@ const SERVER_INSTRUCTIONS =
 export const mcpSpertSuite = onRequest(
   {region: "us-central1", cors: true},
   async (req, res) => {
+    // MCP 1.19.2: a person who clicks the address (in a guide, an email, a
+    // chat) gets a page saying what it is, not the 405 below. Only a GET that
+    // asks for HTML and not for an SSE stream; see browserPage.ts.
+    if (wantsBrowserPage(req.method, req.headers.accept)) {
+      res.set(BROWSER_PAGE_HEADERS);
+      res.status(200).send(BROWSER_PAGE_HTML);
+      return;
+    }
     if (req.method !== "POST") {
       res.status(405).json({error: "Method not allowed"});
       return;
@@ -72,7 +85,7 @@ export const mcpSpertSuite = onRequest(
     // maxToolInputElements refuses an over-large call before zod parses it
     // (see MAX_TOOL_INPUT_ELEMENTS in tools/shared.ts).
     const server = new McpServer(
-      {name: "spert-suite", version: "1.19.1"},
+      {name: "spert-suite", version: "1.19.2"},
       {
         maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
         instructions: SERVER_INSTRUCTIONS,
