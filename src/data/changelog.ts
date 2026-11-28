@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '2.15.4',
+    date: 'November 28, 2026',
+    sections: [
+      {
+        heading: 'Help Center',
+        items: [
+          'The SPERT® CFD help page lists CFD’s new Quick Reference Guide, in place of the note that CFD had no downloadable guide.',
+        ],
+      },
+    ],
+  },
+  {
     version: '2.15.3',
     date: 'November 28, 2026',
     sections: [

@@ -161,9 +161,15 @@ export const HELP_APPS: readonly HelpApp[] = [
     summary: 'See where work is piling up before it becomes a missed deadline.',
     repo: 'famousdavis/spert-cfd',
     listed: true,
-    guides: [],
-    noGuideNote:
-      'There’s no downloadable guide for SPERT® CFD. Inside the app, its About tab explains how it works and what each flow metric means.',
+    guides: [
+      {
+        file: 'SPERT_CFD_Quick_Reference_Guide.pdf',
+        title: 'Quick Reference Guide',
+        description:
+          'What CFD is and how it turns your workflow’s daily item counts into a cumulative flow diagram and flow metrics such as WIP, throughput and lead time.',
+        startHere: true,
+      },
+    ],
   },
   {
     slug: 'myscrumbudget',
