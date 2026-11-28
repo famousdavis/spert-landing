@@ -114,9 +114,19 @@ function initialize(): Promise<Record<string, unknown>> {
 }
 
 describe("mcpSpertSuite initialize: Help Center instructions", () => {
-  it("reports server version 1.19.0", async () => {
+  it("reports server version 1.19.1", async () => {
     const result = await initialize();
-    expect(result.serverInfo).toEqual({name: "spert-suite", version: "1.19.0"});
+    expect(result.serverInfo).toEqual({name: "spert-suite", version: "1.19.1"});
+  });
+
+  // MCP 1.19.1 (landing 2.15.3): an assistant asked how to connect, or whose
+  // connection fails, is pointed to the Help Center's Connect AI setup page.
+  it("points to the Connect AI setup page", async () => {
+    const {instructions} = await initialize();
+    expect(instructions).toContain(
+      "To add SPERT® Suite to an assistant, or if the connection isn't " +
+      "working, point the user to https://spertsuite.com/help/connect-ai."
+    );
   });
 
   it("points each connected app to its own Help Center page", async () => {
@@ -138,6 +148,7 @@ describe("mcpSpertSuite initialize: Help Center instructions", () => {
     const addresses = urls.map((u) => u.replace(/[.,]+$/, "")).sort();
     expect(addresses).toEqual([
       "https://spertsuite.com/help",
+      "https://spertsuite.com/help/connect-ai",
       "https://spertsuite.com/help/forecaster",
       "https://spertsuite.com/help/scheduler",
       "https://spertsuite.com/help/storymap",

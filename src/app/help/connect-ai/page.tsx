@@ -524,11 +524,12 @@ export default function ConnectAiPage() {
               once.
             </li>
             <li>
-              Microsoft 365 Copilot Chat is good for small, targeted edits, but may stall partway through a large
-              change.
+              Microsoft 365 Copilot Chat is good for small, targeted edits, but may ask you to confirm each step, or
+              stall, partway through a large change. Copilot Studio holds up better on long changes.
             </li>
             <li>
               In Scheduler, a large schedule usually takes a handful of bulk steps, so most assistants hold up well.
+              For a long build from scratch, Claude and ChatGPT are the safest.
             </li>
             <li>Gemini and Grok connect and work. Try a short test on your own project before a large change.</li>
             <li>Reading a forecast in Forecaster takes only a few steps, so any of them is fine there.</li>
@@ -547,6 +548,25 @@ export default function ConnectAiPage() {
                 ChatGPT and Gemini, that you picked it with <Code>@</Code>. An assistant without the connection may
                 even describe work it never did. The clue is tool names such as{' '}
                 <Code>resolve_session_code</Code> in its reply while your project stays as it was.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-zinc-700 dark:text-zinc-300">
+                ChatGPT loops, ignores your instructions or finds few tools
+              </dt>
+              <dd>
+                Pick SPERT Suite again with <Code>@</Code>, or start a new chat.
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-zinc-700 dark:text-zinc-300">
+                The assistant shows old tools, or fewer than it should
+              </dt>
+              <dd>
+                Assistants keep the tool list from when you added SPERT Suite, and refreshing often doesn&rsquo;t
+                update it. Remove SPERT Suite from your assistant and add it again. On ChatGPT Business, Enterprise or
+                Edu, an admin refreshes the list in the workspace&rsquo;s app settings. Each app&rsquo;s Connect AI
+                User Guide says how many tools to expect.
               </dd>
             </div>
             <div>
